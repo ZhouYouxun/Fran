@@ -1,0 +1,195 @@
+Mods: {
+	Fran: {
+		Items: {
+			FransHeadwear: {
+				DisplayName: 弗兰的头饰
+				Tooltip:
+					'''
+					将本物品放在背包中并标记为收藏，即可进入“弗兰人物模式”
+					效果与把角色命名为“Fran / フラン / 弗兰”完全相同
+					开启弗兰外观框架、黑猫族战士本能、冲刺、黑天虎大招与师父系统
+					测试版暂时使用原版猫耳图标
+					'''
+			}
+
+			Teacher: {
+				DisplayName: 师父
+				Tooltip:
+					'''
+					与弗兰绑定的传奇智慧武器
+					持续左键：循环使用横向扫斩、反身上挑、突进刺击与沉重斩落
+					按住右键打开术式轮盘，在目标扇区松开右键即可把术式嵌入四段剑术
+					在轮盘中央松开右键可卸下术式；未装备术式时使用纯粹四段剑术
+					大招能量会在三分钟内自动充满；满值后按[c/8CDFFF:大招]（默认G）立即发动连续斩杀
+					手持其他武器时，师父会漂浮在弗兰身后，不会禁用其他职业
+					非弗兰人物只要实际持有师父，也可以使用左键连段和右键技能；人物被动仍只属于弗兰模式
+					师父不能丢弃、出售、研究、放入垃圾桶或留在仓库；建立绑定后会永久召回
+					武器伤害与可用技能会随世界流程成长
+					'''
+			}
+		}
+
+		Buffs: {
+			BlackCatWarriorBuff: {
+				DisplayName: 黑猫族的战士本能
+				Description: 免疫摔落、获得夜视，近战伤害与攻击速度各提高10%
+			}
+		}
+
+		Keybinds: {
+			SkillWheel.DisplayName: 师父技能轮
+			PotentialRelease.DisplayName: 黑天虎·绝闪
+			FranDash.DisplayName: 弗兰冲刺
+		}
+
+		UI: {
+			UltimateCharge: 黑天虎：{0}%
+			UltimateReady: 黑天虎·绝闪 READY
+			PureSwordsmanship: 解除战术附着
+			PureSwordsmanshipDescription: 解除当前战术模块；四段师父剑术始终保留，不会被任何技能替换
+		}
+
+		Notices: {
+			IntroTitle: 【弗兰人物模式已启动：师父已经回到你身边】
+			IntroCombat: 持续左键使用四段大剑连击；手持其他武器时，师父会浮在身后
+			IntroSkills: 按住右键打开术式轮盘，在目标扇区松开右键装备术式；术式会自动嵌入四段剑术
+			IntroDash: 双击左右方向键，或按左Shift按当前左右输入、水平动量与人物朝向冲刺；其他冲刺优先
+			IntroPotential: 大招能量会随在线时间自动积攒三分钟；满值后按G立即发动黑天虎连续斩杀
+		}
+
+		Configs: {
+			FranClientConfig: {
+				DisplayName: 弗兰客户端设置
+
+				ShowUltimateGauge: {
+					Label: 显示黑天虎大招能量条
+					Tooltip: 默认关闭；开启后可用鼠标左键直接拖动能量条，位置会随角色存档保存
+				}
+			}
+		}
+
+		Stages: {
+			Current: 当前成长：{0}
+			Next: 下一成长（{0}）：{1}
+
+			Stage1: {
+				Unlock: 开局即可使用
+				Summary: 第一阶段·相遇与成型：四段近战、念动弹射、技能夺取与魔力屏障
+			}
+
+			Stage2: {
+				Unlock: 击败骷髅王后解锁
+				Summary: 第二阶段·浮游岛与共鸣：解锁多重分体与蓝辉共鸣
+			}
+
+			Stage3: {
+				Unlock: 进入困难模式后解锁
+				Summary: 第三阶段·席德兰内战：解锁雷链
+			}
+
+			Stage4: {
+				Unlock: 击败全部机械三王后解锁
+				Summary: 第四阶段·黑天虎之路：解锁压缩居合与雷神之锤
+			}
+		}
+
+		Skills: {
+			TelekineticCatapult: {
+				DisplayName: 念动弹射
+				Description: 保留四段剑术；第二刀发射两枚高亮念动炮弹，第四刀齐射四枚，炮弹会持续追踪并贯穿目标
+			}
+
+			SkillTaker: {
+				DisplayName: 技能夺取者
+				Description: 仅剑击命中时触发紫色术式爆发并叠加夺取层数；每次额外分裂两枚先散开、再追敌的紫色灵弹，最多四层，每层使后续剑击伤害提高10%
+			}
+
+			MagicBarrier: {
+				DisplayName: 魔力屏障
+				Description: 自动生成环绕自身的双层魔力屏障；承受攻击时减免28%伤害、消耗一次耐久并释放反击冲击，五次后破裂并短暂重构
+			}
+
+			MultipleBodyCreation: {
+				DisplayName: 多重分体
+				Description: 每次挥剑都在身后列阵两名师父幻影，短暂停驻后锁定鼠标附近目标高速突进；第四刀改为四名幻影错时齐射
+			}
+
+			BlueResonance: {
+				DisplayName: 蓝辉共鸣
+				Description: 每次剑击命中都会留下延迟复写的蓝色共鸣剑痕；第四刀产生三重和弦，共鸣命中可周期性恢复生命
+			}
+
+			ThunderChain: {
+				DisplayName: 雷链
+				Description: 每次挥剑都从鼠标上空降下多道远古闪电；鼠标附近存在敌人时，还会在最多三个目标头顶追加自动雷击，第四刀进一步增加雷数
+			}
+
+			PressurizedQuickdraw: {
+				DisplayName: 压缩居合
+				Description: 每次挥剑都会释放使用泰拉刃光波形态的高压气功波；光波无限贯穿并逐渐减速，第四刀改为更小、更快、更集中的终结波
+			}
+
+			ThorsHammer: {
+				DisplayName: 雷神之锤
+				Description: 四段剑术完整进行两轮后，第二轮第四刀锁定鼠标位置；圣骑士锤形态的雷神之锤蓄势坠落，命中后引发大范围雷陨冲击
+			}
+		}
+
+		Projectiles: {
+			// AirDrawSlashProjectile.DisplayName: Air Draw Slash Projectile
+			// FloatingSwordArrayProjectile.DisplayName: Floating Sword Array Projectile
+			// FloatingSwordLaser.DisplayName: Floating Sword Laser
+			// FloatingTeacherVisual.DisplayName: Floating Teacher Visual
+			// FranBurst.DisplayName: Fran Burst
+			// FranDashTrail.DisplayName: Fran Dash Trail
+			// HeldTeacherVisual.DisplayName: Held Teacher Visual
+			// LightningSpearProjectile.DisplayName: Lightning Spear Projectile
+			// MagicBarrierProjectile.DisplayName: Magic Barrier Projectile
+			// ShipCutterProjectile.DisplayName: Ship Cutter Projectile
+			// SkillTakerPhantom.DisplayName: Skill Taker Phantom
+			// SkillTakerSoul.DisplayName: Skill Taker Soul
+			// FranUltimateController.DisplayName: Black Heavenly Tiger Execution
+			// FranUltimateReadySigil.DisplayName: Ultimate Ready Sigil
+			// FranUltimateExecutionSeal.DisplayName: Ultimate Execution Seal
+			// FranUltimateStrikeBeat.DisplayName: Ultimate Strike Beat
+			// FranUltimateSpectatorBlade.DisplayName: Ultimate Spectator Blade
+			// TeacherSlashWave.DisplayName: Teacher Slash Wave
+			// TeacherSwing.DisplayName: Teacher Swing
+			// TelekineticCannonProjectile.DisplayName: Telekinetic Cannon Projectile
+			// ThorsHammerBolt.DisplayName: Thors Hammer Bolt
+			// ThorsHammerMarker.DisplayName: Thors Hammer Marker
+			// FlameFangAuraVisual.DisplayName: Flame Fang Aura Visual
+			// TeacherPiercingWave.DisplayName: Teacher Piercing Wave
+			// TeacherCrescentWave.DisplayName: Teacher Crescent Wave
+			// TeacherCompressionWave.DisplayName: Teacher Compression Wave
+			// TeacherStarlightMass.DisplayName: Teacher Starlight Mass
+			// FranDeathVisual.DisplayName: Fran Death Visual
+			// TeacherResonanceEcho.DisplayName: Teacher Resonance Echo
+			// FranHeartSeekerProjectile.DisplayName: Fran Heart Seeker Projectile
+			// TeacherSwingRebuild.DisplayName: Teacher Swing Rebuild
+			// FranWindField.DisplayName: Fran Wind Field
+			// FranTelekineticReturnBlade.DisplayName: Fran Telekinetic Return Blade
+			// FranSkillSealDetonation.DisplayName: Fran Skill Seal Detonation
+			// FranReplaySlash.DisplayName: Fran Replay Slash
+			// FranLightningBranches.DisplayName: Fran Lightning Branches
+			// FranHammerBeacon.DisplayName: Fran Hammer Beacon
+			// FranFireScar.DisplayName: Fran Fire Scar
+			// FranCompressedCut.DisplayName: Fran Compressed Cut
+			// FranBlueResonanceEcho.DisplayName: Fran Blue Resonance Echo
+			// FranBarrierCounterCut.DisplayName: Fran Barrier Counter Cut
+			// FranAutoBarrierProjectile.DisplayName: Fran Auto Barrier Projectile
+			// FranCompressionNode.DisplayName: Fran Compression Node
+			// FranRicochetLightning.DisplayName: Fran Ricochet Lightning
+			// FranTelekineticShell.DisplayName: Fran Telekinetic Shell
+			FranSkillTakerWisp.DisplayName: 夺取灵弹
+			FranTeacherPhantomBlade.DisplayName: 师父幻影剑
+			FranThunderDropVisual.DisplayName: 天降雷迹
+			FranPressurizedTerraWave.DisplayName: 压缩泰拉光波
+			FranThorsHammerDrop.DisplayName: 雷神之锤坠击
+			// FranCompressionAirburst.DisplayName: Fran Compression Airburst
+			// FranSpectatorPetalProjectile.DisplayName: Fran Spectator Petal Projectile
+			// FranSpectatorRibbonProjectile.DisplayName: Fran Spectator Ribbon Projectile
+			// FranTelekineticLineStrike.DisplayName: Fran Telekinetic Line Strike
+		}
+	}
+}

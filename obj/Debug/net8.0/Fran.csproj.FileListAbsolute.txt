@@ -1,0 +1,12 @@
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Debug\net8.0\Fran.csproj.AssemblyReference.cache
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Debug\net8.0\Fran.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Debug\net8.0\Fran.AssemblyInfoInputs.cache
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Debug\net8.0\Fran.AssemblyInfo.cs
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Debug\net8.0\Fran.csproj.CoreCompileInputs.cache
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\bin\Debug\net8.0\Fran.deps.json
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\bin\Debug\net8.0\Fran.dll
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\bin\Debug\net8.0\Fran.pdb
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Debug\net8.0\Fran.dll
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Debug\net8.0\refint\Fran.dll
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Debug\net8.0\Fran.pdb
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Debug\net8.0\ref\Fran.dll

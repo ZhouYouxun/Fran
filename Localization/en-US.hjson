@@ -1,0 +1,195 @@
+Mods: {
+	Fran: {
+		Items: {
+			FransHeadwear: {
+				DisplayName: Fran's Headwear
+				Tooltip:
+					'''
+					Favorite this item while it is in your inventory to enter Fran Mode
+					Fran Mode is identical to naming a character "Fran", "フラン", or "弗兰"
+					Enables Fran's appearance framework, Black Cat Warrior Instinct, dash, ultimate, and Teacher
+					The prototype currently uses a vanilla cat-ear icon
+					'''
+			}
+
+			Teacher: {
+				DisplayName: Teacher
+				Tooltip:
+					'''
+					A legendary intelligent sword bound to Fran
+					Hold left click: cycle through Sweep, Rising Slash, Lunge Thrust, and Heavy Finisher
+					Hold right click to open the imprint wheel, then release it in a sector to bind that imprint into the four-part combo
+					Release right click in the wheel center to remove the imprint and return to pure swordsmanship
+					The ultimate charges automatically over three minutes; press [c/8CDFFF:Ultimate] (default G) when full to begin the execution rush immediately
+					Teacher follows behind Fran whenever another weapon is held
+					A non-Fran character who actually owns Teacher may still use its combo and skill wheel; character passives remain exclusive to Fran Mode
+					Teacher cannot be dropped, sold, researched, trashed, or left in storage; once bonded, it will always return
+					Damage and available skills grow with world progression
+					'''
+			}
+		}
+
+		Buffs: {
+			BlackCatWarriorBuff: {
+				DisplayName: Black Cat Warrior Instinct
+				Description: Immune to fall damage, improved night vision, +10% melee damage and attack speed
+			}
+		}
+
+		Keybinds: {
+			SkillWheel.DisplayName: Teacher Skill Wheel
+			PotentialRelease.DisplayName: Black Heavenly Tiger Flash
+			FranDash.DisplayName: Fran Dash
+		}
+
+		UI: {
+			UltimateCharge: Black Tiger: {0}%
+			UltimateReady: BLACK TIGER READY
+			PureSwordsmanship: Detach Tactical Imprint
+			PureSwordsmanshipDescription: Detach the current tactical module; Teacher's four-part sword combo always remains intact
+		}
+
+		Notices: {
+			IntroTitle: "[Fran Mode activated: Teacher has returned to your side]"
+			IntroCombat: Hold left click for the four-part greatsword combo; Teacher floats behind you while another weapon is held
+			IntroSkills: Hold right click to open the imprint wheel, then release it in a sector; the imprint joins the four-part combo automatically
+			IntroDash: Double-tap left/right, or press Left Shift to dash by held direction, horizontal momentum, then facing; other dashes take priority
+			IntroPotential: The ultimate charges automatically over three minutes of active play; press G when full to begin Black Heavenly Tiger's execution rush immediately
+		}
+
+		Configs: {
+			FranClientConfig: {
+				DisplayName: Fran Client Settings
+
+				ShowUltimateGauge: {
+					Label: Show Black Tiger ultimate gauge
+					Tooltip: Disabled by default; when enabled, drag the gauge directly with the left mouse button. Its position is saved with the character.
+				}
+			}
+		}
+
+		Stages: {
+			Current: Current growth: {0}
+			Next: Next growth ({0}): {1}
+
+			Stage1: {
+				Unlock: Available from the beginning
+				Summary: Stage I — Meeting and formation: four-part melee, Telekinetic Catapult, Skill Taker, and Magic Barrier
+			}
+
+			Stage2: {
+				Unlock: Unlocks after defeating Skeletron
+				Summary: Stage II — Floating Island and resonance: Multiple Body Creation and Blue Resonance unlock
+			}
+
+			Stage3: {
+				Unlock: Unlocks after entering Hardmode
+				Summary: Stage III — Seedrun civil war: Thunder Chain unlocks
+			}
+
+			Stage4: {
+				Unlock: Unlocks after defeating all three mechanical bosses
+				Summary: Stage IV — Road to Black Heavenly Tiger: Pressurized Quickdraw and Thor's Hammer unlock
+			}
+		}
+
+		Skills: {
+			TelekineticCatapult: {
+				DisplayName: Telekinetic Catapult
+				Description: The sword combo remains intact; cut two fires two luminous telekinetic shells and cut four fires four, with persistent homing and piercing
+			}
+
+			SkillTaker: {
+				DisplayName: Skill Taker
+				Description: Only direct sword hits trigger a purple technique burst and a theft stack; each hit splits two violet wisps that scatter before homing, up to four stacks with 10% sword damage each
+			}
+
+			MagicBarrier: {
+				DisplayName: Magic Barrier
+				Description: Maintains a two-layer barrier around the player; taking damage reduces it by 28%, spends one of five charges, and releases a retaliatory pulse before the barrier breaks and rebuilds
+			}
+
+			MultipleBodyCreation: {
+				DisplayName: Multiple Body Creation
+				Description: Every swing arrays two Teacher phantoms behind the player; after a brief hover they lock onto the cursor area and dash, while the fourth cut launches four in sequence
+			}
+
+			BlueResonance: {
+				DisplayName: Blue Resonance
+				Description: Every sword hit leaves a delayed blue repeat-cut; the fourth cut forms a three-note chord whose hits can periodically restore life
+			}
+
+			ThunderChain: {
+				DisplayName: Thunder Chain
+				Description: Every swing calls several ancient lightning arcs down over the cursor and adds automatic strikes above up to three nearby enemies; the fourth cut calls even more bolts
+			}
+
+			PressurizedQuickdraw: {
+				DisplayName: Pressurized Quickdraw
+				Description: Every swing releases a high-pressure wave using the Terra Blade beam form; it pierces without limit and gradually slows, while the fourth cut fires a smaller and faster finishing wave
+			}
+
+			ThorsHammer: {
+				DisplayName: Thor's Hammer
+				Description: After two complete four-cut rounds, the second round's fourth cut marks the cursor; Thor's Hammer descends in a Paladin's Hammer form and detonates a wide lightning-meteor impact
+			}
+		}
+
+		Projectiles: {
+			AirDrawSlashProjectile.DisplayName: Air Draw Slash Projectile
+			FloatingSwordArrayProjectile.DisplayName: Floating Sword Array Projectile
+			FloatingSwordLaser.DisplayName: Floating Sword Laser
+			FloatingTeacherVisual.DisplayName: Floating Teacher Visual
+			FranBurst.DisplayName: Fran Burst
+			FranDashTrail.DisplayName: Fran Dash Trail
+			HeldTeacherVisual.DisplayName: Held Teacher Visual
+			LightningSpearProjectile.DisplayName: Lightning Spear Projectile
+			MagicBarrierProjectile.DisplayName: Magic Barrier Projectile
+			ShipCutterProjectile.DisplayName: Ship Cutter Projectile
+			SkillTakerPhantom.DisplayName: Skill Taker Phantom
+			SkillTakerSoul.DisplayName: Skill Taker Soul
+			FranUltimateController.DisplayName: Black Heavenly Tiger Execution
+			FranUltimateReadySigil.DisplayName: Ultimate Ready Sigil
+			FranUltimateExecutionSeal.DisplayName: Ultimate Execution Seal
+			FranUltimateStrikeBeat.DisplayName: Ultimate Strike Beat
+			FranUltimateSpectatorBlade.DisplayName: Ultimate Spectator Blade
+			TeacherSlashWave.DisplayName: Teacher Slash Wave
+			TeacherSwing.DisplayName: Teacher Swing
+			TelekineticCannonProjectile.DisplayName: Telekinetic Cannon Projectile
+			ThorsHammerBolt.DisplayName: Thors Hammer Bolt
+			ThorsHammerMarker.DisplayName: Thors Hammer Marker
+			FlameFangAuraVisual.DisplayName: Flame Fang Aura Visual
+			TeacherPiercingWave.DisplayName: Teacher Piercing Wave
+			TeacherCrescentWave.DisplayName: Teacher Crescent Wave
+			TeacherCompressionWave.DisplayName: Teacher Compression Wave
+			TeacherStarlightMass.DisplayName: Teacher Starlight Mass
+			FranDeathVisual.DisplayName: Fran Death Visual
+			TeacherResonanceEcho.DisplayName: Teacher Resonance Echo
+			FranHeartSeekerProjectile.DisplayName: Fran Heart Seeker Projectile
+			TeacherSwingRebuild.DisplayName: Teacher Swing Rebuild
+			FranWindField.DisplayName: Fran Wind Field
+			FranTelekineticReturnBlade.DisplayName: Fran Telekinetic Return Blade
+			FranSkillSealDetonation.DisplayName: Fran Skill Seal Detonation
+			FranReplaySlash.DisplayName: Fran Replay Slash
+			FranLightningBranches.DisplayName: Fran Lightning Branches
+			FranHammerBeacon.DisplayName: Fran Hammer Beacon
+			FranFireScar.DisplayName: Fran Fire Scar
+			FranCompressedCut.DisplayName: Fran Compressed Cut
+			FranBlueResonanceEcho.DisplayName: Fran Blue Resonance Echo
+			FranBarrierCounterCut.DisplayName: Fran Barrier Counter Cut
+			FranAutoBarrierProjectile.DisplayName: Fran Auto Barrier Projectile
+			FranCompressionNode.DisplayName: Fran Compression Node
+			FranRicochetLightning.DisplayName: Fran Ricochet Lightning
+			FranTelekineticShell.DisplayName: Fran Telekinetic Shell
+			FranSkillTakerWisp.DisplayName: Skill Taker Wisp
+			FranTeacherPhantomBlade.DisplayName: Teacher Phantom Blade
+			FranThunderDropVisual.DisplayName: Descending Thunder
+			FranPressurizedTerraWave.DisplayName: Pressurized Terra Wave
+			FranThorsHammerDrop.DisplayName: Thor's Hammer Drop
+			FranCompressionAirburst.DisplayName: Fran Compression Airburst
+			FranSpectatorPetalProjectile.DisplayName: Fran Spectator Petal Projectile
+			FranSpectatorRibbonProjectile.DisplayName: Fran Spectator Ribbon Projectile
+			FranTelekineticLineStrike.DisplayName: Fran Telekinetic Line Strike
+		}
+	}
+}

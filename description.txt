@@ -1,0 +1,6 @@
+成为弗兰，与传奇智慧武器“师父”共同冒险。人物模式、四段近战、五阶段成长、九技能轮、冲刺与潜能解放均已进入完整原型测试。
+人物、师父与技能图标暂用原版贴图占位；战斗特效使用模组内置的原创、自绘与已许可 VFX 纹理及自带绘制逻辑，不依赖其他模组。
+
+Become Fran and journey with Teacher, a legendary intelligent sword. Character mode, four-part melee combat,
+five-stage progression, a nine-skill wheel, dash, and Potential Release are ready for the complete prototype test.
+Character, Teacher, and skill icons use vanilla placeholders. Combat VFX uses bundled original, author-drawn, and licensed textures with self-contained drawing code and no mod dependencies.
