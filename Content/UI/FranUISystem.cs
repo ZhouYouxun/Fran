@@ -44,7 +44,8 @@ public sealed class FranUISystem : ModSystem
         Player player = Main.LocalPlayer;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
         UpdateUltimateGaugeDrag(player, fran);
-        bool allowed = !Main.playerInventory && !player.dead && player.HeldItem.type == ModContent.ItemType<Teacher>();
+        bool allowed = !FranEvolutionUISystem.IsOpen && !Main.playerInventory && !player.dead &&
+            player.HeldItem.type == ModContent.ItemType<Teacher>();
         if (!allowed)
         {
             wheelOpen = false;

@@ -287,8 +287,8 @@ public sealed class FranPlayer : ModPlayer
         if (!FranMode || DashTimer <= 0 && !UltimateActive)
             return;
 
-        // Calamity-style horizontal dashes are an impulse, not a forced movement rail.
-        // StartDash changes velocity.X once and deliberately leaves velocity.Y untouched.
+        // Fran's dash is an impulse rather than a forced movement rail. Aerial Hunt may provide
+        // an eight-direction impulse; without that evolution the original horizontal behavior remains.
         Player.immune = true;
         Player.immuneTime = Math.Max(Player.immuneTime, 2);
         for (int i = 0; i < Player.hurtCooldowns.Length; i++)
@@ -404,7 +404,7 @@ public sealed class FranPlayer : ModPlayer
     {
         int current = ComboIndex;
         ComboIndex = (ComboIndex + 1) % 4;
-        ComboReset = 70;
+        ComboReset = Player.GetModPlayer<FranEvolutionPlayer>().ComboResetDuration;
         return current;
     }
 
@@ -472,8 +472,13 @@ public sealed class FranPlayer : ModPlayer
     {
         if (DashCooldown > 0)
             DashCooldown--;
-        if (ComboReset > 0 && --ComboReset == 0)
-            ComboIndex = 0;
+        if (ComboReset > 0)
+        {
+            bool pauseForCatStep = DashTimer > 0 &&
+                Player.GetModPlayer<FranEvolutionPlayer>().HasNode(FranEvolutionNode.CatStep);
+            if (!pauseForCatStep && --ComboReset == 0)
+                ComboIndex = 0;
+        }
         if (BlueResonanceTimer > 0)
             BlueResonanceTimer--;
         if (StolenSkillTimer > 0)
@@ -561,37 +566,54 @@ public sealed class FranPlayer : ModPlayer
         }
 
         if (canDash && Player.controlLeft && Player.releaseLeft && Player.doubleTapCardinalTimer[3] < 15)
-            StartDash(-1);
+            StartDash(-Vector2.UnitX);
         else if (canDash && Player.controlRight && Player.releaseRight && Player.doubleTapCardinalTimer[2] < 15)
-            StartDash(1);
+            StartDash(Vector2.UnitX);
     }
 
     private bool CanStartFranDash() =>
         !UltimateActive && !HasExternalDash && DashCooldown <= 0 && !Player.mount.Active && !Player.pulley &&
         Player.grappling[0] == -1 && !Player.tongued;
 
-    private int ResolveManualDashDirection()
+    private Vector2 ResolveManualDashDirection()
     {
-        // Same priority used by Calamity's horizontal dash handler:
-        // held direction, current horizontal momentum, then facing direction.
+        FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
+        if (evolution.HasNode(FranEvolutionNode.AerialHunt))
+        {
+            Vector2 input = new((Player.controlRight ? 1f : 0f) - (Player.controlLeft ? 1f : 0f),
+                (Player.controlDown ? 1f : 0f) - (Player.controlUp ? 1f : 0f));
+            Vector2 desired = input.LengthSquared() > 0.01f
+                ? input
+                : Main.MouseWorld - Player.Center;
+            if (desired.LengthSquared() > 0.01f)
+            {
+                float snappedAngle = MathF.Round(desired.ToRotation() / MathHelper.PiOver4) * MathHelper.PiOver4;
+                return snappedAngle.ToRotationVector2();
+            }
+        }
+
+        // Original horizontal priority: held direction, current momentum, then facing direction.
         if (Player.controlRight && !Player.controlLeft)
-            return 1;
+            return Vector2.UnitX;
         if (Player.controlLeft && !Player.controlRight)
-            return -1;
+            return -Vector2.UnitX;
         if (Math.Abs(Player.velocity.X) > 0.01f)
-            return Math.Sign(Player.velocity.X);
-        return Player.direction == 0 ? 1 : Player.direction;
+            return Vector2.UnitX * Math.Sign(Player.velocity.X);
+        return Vector2.UnitX * (Player.direction == 0 ? 1 : Player.direction);
     }
 
-    private void StartDash(int horizontalDirection)
+    private void StartDash(Vector2 direction)
     {
-        horizontalDirection = horizontalDirection < 0 ? -1 : 1;
+        direction = direction.SafeNormalize(Vector2.UnitX * (Player.direction == 0 ? 1 : Player.direction));
         float dashSpeed = 16f;
         DashTimer = DashDuration;
-        DashCooldown = DashCooldownNormal;
-        DashVelocity = new Vector2(horizontalDirection * dashSpeed, 0f);
-        Player.velocity.X = DashVelocity.X;
-        Player.ChangeDir(horizontalDirection);
+        DashCooldown = Player.GetModPlayer<FranEvolutionPlayer>().HasNode(FranEvolutionNode.CatStep)
+            ? 42
+            : DashCooldownNormal;
+        DashVelocity = direction * dashSpeed;
+        Player.velocity = DashVelocity;
+        if (Math.Abs(direction.X) > 0.05f)
+            Player.ChangeDir(Math.Sign(direction.X));
         dashStartedThisTick = true;
         dashHitNpcs.Clear();
         FranModMain.SendCombatState(Player.whoAmI, DashTimer, DashVelocity);
@@ -612,7 +634,7 @@ public sealed class FranPlayer : ModPlayer
         dashStartedThisTick = false;
 
         bool collisionChangedVelocity = false;
-        if (!justStarted && Math.Abs(Player.velocity.X) < 1.25f)
+        if (!justStarted && Player.velocity.LengthSquared() < 1.25f * 1.25f)
         {
             DashTimer = 0;
             collisionChangedVelocity = true;
@@ -621,9 +643,9 @@ public sealed class FranPlayer : ModPlayer
         Lighting.AddLight(Player.Center, 0.10f, 0.04f, 0.16f);
         if (!Main.dedServ)
         {
-            Vector2 horizontalMotion = new(Player.velocity.X, 0f);
-            Dust dust = Dust.NewDustPerfect(Player.Center - horizontalMotion * 0.45f, DustID.Shadowflame,
-                -horizontalMotion * 0.12f + Main.rand.NextVector2Circular(1.2f, 1.2f), 110,
+            Vector2 dashMotion = Player.velocity;
+            Dust dust = Dust.NewDustPerfect(Player.Center - dashMotion * 0.45f, DustID.Shadowflame,
+                -dashMotion * 0.12f + Main.rand.NextVector2Circular(1.2f, 1.2f), 110,
                 new Color(38, 22, 58), 1.20f);
             dust.noGravity = true;
         }
@@ -631,7 +653,7 @@ public sealed class FranPlayer : ModPlayer
         if (Main.netMode != NetmodeID.Server && Player.whoAmI == Main.myPlayer)
         {
             Rectangle hitArea = Player.Hitbox;
-            hitArea.Offset((int)(Player.velocity.X * 0.5f), 0);
+            hitArea.Offset((int)(Player.velocity.X * 0.5f), (int)(Player.velocity.Y * 0.5f));
             hitArea.Inflate(6, 6);
             foreach (NPC npc in Main.ActiveNPCs)
             {
@@ -643,6 +665,7 @@ public sealed class FranPlayer : ModPlayer
                 int damage = (int)(FranSkillInfo.BaseDamage * 1.2f);
                 FranBurst.Spawn(Player.GetSource_Misc("FranDash"), npc.Center, Player.whoAmI,
                     FranBurstStyle.DashImpact, 1f, damage, 6f);
+                Player.GetModPlayer<FranEvolutionPlayer>().ApplyDashHit(npc);
             }
         }
 
@@ -759,6 +782,7 @@ public sealed class FranPlayer : ModPlayer
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroTitle"), new Color(145, 225, 255));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroCombat"), Color.White);
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroSkills"), new Color(185, 215, 255));
+        Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroEvolution"), new Color(205, 178, 245));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroDash"), new Color(185, 215, 255));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroPotential"), new Color(225, 235, 255));
     }

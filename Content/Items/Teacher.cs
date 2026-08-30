@@ -75,6 +75,7 @@ public sealed class Teacher : ModItem
             return false;
 
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
+        FranEvolutionPlayer evolution = player.GetModPlayer<FranEvolutionPlayer>();
         int combo = fran.ConsumeNextCombo();
         damage = Math.Max(1, (int)(damage * (combo switch
         {
@@ -92,11 +93,16 @@ public sealed class Teacher : ModItem
             2 => 19f,
             _ => 25f
         };
-        int duration = Math.Max(12, (int)MathF.Round(baseDuration / attackSpeed));
+        float evolutionDuration = evolution.ConsumeSwingDurationMultiplier(combo);
+        int duration = Math.Max(12, (int)MathF.Round(baseDuration / attackSpeed * evolutionDuration));
         FranSkill skill = fran.HasSelectedSkill ? fran.SelectedSkill : FranSkill.None;
         int packedImprint = skill == FranSkill.None ? 0 : (int)skill + 1;
         Projectile.NewProjectile(source, player.MountedCenter, aim, type, damage, knockback, player.whoAmI,
             combo, duration, packedImprint);
+        if (combo == 0 && evolution.TryConsumeEvolutionEcho() && player.whoAmI == Main.myPlayer)
+            Projectile.NewProjectile(source, player.MountedCenter, aim,
+                ModContent.ProjectileType<FranEvolutionEchoSlash>(), Math.Max(1, (int)(damage * 0.50f)),
+                knockback * 0.35f, player.whoAmI, duration);
         return false;
     }
 
@@ -113,5 +119,9 @@ public sealed class Teacher : ModItem
                 Language.GetTextValue($"Mods.Fran.Stages.Stage{stage + 1}.Summary")))
             { OverrideColor = new Color(180, 190, 205) });
         }
+        FranEvolutionPlayer evolution = Main.LocalPlayer.GetModPlayer<FranEvolutionPlayer>();
+        tooltips.Add(new TooltipLine(Mod, "Evolution", Language.GetTextValue("Mods.Fran.Evolution.Tooltip",
+            evolution.AvailablePoints, evolution.EarnedPoints))
+        { OverrideColor = new Color(195, 178, 245) });
     }
 }

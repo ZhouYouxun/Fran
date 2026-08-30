@@ -1,6 +1,7 @@
 using System;
 using FranMod.Content.Items;
 using FranMod.Content.Players;
+using FranMod.Content.Systems;
 using FranMod.Core;
 using FranMod.Core.Graphics;
 using FranMod.Particles;
@@ -48,6 +49,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
     private bool attackSoundPlayed;
     private bool peakFlareEmitted;
     private bool imprintReleaseTriggered;
+    private bool evolutionSequenceRegistered;
+    private float evolutionDamageMultiplier = 1f;
     private int quickdrawBurstStep = -1;
 
     public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
@@ -103,6 +106,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
         previousAngle = currentAngle;
         previousReach = currentReach;
         ComputePose(Progress, out currentAngle, out currentReach, out visualStrength);
+        currentReach *= Owner.GetModPlayer<FranEvolutionPlayer>().BladeReachMultiplier;
         UpdateTrail();
 
         Vector2 direction = currentAngle.ToRotationVector2();
@@ -138,7 +142,10 @@ public sealed class TeacherSwingRebuild : ModProjectile
             _ => aim - 0.13f * facing
         };
         previousAngle = currentAngle;
-        currentReach = previousReach = Combo == 3 ? 58f : Combo == 2 ? 126f : 112f;
+        FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
+        currentReach = previousReach = (Combo == 3 ? 58f : Combo == 2 ? 126f : 112f) *
+            evolution.BladeReachMultiplier;
+        evolutionDamageMultiplier = evolution.DirectSwordDamageMultiplier(Combo);
         for (int i = 0; i < TrailSamples; i++)
         {
             tipHistory[i] = Owner.MountedCenter + currentAngle.ToRotationVector2() * currentReach;
@@ -459,6 +466,11 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
     {
+        modifiers.FinalDamage *= evolutionDamageMultiplier;
+        FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
+        if (evolution.HasNode(FranEvolutionNode.MagicStoneAnalysis) &&
+            FranEvolutionBossSystem.IsAnalyzedFor(target, Owner.whoAmI))
+            modifiers.ArmorPenetration += 12;
         if (ImprintSkill == FranSkill.SkillTaker)
             modifiers.FinalDamage *= target.GetGlobalNPC<FranImprintTargetGlobalNPC>()
                 .SkillTakerDamageMultiplier(Owner.whoAmI);
@@ -466,6 +478,15 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
+        FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
+        if (!evolutionSequenceRegistered)
+        {
+            evolutionSequenceRegistered = true;
+            evolution.RegisterDirectSwordHit(Combo);
+        }
+        FranEvolutionBossSystem.RegisterAnalysisHit(target, Owner, Combo, Projectile.identity);
+        evolution.ApplyResonantPull(target, tipHistory[0]);
+
         Color color = ElementColor();
         Vector2 incoming = currentAngle.ToRotationVector2();
         FranParticleEffects.MeleeImpact(target.Center, incoming, color, Combo);

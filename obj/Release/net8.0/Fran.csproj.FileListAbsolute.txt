@@ -10,3 +10,4 @@ C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Releas
 C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Release\net8.0\refint\Fran.dll
 C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Release\net8.0\Fran.pdb
 C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Release\net8.0\ref\Fran.dll
+C:\Users\wangk\Documents\My Games\Terraria\tModLoader\ModSources\Fran\obj\Release\net8.0\Fran.sourcelink.json

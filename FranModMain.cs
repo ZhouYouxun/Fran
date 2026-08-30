@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using FranMod.Content.Players;
 using FranMod.Content.Projectiles;
+using FranMod.Content.Systems;
+using FranMod.Core;
 using FranMod.Core.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -20,9 +24,14 @@ public sealed class FranModMain : Mod
     private const byte SyncSkillTakerMarkMessage = 2;
     private const byte RequestUltimateMessage = 3;
     private const byte SyncUltimateChargeMessage = 4;
+    private const byte RequestEvolutionUnlockMessage = 5;
+    private const byte RequestEvolutionResetMessage = 6;
+    private const byte SyncEvolutionStateMessage = 7;
+    private const byte SubmitEvolutionProfileMessage = 8;
     public static ModKeybind SkillWheelKey { get; private set; }
     public static ModKeybind UltimateKey { get; private set; }
     public static ModKeybind DashKey { get; private set; }
+    public static ModKeybind EvolutionKey { get; private set; }
     internal static Asset<Effect> SlashEffect { get; private set; }
     internal static bool SlashShaderAvailable { get; private set; }
 
@@ -31,6 +40,7 @@ public sealed class FranModMain : Mod
         SkillWheelKey = KeybindLoader.RegisterKeybind(this, "SkillWheel", "V");
         UltimateKey = KeybindLoader.RegisterKeybind(this, "PotentialRelease", "G");
         DashKey = KeybindLoader.RegisterKeybind(this, "FranDash", "LeftShift");
+        EvolutionKey = KeybindLoader.RegisterKeybind(this, "MagicStoneCorridor", "J");
 
         if (!Main.dedServ)
         {
@@ -59,6 +69,7 @@ public sealed class FranModMain : Mod
         SkillWheelKey = null;
         UltimateKey = null;
         DashKey = null;
+        EvolutionKey = null;
         SlashEffect = null;
         SlashShaderAvailable = false;
     }
@@ -124,6 +135,81 @@ public sealed class FranModMain : Mod
         packet.Send(toWho, ignoreClient);
     }
 
+    internal static void SendEvolutionUnlockRequest(FranEvolutionNode node)
+    {
+        if (Main.netMode != NetmodeID.MultiplayerClient || !FranEvolutionInfo.IsValid(node))
+            return;
+        ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
+        packet.Write(RequestEvolutionUnlockMessage);
+        packet.Write((byte)node);
+        packet.Send();
+    }
+
+    internal static void SendEvolutionResetRequest()
+    {
+        if (Main.netMode != NetmodeID.MultiplayerClient)
+            return;
+        ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
+        packet.Write(RequestEvolutionResetMessage);
+        packet.Send();
+    }
+
+    internal static void SendEvolutionProfile(FranEvolutionPlayer evolution)
+    {
+        if (Main.netMode != NetmodeID.MultiplayerClient || evolution is null)
+            return;
+        IReadOnlyCollection<string> claims = evolution.GetClaimedBosses();
+        ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
+        packet.Write(SubmitEvolutionProfileMessage);
+        packet.Write(evolution.NodeMask);
+        packet.Write((ushort)Math.Min(claims.Count, FranEvolutionInfo.MaximumClaimedBosses));
+        int written = 0;
+        foreach (string key in claims)
+        {
+            if (written++ >= FranEvolutionInfo.MaximumClaimedBosses)
+                break;
+            WriteBossKey(packet, key);
+        }
+        packet.Send();
+    }
+
+    internal static void SendEvolutionState(int playerIndex, ushort nodeMask, int claimedBossCount,
+        IReadOnlyCollection<string> claims, int toWho = -1, int ignoreClient = -1)
+    {
+        if (Main.netMode != NetmodeID.Server || !ValidPlayer(playerIndex))
+            return;
+        ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
+        packet.Write(SyncEvolutionStateMessage);
+        packet.Write((byte)playerIndex);
+        packet.Write(nodeMask);
+        packet.Write((ushort)Math.Clamp(claimedBossCount, 0, FranEvolutionInfo.MaximumClaimedBosses));
+        bool includeClaims = claims is not null;
+        packet.Write(includeClaims);
+        if (includeClaims)
+        {
+            packet.Write((ushort)Math.Min(claims.Count, FranEvolutionInfo.MaximumClaimedBosses));
+            int written = 0;
+            foreach (string key in claims)
+            {
+                if (written++ >= FranEvolutionInfo.MaximumClaimedBosses)
+                    break;
+                WriteBossKey(packet, key);
+            }
+        }
+        packet.Send(toWho, ignoreClient);
+    }
+
+    internal static void BroadcastEvolutionState(Player player)
+    {
+        if (Main.netMode != NetmodeID.Server || player is null || !player.active)
+            return;
+        FranEvolutionPlayer evolution = player.GetModPlayer<FranEvolutionPlayer>();
+        SendEvolutionState(player.whoAmI, evolution.NodeMask, evolution.EarnedPoints,
+            evolution.GetClaimedBosses(), player.whoAmI);
+        SendEvolutionState(player.whoAmI, evolution.NodeMask, evolution.EarnedPoints,
+            null, -1, player.whoAmI);
+    }
+
     public override void HandlePacket(BinaryReader reader, int whoAmI)
     {
         byte messageType = reader.ReadByte();
@@ -154,7 +240,7 @@ public sealed class FranModMain : Mod
                     return;
 
                 dashTimer = Math.Clamp(dashTimer, 0, FranPlayer.DashDuration);
-                float dashSpeed = Math.Abs(dashVelocity.X);
+                float dashSpeed = dashVelocity.Length();
                 if (!float.IsFinite(dashVelocity.X) || !float.IsFinite(dashVelocity.Y) ||
                     !float.IsFinite(dashSpeed) || dashTimer == 0 || dashSpeed < 1f)
                 {
@@ -162,7 +248,13 @@ public sealed class FranModMain : Mod
                     dashTimer = 0;
                 }
                 else
-                    dashVelocity = new Vector2(MathHelper.Clamp(dashVelocity.X, -22f, 22f), 0f);
+                {
+                    if (!Main.player[playerIndex].GetModPlayer<FranEvolutionPlayer>()
+                            .HasNode(FranEvolutionNode.AerialHunt))
+                        dashVelocity.Y = 0f;
+                    if (dashVelocity.LengthSquared() > 22f * 22f)
+                        dashVelocity = dashVelocity.SafeNormalize(Vector2.UnitX) * 22f;
+                }
 
                 Main.player[playerIndex].GetModPlayer<FranPlayer>()
                     .ReceiveNetworkCombatState(dashTimer, dashVelocity);
@@ -202,6 +294,67 @@ public sealed class FranModMain : Mod
                 Main.player[playerIndex].GetModPlayer<FranPlayer>().ReceiveUltimateCharge(chargeTicks);
                 break;
             }
+            case RequestEvolutionUnlockMessage:
+            {
+                FranEvolutionNode node = (FranEvolutionNode)reader.ReadByte();
+                if (Main.netMode != NetmodeID.Server || !ValidPlayer(whoAmI) || !FranEvolutionInfo.IsValid(node))
+                    return;
+                Main.player[whoAmI].GetModPlayer<FranEvolutionPlayer>().TryUnlockAuthoritative(node);
+                break;
+            }
+            case RequestEvolutionResetMessage:
+            {
+                if (Main.netMode != NetmodeID.Server || !ValidPlayer(whoAmI))
+                    return;
+                Main.player[whoAmI].GetModPlayer<FranEvolutionPlayer>().TryResetAuthoritative();
+                break;
+            }
+            case SyncEvolutionStateMessage:
+            {
+                int playerIndex = reader.ReadByte();
+                ushort mask = reader.ReadUInt16();
+                int claimedCount = reader.ReadUInt16();
+                bool includesClaims = reader.ReadBoolean();
+                if (Main.netMode != NetmodeID.MultiplayerClient || !ValidPlayer(playerIndex) ||
+                    claimedCount > FranEvolutionInfo.MaximumClaimedBosses)
+                    return;
+                List<string> claims = null;
+                if (includesClaims)
+                {
+                    int count = reader.ReadUInt16();
+                    if (count > FranEvolutionInfo.MaximumClaimedBosses)
+                        return;
+                    claims = new List<string>(count);
+                    for (int i = 0; i < count; i++)
+                    {
+                        string key = ReadBossKey(reader);
+                        if (FranEvolutionBossSystem.IsValidBossKey(key))
+                            claims.Add(key);
+                    }
+                }
+                Main.player[playerIndex].GetModPlayer<FranEvolutionPlayer>()
+                    .ReceiveEvolutionState(mask, claimedCount, claims);
+                break;
+            }
+            case SubmitEvolutionProfileMessage:
+            {
+                ushort requestedMask = reader.ReadUInt16();
+                int count = reader.ReadUInt16();
+                if (Main.netMode != NetmodeID.Server || !ValidPlayer(whoAmI) ||
+                    count > FranEvolutionInfo.MaximumClaimedBosses)
+                    return;
+                List<string> keys = new(count);
+                for (int i = 0; i < count; i++)
+                {
+                    string key = ReadBossKey(reader);
+                    if (FranEvolutionBossSystem.IsValidBossKey(key))
+                        keys.Add(key);
+                }
+                FranEvolutionPlayer evolution = Main.player[whoAmI].GetModPlayer<FranEvolutionPlayer>();
+                evolution.MergeClientProfile(keys, requestedMask);
+                BroadcastEvolutionState(Main.player[whoAmI]);
+                break;
+            }
         }
     }
 
@@ -210,4 +363,21 @@ public sealed class FranModMain : Mod
 
     private static bool ValidNpc(int npcIndex) =>
         npcIndex >= 0 && npcIndex < Main.maxNPCs && Main.npc[npcIndex].active;
+
+    private static void WriteBossKey(BinaryWriter writer, string key)
+    {
+        byte[] bytes = Encoding.ASCII.GetBytes(key);
+        int length = Math.Min(bytes.Length, FranEvolutionInfo.MaximumBossKeyLength);
+        writer.Write((byte)length);
+        writer.Write(bytes, 0, length);
+    }
+
+    private static string ReadBossKey(BinaryReader reader)
+    {
+        int length = reader.ReadByte();
+        byte[] bytes = reader.ReadBytes(length);
+        if (length > FranEvolutionInfo.MaximumBossKeyLength || bytes.Length != length)
+            return string.Empty;
+        return Encoding.ASCII.GetString(bytes);
+    }
 }

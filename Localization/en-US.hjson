@@ -19,6 +19,7 @@ Mods: {
 					A legendary intelligent sword bound to Fran
 					Hold left click: cycle through Sweep, Rising Slash, Lunge Thrust, and Heavy Finisher
 					Hold right click to open the imprint wheel, then release it in a sector to bind that imprint into the four-part combo
+					Press [c/C3B2F5:Magic-Stone Corridor] (default J) to allocate Self Evolution Points earned from boss battles
 					Release right click in the wheel center to remove the imprint and return to pure swordsmanship
 					The ultimate charges automatically over three minutes; press [c/8CDFFF:Ultimate] (default G) when full to begin the execution rush immediately
 					Teacher follows behind Fran whenever another weapon is held
@@ -40,6 +41,7 @@ Mods: {
 			SkillWheel.DisplayName: Teacher Skill Wheel
 			PotentialRelease.DisplayName: Black Heavenly Tiger Flash
 			FranDash.DisplayName: Fran Dash
+			MagicStoneCorridor.DisplayName: Teacher's Magic-Stone Corridor
 		}
 
 		UI: {
@@ -53,8 +55,101 @@ Mods: {
 			IntroTitle: "[Fran Mode activated: Teacher has returned to your side]"
 			IntroCombat: Hold left click for the four-part greatsword combo; Teacher floats behind you while another weapon is held
 			IntroSkills: Hold right click to open the imprint wheel, then release it in a sector; the imprint joins the four-part combo automatically
+			IntroEvolution: Participate in a boss victory to absorb its unique magic stone; press J to shape Teacher, Fran, and their long-term resonance in the Corridor
 			IntroDash: Double-tap left/right, or press Left Shift to dash by held direction, horizontal momentum, then facing; other dashes take priority
 			IntroPotential: The ultimate charges automatically over three minutes of active play; press G when full to begin Black Heavenly Tiger's execution rush immediately
+		}
+
+		Evolution: {
+			Title: Magic-Stone Corridor — Self Evolution
+			OpenHint: Open the Magic-Stone Corridor (default J)
+			Tooltip: Magic-Stone Corridor: {0} available / {1} boss stones absorbed; press J to allocate
+			PointSummary: Available {0}   Invested {1}   Absorbed {2}   Current stage cap {3}
+			Overview: Participate in a boss victory to absorb one unique magic stone. These paths shape base swordplay, Fran's dash, and Teacher–Fran coordination without changing tactical imprints or the Black Tiger ultimate.
+			MagicStoneAcquired: Magic-stone imprint acquired — Self Evolution Point +1
+			NodeUnlocked: Self Evolution: {0}
+			ResetHold: Hold to respec (free)
+			ResetEmpty: No evolution points invested
+			ResetLocked: Cannot respec during combat
+
+			Branches: {
+				Teacher: Teacher — Self Evolution
+				Fran: Fran — Black Cat Evolution
+				Bond: Teacher and Fran — Resonance
+			}
+
+			Status: {
+				None: Click to absorb this evolution (unavailable during bosses or the ultimate)
+				Active: Absorbed and active
+				AlreadyUnlocked: Already absorbed
+				MissingPrerequisite: Absorb the preceding evolution first
+				StageLocked: Requires character growth stage {0}
+				NotEnoughPoints: Not enough Self Evolution Points; challenge a new boss
+				InCombat: The corridor cannot be adjusted during a boss, the ultimate, or death
+				InvalidNode: Invalid evolution node
+			}
+
+			Nodes: {
+				EdgeCalibration: {
+					DisplayName: Edge Calibration
+					Description: Teacher's direct blade reach and hit range increase by 6%; tactical projectiles are unaffected.
+				}
+
+				ComboCalculation: {
+					DisplayName: Combo Calculation
+					Description: Landing the base sword stages in order empowers the next direct blade hit by 3%, 6%, then 9%; interruption resets it.
+				}
+
+				MagicStoneAnalysis: {
+					DisplayName: Magic-Stone Analysis
+					Description: Land all four base sword stages on the same boss within 6 seconds to analyze it for 8 seconds; direct blade hits gain 12 armor penetration.
+				}
+
+				SelfEvolution: {
+					DisplayName: Self Evolution
+					Description: Completing four direct blade hits stores one Evolution Echo; the next opening cut adds a close-range sword echo for 50% damage that cannot trigger an imprint.
+				}
+
+				CatStep: {
+					DisplayName: Cat Step
+					Description: Fran's dash cooldown falls from 50 to 42 ticks; the base combo timeout pauses while dashing.
+				}
+
+				AerialHunt: {
+					DisplayName: Aerial Hunt
+					Description: The manual dash supports eight directions, preferring movement input and then the cursor; double-tap dashes remain horizontal.
+				}
+
+				HuntingTempo: {
+					DisplayName: Hunting Tempo
+					Description: Touching an enemy during a dash stores one Hunter Tempo, shortening Teacher's next direct swing by 12%.
+				}
+
+				EvolvedFootwork: {
+					DisplayName: Evolved Footwork
+					Description: Dashing into a new target refunds 60% of the remaining cooldown; the same enemy can trigger this only once per 180 ticks.
+				}
+
+				MindSync: {
+					DisplayName: Mind Sync
+					Description: The base four-part combo timeout increases from 70 to 105 ticks.
+				}
+
+				SharedRhythm: {
+					DisplayName: Shared Rhythm
+					Description: Reaching the fourth base sword stage in sequence shortens that swing's duration by 12%.
+				}
+
+				ResonantPull: {
+					DisplayName: Resonant Pull
+					Description: Teacher's direct blade hits tug ordinary enemies toward the edge; bosses and fully knockback-immune enemies are unaffected.
+				}
+
+				OneAsSword: {
+					DisplayName: One as Sword
+					Description: Complete four direct blade hits without taking damage to gain 10% base swing speed and reach for 5 seconds; taking damage ends it.
+				}
+			}
 		}
 
 		Configs: {
@@ -190,6 +285,10 @@ Mods: {
 			FranSpectatorPetalProjectile.DisplayName: Fran Spectator Petal Projectile
 			FranSpectatorRibbonProjectile.DisplayName: Fran Spectator Ribbon Projectile
 			FranTelekineticLineStrike.DisplayName: Fran Telekinetic Line Strike
+			FranEvolutionEchoSlash.DisplayName: Fran Evolution Echo Slash
+			FranEvolutionUnlockSigil.DisplayName: Fran Evolution Unlock Sigil
+			FranMagicStoneAbsorptionVfx.DisplayName: Fran Magic Stone Absorption Vfx
+			FranThunderGroundArcVisual.DisplayName: Fran Thunder Ground Arc Visual
 		}
 	}
 }

@@ -19,6 +19,7 @@ Mods: {
 					与弗兰绑定的传奇智慧武器
 					持续左键：循环使用横向扫斩、反身上挑、突进刺击与沉重斩落
 					按住右键打开术式轮盘，在目标扇区松开右键即可把术式嵌入四段剑术
+					按[c/C3B2F5:魔石回廊]（默认J）分配通过Boss战获得的自我进化点
 					在轮盘中央松开右键可卸下术式；未装备术式时使用纯粹四段剑术
 					大招能量会在三分钟内自动充满；满值后按[c/8CDFFF:大招]（默认G）立即发动连续斩杀
 					手持其他武器时，师父会漂浮在弗兰身后，不会禁用其他职业
@@ -40,6 +41,7 @@ Mods: {
 			SkillWheel.DisplayName: 师父技能轮
 			PotentialRelease.DisplayName: 黑天虎·绝闪
 			FranDash.DisplayName: 弗兰冲刺
+			MagicStoneCorridor.DisplayName: 师父的魔石回廊
 		}
 
 		UI: {
@@ -53,8 +55,101 @@ Mods: {
 			IntroTitle: 【弗兰人物模式已启动：师父已经回到你身边】
 			IntroCombat: 持续左键使用四段大剑连击；手持其他武器时，师父会浮在身后
 			IntroSkills: 按住右键打开术式轮盘，在目标扇区松开右键装备术式；术式会自动嵌入四段剑术
+			IntroEvolution: 实际参与Boss击杀可吸收独立魔石；按J打开魔石回廊，决定师父、弗兰与师徒共鸣的长期进化方向
 			IntroDash: 双击左右方向键，或按左Shift按当前左右输入、水平动量与人物朝向冲刺；其他冲刺优先
 			IntroPotential: 大招能量会随在线时间自动积攒三分钟；满值后按G立即发动黑天虎连续斩杀
+		}
+
+		Evolution: {
+			Title: 魔石回廊·自我进化
+			OpenHint: 打开魔石回廊（默认J）
+			Tooltip: 魔石回廊：{0}点可用 / 已吸收{1}枚Boss魔石；按J分配
+			PointSummary: 可用 {0}　已投入 {1}　已吸收 {2}　当前阶段上限 {3}
+			Overview: 击败并实际参与Boss战可吸收一枚独立魔石。三条路线只塑造基础剑术、弗兰冲刺与师徒配合，不改变战术技能组和黑天虎大招。
+			MagicStoneAcquired: 获得魔石刻印·自我进化点 +1
+			NodeUnlocked: 自我进化：{0}
+			ResetHold: 长按洗点（免费）
+			ResetEmpty: 尚未投入进化点
+			ResetLocked: 战斗中不能洗点
+
+			Branches: {
+				Teacher: 师父·自我进化
+				Fran: 弗兰·黑猫进化
+				Bond: 师徒·共鸣
+			}
+
+			Status: {
+				None: 点击吸收此进化（Boss战和大招期间不可操作）
+				Active: 已吸收并生效
+				AlreadyUnlocked: 已吸收
+				MissingPrerequisite: 需要先吸收前置进化
+				StageLocked: 需要到达人物成长第{0}阶段
+				NotEnoughPoints: 自我进化点不足；继续挑战新的Boss
+				InCombat: Boss战、大招或死亡期间不能调整魔石回廊
+				InvalidNode: 无效的进化节点
+			}
+
+			Nodes: {
+				EdgeCalibration: {
+					DisplayName: 锋刃校准
+					Description: 师父本体剑刃的攻击距离与判定范围提高6%；不强化技能弹幕。
+				}
+
+				ComboCalculation: {
+					DisplayName: 连击演算
+					Description: 按顺序命中四段基础剑术时，下一段剑刃直击伤害依次提高3%、6%、9%；中断后重置。
+				}
+
+				MagicStoneAnalysis: {
+					DisplayName: 魔石解析
+					Description: 6秒内以四段基础剑术依次命中同一Boss，使其被解析8秒；剑刃直击获得12点护甲穿透。
+				}
+
+				SelfEvolution: {
+					DisplayName: 自我进化
+					Description: 完成四段剑刃直击后储存一次进化回响；下一轮第一剑追加50%伤害的近距离剑影，且不会触发战术术式。
+				}
+
+				CatStep: {
+					DisplayName: 猫步
+					Description: 弗兰冲刺冷却由50帧降至42帧；冲刺期间暂停基础连击的中断计时。
+				}
+
+				AerialHunt: {
+					DisplayName: 立体狩猎
+					Description: 主动冲刺键支持八方向冲刺：优先采用方向输入，无输入时指向鼠标；双击方向键仍保持水平冲刺。
+				}
+
+				HuntingTempo: {
+					DisplayName: 猎场连携
+					Description: 冲刺接触敌人后储存一次猎手节奏；下一次师父本体挥砍的持续时间缩短12%。
+				}
+
+				EvolvedFootwork: {
+					DisplayName: 进化之足
+					Description: 冲刺命中新目标时返还当前剩余冷却的60%；同一敌人180帧内只能触发一次。
+				}
+
+				MindSync: {
+					DisplayName: 心念同步
+					Description: 基础四段连击的中断时间由70帧延长至105帧。
+				}
+
+				SharedRhythm: {
+					DisplayName: 共同步调
+					Description: 按顺序进入第四段基础剑术时，该段挥剑持续时间缩短12%。
+				}
+
+				ResonantPull: {
+					DisplayName: 共鸣牵引
+					Description: 师父本体剑刃命中普通敌人时，将其小幅拉向剑锋；Boss和完全抗击退目标不受影响。
+				}
+
+				OneAsSword: {
+					DisplayName: 人剑一体
+					Description: 不受伤完成四段剑刃直击后，基础挥剑速度与剑刃范围提高10%，持续5秒；受伤立即结束。
+				}
+			}
 		}
 
 		Configs: {
@@ -190,6 +285,10 @@ Mods: {
 			// FranSpectatorPetalProjectile.DisplayName: Fran Spectator Petal Projectile
 			// FranSpectatorRibbonProjectile.DisplayName: Fran Spectator Ribbon Projectile
 			// FranTelekineticLineStrike.DisplayName: Fran Telekinetic Line Strike
+			// FranEvolutionEchoSlash.DisplayName: Fran Evolution Echo Slash
+			// FranEvolutionUnlockSigil.DisplayName: Fran Evolution Unlock Sigil
+			// FranMagicStoneAbsorptionVfx.DisplayName: Fran Magic Stone Absorption Vfx
+			// FranThunderGroundArcVisual.DisplayName: Fran Thunder Ground Arc Visual
 		}
 	}
 }
