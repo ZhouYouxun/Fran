@@ -28,6 +28,56 @@ Mods: {
 					Damage and available skills grow with world progression
 					'''
 			}
+
+			TeacherExcavationTool: {
+				DisplayName: Teacher — Excavation Form
+				Tooltip:
+					'''
+					Teacher reshapes itself into a restrained utility form for exploration
+					Left click uses the pickaxe; right click uses the hamaxe
+					Supports automatic reuse and vanilla Smart Cursor
+					Its tool performance grows with world progression, but it cannot use Teacher's combat skills
+					Granted automatically the first time a bond with Teacher is established
+					'''
+			}
+
+			VanillaBossProgressAdjuster: {
+				DisplayName: Vanilla Boss Progress Adjuster
+				Tooltip:
+					'''
+					Developer tool: use to open the vanilla-only boss progress panel
+					Click a portrait to set or clear that world's defeated flag; footer buttons change whole phases
+					Multiplayer changes are validated and applied by the server
+					This changes progression flags only and does not undo permanent world conversion
+					'''
+			}
+		}
+
+		ToolProgression: {
+			Current: Current stage: {0} | Pickaxe {1} · Axe {2}% · Hammer {3} · Reach +{4} · Use time {5}
+			Next: Next evolution: {0}
+			FinalStage: Final excavation form reached
+
+			Stages: {
+				Stage0: Initial Form
+				Stage1: Evil-Ore Adaptation
+				Stage2: Dungeon Excavation
+				Stage3: Hardmode Reconstruction
+				Stage4: Mechanical Analysis
+				Stage5: Jungle Resonance
+				Stage6: Temple Demolition
+				Stage7: Lunar Final Form
+			}
+
+			Unlocks: {
+				Stage1: Defeat the Eater of Worlds or Brain of Cthulhu
+				Stage2: Defeat Skeletron
+				Stage3: Defeat the Wall of Flesh and enter Hardmode
+				Stage4: Defeat all three mechanical bosses
+				Stage5: Defeat Plantera
+				Stage6: Defeat Golem
+				Stage7: Defeat the Moon Lord
+			}
 		}
 
 		Buffs: {
@@ -51,13 +101,94 @@ Mods: {
 			PureSwordsmanshipDescription: Detach the current tactical module; Teacher's four-part sword combo always remains intact
 		}
 
+		BossProgress: {
+			Title: Vanilla Boss Progress Adjuster
+			Defeated: defeated
+			Undefeated: not defeated
+			EntryHint: "{0} — {1}; click to toggle"
+
+			Buttons: {
+				PreHardmode: Pre-HM
+				Hardmode: Hardmode
+				All: All
+				Invert: Invert
+			}
+
+			ButtonHints: {
+				PreHardmode: Set or clear every pre-Hardmode vanilla boss flag
+				Hardmode: Set or clear every Hardmode vanilla boss flag
+				All: Set or clear all vanilla boss flags
+				Invert: Invert every unique vanilla boss flag
+			}
+
+			Names: {
+				KingSlime: King Slime
+				EyeOfCthulhu: Eye of Cthulhu
+				EaterOfWorlds: Eater of Worlds
+				BrainOfCthulhu: Brain of Cthulhu
+				QueenBee: Queen Bee
+				Skeletron: Skeletron
+				Deerclops: Deerclops
+				WallOfFlesh: Wall of Flesh
+				QueenSlime: Queen Slime
+				Destroyer: The Destroyer
+				Twins: The Twins
+				SkeletronPrime: Skeletron Prime
+				Plantera: Plantera
+				Golem: Golem
+				DukeFishron: Duke Fishron
+				EmpressOfLight: Empress of Light
+				LunaticCultist: Lunatic Cultist
+				MoonLord: Moon Lord
+			}
+		}
+
 		Notices: {
 			IntroTitle: "[Fran Mode activated: Teacher has returned to your side]"
 			IntroCombat: Hold left click for the four-part greatsword combo; Teacher floats behind you while another weapon is held
 			IntroSkills: Hold right click to open the imprint wheel, then release it in a sector; the imprint joins the four-part combo automatically
 			IntroEvolution: Participate in a boss victory to absorb its unique magic stone; press J to shape Teacher, Fran, and their long-term resonance in the Corridor
-			IntroDash: Double-tap left/right, or press Left Shift to dash by held direction, horizontal momentum, then facing; other dashes take priority
+			IntroDash: When Fran Dash is bound, only that key triggers it; when unbound, double-tap left/right instead; equipped dashes take priority
 			IntroPotential: The ultimate charges automatically over three minutes of active play; press G when full to begin Black Heavenly Tiger's execution rush immediately
+		}
+
+		Abilities: {
+			Dash: {
+				Line: "[Dash] Current progress: {0} | {1} | Effect: {2}"
+				Progress: Unlocked from the beginning
+				Effect: Speed 16, 12-tick duration, 50-tick base cooldown; Fran makes two visual rolls during the dash
+				States: {
+					Enabled: Enabled: no other dash is equipped
+					Overridden: Disabled: an external dash is active and takes priority
+					InactiveFranMode: Disabled: Fran Mode is not active
+				}
+			}
+
+			Flight: {
+				Line: "[Telekinetic Flight] Current progress: {0} | {1} | Effect: {2}"
+				Progress: {
+					Locked: Pre-Hardmode — not yet unlocked
+					Tier1: Hardmode — Telekinetic Liftoff
+					Tier2: All three mechanical bosses — Power Rebuild
+					Tier3: Post-Plantera — Hover Mastery
+					Tier4: Post-Golem — Telekinetic Final Form
+					Infinite: Post-Empress of Light — Infinite Flight
+				}
+				States: {
+					Enabled: Enabled: no functional wings are equipped
+					Overridden: Disabled: functional wings are equipped and take priority
+					Mounted: Paused: Telekinetic Flight does not stack with mounts
+					Locked: Locked: automatically gained upon entering Hardmode
+					InactiveFranMode: Disabled: Fran Mode is not active
+				}
+				Effects: {
+					Locked: Counts as an innate pair of wings after entering Hardmode
+					Finite: "{0} flight ticks ({1:0.00}s), horizontal speed {2}, acceleration multiplier {3}{4}"
+					Infinite: "Infinite flight, horizontal speed {2}, acceleration multiplier {3}{4}"
+					Hover: ", hold Down to hover"
+					NoHover: ""
+				}
+			}
 		}
 
 		Evolution: {
@@ -156,9 +287,14 @@ Mods: {
 			FranClientConfig: {
 				DisplayName: Fran Client Settings
 
-				ShowUltimateGauge: {
-					Label: Show Black Tiger ultimate gauge
-					Tooltip: Disabled by default; when enabled, drag the gauge directly with the left mouse button. Its position is saved with the character.
+				HideUltimateGauge: {
+					Label: Hide Black Tiger ultimate gauge
+					Tooltip: The ultimate gauge is shown at the top center by default. Enable this only if you want to hide it.
+				}
+
+				AllowUltimateGaugeDragging: {
+					Label: Allow ultimate gauge dragging
+					Tooltip: Disabled by default. When enabled, drag the gauge with the left mouse button; its position is saved with the character.
 				}
 			}
 		}
@@ -191,7 +327,7 @@ Mods: {
 		Skills: {
 			TelekineticCatapult: {
 				DisplayName: Telekinetic Catapult
-				Description: The sword combo remains intact; cut two fires two luminous telekinetic shells and cut four fires four, with persistent homing and piercing
+				Description: The full sword combo remains intact; the first three cuts fire 2, 3, and 4 parallel telekinetic shells, while the fourth uses an infinitely piercing directional laser. In Hardmode, every cut also drops 2 to 3 planets from above; each planet brakes, accelerates, and explodes on its first enemy or tile impact
 			}
 
 			SkillTaker: {
@@ -226,7 +362,7 @@ Mods: {
 
 			ThorsHammer: {
 				DisplayName: Thor's Hammer
-				Description: After two complete four-cut rounds, the second round's fourth cut marks the cursor; Thor's Hammer descends in a Paladin's Hammer form and detonates a wide lightning-meteor impact
+				Description: After two complete four-cut rounds, the second round's fourth cut locks onto the enemy nearest the cursor; the summoning seal follows that target before Thor's Hammer pursues it at high speed and detonates a wide lightning-meteor impact
 			}
 		}
 
@@ -289,6 +425,13 @@ Mods: {
 			FranEvolutionUnlockSigil.DisplayName: Fran Evolution Unlock Sigil
 			FranMagicStoneAbsorptionVfx.DisplayName: Fran Magic Stone Absorption Vfx
 			FranThunderGroundArcVisual.DisplayName: Fran Thunder Ground Arc Visual
+			FranUltimateBlackRiftLaser.DisplayName: Fran Ultimate Black Rift Laser
+			FranUltimateDashLaunch.DisplayName: Fran Ultimate Dash Launch
+			FranUltimateSlashResidue.DisplayName: Fran Ultimate Slash Residue
+			FranUltimateTargetField.DisplayName: Fran Ultimate Target Field
+			FranTelekineticPlanet.DisplayName: Fran Telekinetic Planet
+			FranTelekineticPlanetExplosion.DisplayName: Fran Telekinetic Planet Explosion
+			FranTelekineticFlightVisual.DisplayName: Telekinetic Flight Visual
 		}
 	}
 }

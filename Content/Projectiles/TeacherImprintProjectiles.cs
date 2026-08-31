@@ -33,6 +33,8 @@ internal static class TeacherImprintCombat
                     SpawnTelekineticLaser(owner, swing, telekineticTarget);
                 else
                     SpawnTelekineticShells(owner, swing, telekineticTarget, combo + 2);
+                if (Main.hardMode)
+                    SpawnTelekineticPlanets(owner, swing, telekineticTarget, combo);
                 break;
 
             case FranSkill.MultipleBodyCreation:
@@ -45,9 +47,12 @@ internal static class TeacherImprintCombat
 
             case FranSkill.ThorsHammer when combo == 3 && fran.AdvanceHammerRound():
                 Vector2 hammerTarget = ClampTarget(owner, Main.MouseWorld, 720f);
+                NPC hammerNpc = FindNearestTarget(hammerTarget, 720f);
+                if (hammerNpc is not null)
+                    hammerTarget = hammerNpc.Center;
                 Projectile.NewProjectile(swing.GetSource_FromThis(), hammerTarget, Vector2.Zero,
                     ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(swing.damage * 1.18f)),
-                    7f, owner.whoAmI);
+                    7f, owner.whoAmI, hammerNpc?.whoAmI ?? -1);
                 SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.58f, Pitch = -0.18f }, hammerTarget);
                 break;
         }
@@ -144,6 +149,29 @@ internal static class TeacherImprintCombat
         FranSpectatorVfx.SpawnReleaseFan(swing.GetSource_FromThis(), owner.MountedCenter + direction * 32f,
             direction, owner.whoAmI, FranSpectatorPalette.Gold, 5, 1.12f);
         owner.GetModPlayer<FranPlayer>().ShakeScreen(owner.Center, 2.4f);
+    }
+
+    private static void SpawnTelekineticPlanets(Player owner, Projectile swing, Vector2 target, int combo)
+    {
+        int count = Main.rand.Next(2, 4);
+        float centerIndex = (count - 1) * 0.5f;
+        float focusX = MathHelper.Lerp(owner.Center.X, target.X, 0.58f);
+        for (int i = 0; i < count; i++)
+        {
+            float lane = i - centerIndex;
+            Vector2 origin = new(
+                focusX + lane * Main.rand.NextFloat(86f, 112f) + Main.rand.NextFloat(-38f, 38f),
+                owner.Center.Y - Main.rand.NextFloat(430f, 570f) - i * 46f);
+            Vector2 velocity = (target - origin).SafeNormalize(Vector2.UnitY) * Main.rand.NextFloat(14.5f, 18.5f);
+            int variant = Main.rand.Next(10);
+            Projectile.NewProjectile(swing.GetSource_FromThis(), origin, velocity,
+                ModContent.ProjectileType<FranTelekineticPlanet>(),
+                Math.Max(1, (int)(swing.damage * (combo == 3 ? 0.17f : 0.15f))),
+                swing.knockBack * 0.46f, owner.whoAmI, variant);
+        }
+
+        FranParticleEffects.MysticGlyphs(owner.Center - Vector2.UnitY * 54f,
+            new Color(178, 214, 255), count, 44f, 0.62f, -Vector2.UnitY * 0.25f);
     }
 
     private static void SpawnMultipleBodies(Player owner, Projectile swing, Vector2 direction, int count, int combo)
@@ -1083,6 +1111,9 @@ public sealed class FranReplaySlash : ModProjectile
 
 public sealed class FranBlueResonanceEcho : ModProjectile
 {
+    private bool constellationSpawned;
+    private bool polarReleaseSpawned;
+
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
     public override void SetDefaults()
     {
@@ -1104,12 +1135,21 @@ public sealed class FranBlueResonanceEcho : ModProjectile
     }
     public override void AI()
     {
+        if (!Main.dedServ && !constellationSpawned)
+        {
+            constellationSpawned = true;
+            FranConstellationEffects.SpawnBlueResonancePrelude(Projectile.Center, Projectile.velocity,
+                (int)Projectile.ai[0]);
+        }
         if (!Main.dedServ && Projectile.timeLeft > 14 && Projectile.timeLeft % 4 == 0)
             FranParticleSystem.Spawn(new FranResonanceNoteParticle(Projectile.Center,
                 new Color(80, 205, 255), 34f, 20, Projectile.identity * 0.71f + Projectile.timeLeft));
-        if (Age == 20f)
+        if (Age >= 20f && !polarReleaseSpawned)
         {
+            polarReleaseSpawned = true;
             SoundEngine.PlaySound(SoundID.Item60 with { Volume = 0.24f, Pitch = 0.42f }, Projectile.Center);
+            FranConstellationEffects.SpawnPolarRelease(Projectile.Center, Projectile.velocity,
+                (int)Projectile.ai[0] == 3 ? 1.08f : 0.92f);
             FranParticleEffects.SpawnImpact(Projectile.Center, Projectile.velocity, new Color(80, 205, 255),
                 5, 3.4f, 0.72f);
             FranSpectatorVfx.SpawnReleaseFan(Projectile.GetSource_FromThis(), Projectile.Center,

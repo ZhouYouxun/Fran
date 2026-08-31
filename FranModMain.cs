@@ -28,6 +28,7 @@ public sealed class FranModMain : Mod
     private const byte RequestEvolutionResetMessage = 6;
     private const byte SyncEvolutionStateMessage = 7;
     private const byte SubmitEvolutionProfileMessage = 8;
+    private const byte RequestBossProgressChangeMessage = 9;
     public static ModKeybind SkillWheelKey { get; private set; }
     public static ModKeybind UltimateKey { get; private set; }
     public static ModKeybind DashKey { get; private set; }
@@ -210,6 +211,29 @@ public sealed class FranModMain : Mod
             null, -1, player.whoAmI);
     }
 
+    internal static void RequestBossProgressChange(FranBossProgressAction action, int index, bool state)
+    {
+        if (!Enum.IsDefined(action) ||
+            (action == FranBossProgressAction.SetSingle &&
+             (index < 0 || index >= FranBossProgressRegistry.Entries.Length)))
+            return;
+
+        if (Main.netMode == NetmodeID.SinglePlayer)
+        {
+            FranBossProgressRegistry.Apply(action, index, state);
+            return;
+        }
+        if (Main.netMode != NetmodeID.MultiplayerClient)
+            return;
+
+        ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
+        packet.Write(RequestBossProgressChangeMessage);
+        packet.Write((byte)action);
+        packet.Write((byte)Math.Clamp(index, 0, byte.MaxValue));
+        packet.Write(state);
+        packet.Send();
+    }
+
     public override void HandlePacket(BinaryReader reader, int whoAmI)
     {
         byte messageType = reader.ReadByte();
@@ -353,6 +377,22 @@ public sealed class FranModMain : Mod
                 FranEvolutionPlayer evolution = Main.player[whoAmI].GetModPlayer<FranEvolutionPlayer>();
                 evolution.MergeClientProfile(keys, requestedMask);
                 BroadcastEvolutionState(Main.player[whoAmI]);
+                break;
+            }
+            case RequestBossProgressChangeMessage:
+            {
+                FranBossProgressAction action = (FranBossProgressAction)reader.ReadByte();
+                int index = reader.ReadByte();
+                bool state = reader.ReadBoolean();
+                if (Main.netMode != NetmodeID.Server || !ValidPlayer(whoAmI) || !Enum.IsDefined(action))
+                    return;
+                Player requester = Main.player[whoAmI];
+                if (requester.HeldItem.type != ModContent.ItemType<Content.Items.VanillaBossProgressAdjuster>() ||
+                    (action == FranBossProgressAction.SetSingle &&
+                     (index < 0 || index >= FranBossProgressRegistry.Entries.Length)))
+                    return;
+                if (FranBossProgressRegistry.Apply(action, index, state) > 0)
+                    NetMessage.SendData(MessageID.WorldData);
                 break;
             }
         }

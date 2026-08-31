@@ -18,6 +18,13 @@ namespace FranMod.Content.UI;
 public sealed class FranEvolutionUISystem : ModSystem
 {
     private const int ResetHoldDuration = 36;
+    private const string StellarBloomTexture = "Fran/Assets/OriginalVFX/FranBloomCore";
+    private const string StellarSparkleTexture = "Fran/Assets/OriginalVFX/FranFlashFourPoint";
+    private const string StellarLineTexture = "Fran/Textures/Particles/BloomLine";
+    private const string StellarRingTexture = "Fran/Textures/Particles/BloomRing";
+    private static readonly Color StellarDormant = new(66, 78, 128, 210);
+    private static readonly Color StellarAvailable = new(174, 153, 255, 245);
+    private static readonly Color StellarLit = new(255, 222, 116, 255);
     private static readonly Vector2[] NormalizedNodePositions =
     [
         new(0.40f, 0.62f), new(0.32f, 0.49f), new(0.24f, 0.36f), new(0.17f, 0.22f),
@@ -160,10 +167,9 @@ public sealed class FranEvolutionUISystem : ModSystem
         Rectangle panel = GetPanel();
         Vector2[] centers = GetNodeCenters(panel);
         DrawBackdrop(panel);
+        DrawStellarConstellation(panel, centers, evolution);
         DrawHeader(panel, evolution);
-        DrawConnections(panel, centers, evolution);
-        DrawTeacherCore(panel, evolution);
-        DrawNodes(centers, evolution);
+        DrawStellarLabels(panel, centers, evolution);
         DrawDescription(panel, evolution);
         DrawResetButton(panel, evolution);
         return true;
@@ -232,35 +238,11 @@ public sealed class FranEvolutionUISystem : ModSystem
 
     private static void DrawBackdrop(Rectangle panel)
     {
-        DrawRect(new Rectangle(0, 0, Main.screenWidth, Main.screenHeight), new Color(1, 3, 8, 188));
-        DrawRect(panel, new Color(4, 7, 15, 244));
-        DrawBorder(panel, new Color(32, 54, 76, 245), 4);
+        DrawRect(new Rectangle(0, 0, Main.screenWidth, Main.screenHeight), new Color(1, 3, 10, 202));
+        DrawRect(panel, new Color(3, 6, 17, 218));
+        DrawBorder(panel, new Color(35, 51, 91, 214), 3);
         DrawBorder(new Rectangle(panel.X + 4, panel.Y + 4, panel.Width - 8, panel.Height - 8),
-            new Color(129, 101, 208) * 0.65f, 1);
-
-        float time = Main.GlobalTimeWrappedHourly;
-        Vector2 center = panel.Center.ToVector2();
-        for (int i = 0; i < 46; i++)
-        {
-            float x = panel.X + 18f + ((i * 83.17f) % Math.Max(1f, panel.Width - 36f));
-            float y = panel.Y + 18f + ((i * 47.63f) % Math.Max(1f, panel.Height - 36f));
-            float shimmer = 0.28f + 0.20f * MathF.Sin(time * 1.7f + i * 0.91f);
-            DrawDiamond(new Vector2(x, y), i % 7 == 0 ? 2.4f : 1.4f,
-                new Color(156, 206, 238) * shimmer, Color.Transparent, 0f);
-        }
-
-        for (int ring = 0; ring < 3; ring++)
-        {
-            float radius = 105f + ring * 44f;
-            int segments = 44;
-            for (int i = 0; i < segments; i++)
-            {
-                float a = MathHelper.TwoPi * i / segments + time * (ring % 2 == 0 ? 0.015f : -0.012f);
-                float b = MathHelper.TwoPi * (i + 0.58f) / segments + time * (ring % 2 == 0 ? 0.015f : -0.012f);
-                DrawLine(center + a.ToRotationVector2() * radius, center + b.ToRotationVector2() * radius,
-                    new Color(67, 104, 138) * 0.11f, 1f);
-            }
-        }
+            new Color(111, 95, 196) * 0.48f, 1);
     }
 
     private static void DrawHeader(Rectangle panel, FranEvolutionPlayer evolution)
@@ -284,97 +266,211 @@ public sealed class FranEvolutionUISystem : ModSystem
             FranEvolutionInfo.BranchColor(FranEvolutionBranch.Fran), 0.57f);
     }
 
-    private static void DrawConnections(Rectangle panel, Vector2[] centers, FranEvolutionPlayer evolution)
+    private static void DrawStellarConstellation(Rectangle panel, Vector2[] centers,
+        FranEvolutionPlayer evolution)
     {
-        Vector2 core = panel.TopLeft() + new Vector2(0.5f, 0.735f) * panel.Size();
-        DrawBranchConnection(core, centers[0], FranEvolutionNode.EdgeCalibration, evolution);
-        DrawBranchConnection(core, centers[4], FranEvolutionNode.CatStep, evolution);
-        DrawBranchConnection(core, centers[8], FranEvolutionNode.MindSync, evolution);
+        SpriteBatch spriteBatch = Main.spriteBatch;
+        spriteBatch.End();
+        spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp,
+            DepthStencilState.None, RasterizerState.CullNone, null, Main.UIScaleMatrix);
 
+        Vector2 core = panel.TopLeft() + new Vector2(0.5f, 0.735f) * panel.Size();
+        DrawCelestialBackdrop(spriteBatch, panel, core);
+
+        int connectionIndex = 0;
+        DrawStellarConnection(spriteBatch, core, centers[0], FranEvolutionNode.EdgeCalibration,
+            evolution, connectionIndex++);
+        DrawStellarConnection(spriteBatch, core, centers[4], FranEvolutionNode.CatStep,
+            evolution, connectionIndex++);
+        DrawStellarConnection(spriteBatch, core, centers[8], FranEvolutionNode.MindSync,
+            evolution, connectionIndex++);
         for (int branch = 0; branch < 3; branch++)
         {
             int start = branch * 4;
             for (int tier = 1; tier < 4; tier++)
-                DrawBranchConnection(centers[start + tier - 1], centers[start + tier],
-                    (FranEvolutionNode)(start + tier), evolution);
-        }
-    }
-
-    private static void DrawBranchConnection(Vector2 start, Vector2 end, FranEvolutionNode destination,
-        FranEvolutionPlayer evolution)
-    {
-        FranEvolutionNodeDefinition definition = FranEvolutionInfo.Get(destination);
-        bool purchased = evolution.HasNode(destination);
-        bool prerequisiteMet = definition.Prerequisite == FranEvolutionNode.None ||
-            evolution.HasNode(definition.Prerequisite);
-        Color color = FranEvolutionInfo.BranchColor(definition.Branch);
-        DrawLine(start, end, new Color(10, 17, 27) * 0.95f, 7f);
-        DrawLine(start, end, color * (purchased ? 0.88f : prerequisiteMet ? 0.33f : 0.13f),
-            purchased ? 3f : 1.5f);
-        if (purchased)
-        {
-            float flow = (Main.GlobalTimeWrappedHourly * 0.65f + (int)destination * 0.17f) % 1f;
-            DrawDiamond(Vector2.Lerp(start, end, flow), 4.2f, Color.White * 0.82f,
-                Color.Transparent, 0f);
-        }
-    }
-
-    private static void DrawTeacherCore(Rectangle panel, FranEvolutionPlayer evolution)
-    {
-        Vector2 center = panel.TopLeft() + new Vector2(0.5f, 0.735f) * panel.Size();
-        float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 3.6f);
-        int orbitCount = Math.Min(FranEvolutionInfo.MaximumSpendablePoints, evolution.EarnedPoints);
-        for (int i = 0; i < orbitCount; i++)
-        {
-            float angle = MathHelper.TwoPi * i / Math.Max(1, orbitCount) + Main.GlobalTimeWrappedHourly * 0.12f;
-            Vector2 position = center + angle.ToRotationVector2() * (55f + (i % 2) * 7f);
-            DrawDiamond(position, 3.7f, new Color(184, 126, 244) * 0.64f, Color.White * 0.32f, 0.7f);
+                DrawStellarConnection(spriteBatch, centers[start + tier - 1], centers[start + tier],
+                    (FranEvolutionNode)(start + tier), evolution, connectionIndex++);
         }
 
-        DrawDiamond(center, 37f + pulse * 2f, new Color(12, 14, 28) * 0.95f,
-            new Color(132, 108, 220) * 0.72f, 2f);
-        DrawLine(center + new Vector2(0f, -25f), center + new Vector2(0f, 24f),
-            new Color(220, 230, 242), 4f);
-        DrawLine(center + new Vector2(-12f, 12f), center + new Vector2(12f, 12f),
-            new Color(244, 194, 80), 3f);
-        DrawLine(center + new Vector2(0f, -24f), center + new Vector2(-6f, -14f),
-            new Color(184, 220, 240), 2f);
-        DrawLine(center + new Vector2(0f, -24f), center + new Vector2(6f, -14f),
-            new Color(184, 220, 240), 2f);
-    }
-
-    private static void DrawNodes(Vector2[] centers, FranEvolutionPlayer evolution)
-    {
-        float time = Main.GlobalTimeWrappedHourly;
+        DrawStellarCore(spriteBatch, core, evolution);
         for (int i = 0; i < FranEvolutionInfo.Count; i++)
         {
             FranEvolutionNode node = (FranEvolutionNode)i;
             FranEvolutionNodeDefinition definition = FranEvolutionInfo.Get(node);
             FranEvolutionUnlockFailure failure = evolution.GetUnlockFailure(node);
             bool purchased = evolution.HasNode(node);
-            bool hovered = hoveredNode == i;
             bool available = failure == FranEvolutionUnlockFailure.None;
+            bool hovered = hoveredNode == i;
             Color branch = FranEvolutionInfo.BranchColor(definition.Branch);
-            float pulse = 0.5f + 0.5f * MathF.Sin(time * 4f + i * 0.61f);
+            Color starColor = purchased ? Color.White
+                : available ? Color.Lerp(branch, Color.White, 0.58f)
+                : new Color(124, 140, 198);
+            Color bloomColor = purchased ? Color.Lerp(branch, StellarLit, 0.32f)
+                : available ? Color.Lerp(branch, StellarAvailable, 0.42f)
+                : StellarDormant;
+            float size = purchased ? 25f : available ? 21f : 17f;
+            if (hovered)
+                size *= 1.18f;
 
-            float size = hovered ? 24f : purchased ? 22f : 20f;
-            Color fill = purchased ? branch * (0.74f + pulse * 0.16f)
-                : available ? Color.Lerp(new Color(18, 24, 36), branch, 0.34f)
-                : new Color(25, 29, 37) * 0.90f;
-            Color border = hovered ? Color.White
-                : purchased ? Color.Lerp(branch, Color.White, 0.42f)
-                : available ? branch * 0.78f
-                : new Color(70, 77, 88);
-
-            DrawDiamond(centers[i], size + 4f, new Color(3, 6, 12) * 0.96f, border, hovered ? 2.2f : 1.4f);
-            DrawDiamond(centers[i], size * 0.58f, fill, Color.Transparent, 0f);
-            if (purchased)
-                DrawDiamond(centers[i], 4.4f + pulse * 1.2f, Color.White * 0.90f, Color.Transparent, 0f);
-
-            DrawCentered(definition.Cost.ToString(),
-                new Rectangle((int)centers[i].X - 12, (int)centers[i].Y - 12, 24, 24),
-                purchased ? new Color(8, 12, 19) : new Color(228, 233, 240), 0.47f);
+            DrawStellarSparkle(spriteBatch, centers[i], starColor, bloomColor, size, i + 17);
+            if (hovered)
+            {
+                Texture2D ring = ModContent.Request<Texture2D>(StellarRingTexture).Value;
+                float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 4.2f);
+                DrawTexturePixels(spriteBatch, ring, centers[i], bloomColor * (0.42f + pulse * 0.24f),
+                    -Main.GlobalTimeWrappedHourly * 0.72f,
+                    Vector2.One * (54f + pulse * 6f));
+            }
         }
+
+        spriteBatch.End();
+        spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp,
+            DepthStencilState.None, RasterizerState.CullNone, null, Main.UIScaleMatrix);
+    }
+
+    private static void DrawCelestialBackdrop(SpriteBatch spriteBatch, Rectangle panel, Vector2 center)
+    {
+        Texture2D bloom = ModContent.Request<Texture2D>(StellarBloomTexture).Value;
+        float breath = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 0.72f);
+        DrawTexturePixels(spriteBatch, bloom, center + new Vector2(-116f, -32f),
+            new Color(48, 71, 190) * (0.11f + breath * 0.035f), 0f, new Vector2(480f, 340f));
+        DrawTexturePixels(spriteBatch, bloom, center + new Vector2(178f, 42f),
+            new Color(151, 78, 213) * (0.08f + (1f - breath) * 0.028f), 0f, new Vector2(390f, 278f));
+        DrawTexturePixels(spriteBatch, bloom, center + new Vector2(-8f, -168f),
+            StellarLit * (0.045f + breath * 0.016f), 0f, new Vector2(260f, 170f));
+
+        for (int i = 0; i < 42; i++)
+        {
+            float x = panel.X + 34f + Hash01(i * 37 + 11) * (panel.Width - 68f);
+            float y = panel.Y + 78f + Hash01(i * 53 + 29) * (panel.Height - 186f);
+            float speed = 0.82f + Hash01(i * 71 + 5) * 1.28f;
+            float twinkle = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * speed + i * 1.71f);
+            float size = 3.2f + Hash01(i * 97 + 17) * 5.8f;
+            Color color = Color.Lerp(new Color(102, 145, 255), new Color(225, 207, 255),
+                Hash01(i * 43 + 3));
+            DrawStellarSparkle(spriteBatch, new Vector2(x, y), color * (0.52f + twinkle * 0.30f),
+                color * 0.42f, size, i + 101);
+        }
+    }
+
+    private static void DrawStellarConnection(SpriteBatch spriteBatch, Vector2 start, Vector2 end,
+        FranEvolutionNode destination, FranEvolutionPlayer evolution, int index)
+    {
+        FranEvolutionNodeDefinition definition = FranEvolutionInfo.Get(destination);
+        bool purchased = evolution.HasNode(destination);
+        bool prerequisiteMet = definition.Prerequisite == FranEvolutionNode.None ||
+            evolution.HasNode(definition.Prerequisite);
+        Color branch = FranEvolutionInfo.BranchColor(definition.Branch);
+        Color lineColor = purchased ? Color.Lerp(branch, StellarLit, 0.22f)
+            : prerequisiteMet ? branch * 0.55f
+            : StellarDormant * 0.72f;
+        DrawStellarLine(spriteBatch, start, end, lineColor, purchased ? 3.6f : 2.0f,
+            purchased ? 0.72f : prerequisiteMet ? 0.30f : 0.16f);
+
+        if (!purchased)
+            return;
+        float travel = (Main.GlobalTimeWrappedHourly * 0.17f + index * 0.173f) % 1f;
+        travel = travel * travel * (3f - 2f * travel);
+        DrawStellarSparkle(spriteBatch, Vector2.Lerp(start, end, travel), Color.White,
+            Color.Lerp(branch, StellarLit, 0.48f), 8.5f, 51 + index);
+    }
+
+    private static void DrawStellarCore(SpriteBatch spriteBatch, Vector2 center,
+        FranEvolutionPlayer evolution)
+    {
+        int orbitCount = Math.Min(FranEvolutionInfo.MaximumSpendablePoints, evolution.EarnedPoints);
+        for (int i = 0; i < orbitCount; i++)
+        {
+            float angle = MathHelper.TwoPi * i / Math.Max(1, orbitCount) +
+                Main.GlobalTimeWrappedHourly * (i % 2 == 0 ? 0.13f : -0.10f);
+            Vector2 position = center + angle.ToRotationVector2() * (52f + i % 3 * 5f);
+            Color color = Color.Lerp(new Color(161, 112, 242), StellarLit, (i % 4) / 7f);
+            DrawStellarSparkle(spriteBatch, position, Color.White * 0.72f, color, 7f, 211 + i);
+        }
+
+        Texture2D ring = ModContent.Request<Texture2D>(StellarRingTexture).Value;
+        DrawTexturePixels(spriteBatch, ring, center, new Color(149, 113, 235) * 0.58f,
+            Main.GlobalTimeWrappedHourly * 0.32f, new Vector2(82f));
+        DrawStellarSparkle(spriteBatch, center, Color.White,
+            Color.Lerp(new Color(137, 104, 231), StellarLit, 0.24f), 38f, 7);
+    }
+
+    private static void DrawStellarLabels(Rectangle panel, Vector2[] centers,
+        FranEvolutionPlayer evolution)
+    {
+        for (int i = 0; i < FranEvolutionInfo.Count; i++)
+        {
+            FranEvolutionNode node = (FranEvolutionNode)i;
+            FranEvolutionNodeDefinition definition = FranEvolutionInfo.Get(node);
+            bool purchased = evolution.HasNode(node);
+            bool hovered = hoveredNode == i;
+            Color branch = FranEvolutionInfo.BranchColor(definition.Branch);
+            string label = purchased ? "★" : definition.Cost.ToString();
+            DrawCentered(label,
+                new Rectangle((int)centers[i].X - 18, (int)centers[i].Y + 17, 36, 22),
+                purchased ? Color.Lerp(branch, Color.White, 0.48f) : new Color(211, 219, 241),
+                hovered ? 0.58f : 0.50f);
+        }
+
+        Vector2 core = panel.TopLeft() + new Vector2(0.5f, 0.735f) * panel.Size();
+        DrawLine(core + new Vector2(0f, -24f), core + new Vector2(0f, 23f),
+            new Color(232, 238, 248), 3f);
+        DrawLine(core + new Vector2(-11f, 11f), core + new Vector2(11f, 11f),
+            StellarLit, 2.5f);
+        DrawLine(core + new Vector2(0f, -23f), core + new Vector2(-6f, -14f),
+            new Color(203, 224, 245), 2f);
+        DrawLine(core + new Vector2(0f, -23f), core + new Vector2(6f, -14f),
+            new Color(203, 224, 245), 2f);
+    }
+
+    private static void DrawStellarSparkle(SpriteBatch spriteBatch, Vector2 position, Color color,
+        Color bloomColor, float size, int index)
+    {
+        Texture2D star = ModContent.Request<Texture2D>(StellarSparkleTexture).Value;
+        Texture2D bloom = ModContent.Request<Texture2D>(StellarBloomTexture).Value;
+        float opacity = 0.80f + 0.20f * MathF.Sin(Main.GlobalTimeWrappedHourly * 3.1f + index * 0.83f);
+        float rotation = Main.GlobalTimeWrappedHourly * (0.72f + index % 7 * 0.035f) + index * 0.71f;
+        DrawTexturePixels(spriteBatch, bloom, position, bloomColor * opacity * 0.48f, 0f,
+            new Vector2(size * 3.15f));
+        DrawTexturePixels(spriteBatch, star, position, color * opacity * 0.46f,
+            rotation + MathHelper.PiOver4, new Vector2(size * 0.78f));
+        DrawTexturePixels(spriteBatch, star, position, color * opacity, rotation, new Vector2(size));
+    }
+
+    private static void DrawStellarLine(SpriteBatch spriteBatch, Vector2 start, Vector2 end,
+        Color color, float thickness, float opacity)
+    {
+        Vector2 edge = end - start;
+        if (edge.LengthSquared() <= 0.01f)
+            return;
+        Texture2D line = ModContent.Request<Texture2D>(StellarLineTexture).Value;
+        spriteBatch.Draw(line, start, null, color * opacity, edge.ToRotation(),
+            new Vector2(0f, line.Height * 0.5f),
+            new Vector2(edge.Length() / Math.Max(1f, line.Width), thickness / Math.Max(1f, line.Height)),
+            SpriteEffects.None, 0f);
+
+        Texture2D bloom = ModContent.Request<Texture2D>(StellarBloomTexture).Value;
+        Vector2 capSize = Vector2.One * Math.Max(9f, thickness * 4.5f);
+        DrawTexturePixels(spriteBatch, bloom, start, color * opacity * 0.58f, 0f, capSize);
+        DrawTexturePixels(spriteBatch, bloom, end, color * opacity * 0.58f, 0f, capSize);
+    }
+
+    private static void DrawTexturePixels(SpriteBatch spriteBatch, Texture2D texture, Vector2 position,
+        Color color, float rotation, Vector2 pixelSize)
+    {
+        Vector2 size = texture.Size();
+        Vector2 scale = new(pixelSize.X / Math.Max(1f, size.X), pixelSize.Y / Math.Max(1f, size.Y));
+        spriteBatch.Draw(texture, position, null, color, rotation, size * 0.5f, scale,
+            SpriteEffects.None, 0f);
+    }
+
+    private static float Hash01(int seed)
+    {
+        uint value = (uint)seed;
+        value ^= value << 13;
+        value ^= value >> 17;
+        value ^= value << 5;
+        return (value & 0x00FFFFFF) / 16777215f;
     }
 
     private static void DrawDescription(Rectangle panel, FranEvolutionPlayer evolution)

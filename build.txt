@@ -5,4 +5,4 @@ modReferences = Luminance
 hideCode = false
 hideResources = false
 includeSource = true
-buildIgnore = *.zip*, .git/*, bin/*, obj/*, lib/*, 纹理图总览/flare/*, 纹理图总览/kenney_crosshair-pack/*, 纹理图总览/kenney_light-masks-1.0/*, 纹理图总览/kenney_planets/*, 纹理图总览/KsTexture/*, 纹理图总览/Myown/*, 纹理图总览/SuperTexturePack/*, 纹理图总览/shared/*, 纹理图总览/MeteorRepository1Icons_fixed.png
+buildIgnore = *.zip*, .git/*, bin/*, obj/*, lib/*

@@ -283,6 +283,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 tangent, blade, Color.Lerp(color, Color.White, 0.36f), peakIntensity, Combo == 2 ? 13 : 10));
         }
 
+        EmitArcShedLightParticles(blade, tangent, color);
         EmitStructuredTrailParticles(tip, blade, tangent, color);
         EmitAnalyticArcFragments(tip, blade, tangent, color);
         FranVanillaDustEffects.SwingTrail(Owner.MountedCenter, tip, tangent, ImprintSkill,
@@ -291,6 +292,58 @@ public sealed class TeacherSwingRebuild : ModProjectile
         if ((ImprintSkill == FranSkill.ThunderChain || ImprintSkill == FranSkill.ThorsHammer) && Main.rand.NextBool(2))
             FranParticleSystem.Spawn(new FranBoltParticle(tip, tangent * 2.5f, new Color(165, 125, 255),
                 Main.rand.NextFloat(0.16f, 0.28f), new Vector2(0.5f, 1.4f), Main.rand.Next(9, 15)));
+    }
+
+    private void EmitArcShedLightParticles(Vector2 blade, Vector2 tangent, Color color)
+    {
+        int timer = (int)Projectile.localAI[0];
+        int interval = Combo switch { 2 => 1, 1 => 2, 3 => 2, _ => 2 };
+        if (timer % interval != 0)
+            return;
+
+        int lightCount = Combo == 2 && timer % 2 == 0 ? 2 : 1;
+        int maximumHistoryIndex = Math.Min(Combo == 2 ? 11 : 8, TrailSamples - 2);
+        for (int i = 0; i < lightCount; i++)
+        {
+            int historyIndex = Main.rand.Next(maximumHistoryIndex + 1);
+            Vector2 arcPoint = tipHistory[historyIndex];
+            Vector2 olderPoint = tipHistory[Math.Min(historyIndex + SamplesPerTick, TrailSamples - 1)];
+            Vector2 localTangent = (arcPoint - olderPoint).SafeNormalize(tangent);
+            float alongBlade = Combo == 3
+                ? Main.rand.NextFloat(0.72f, 1f)
+                : Main.rand.NextFloat(0.58f, 0.98f);
+            Vector2 position = Vector2.Lerp(Owner.MountedCenter, arcPoint, alongBlade) +
+                Main.rand.NextVector2Circular(3.5f, 3.5f);
+            Vector2 releaseDirection = Combo == 3
+                ? Vector2.Lerp(localTangent, blade, 0.58f).SafeNormalize(blade)
+                : localTangent;
+            Vector2 velocity = releaseDirection.RotatedByRandom(Combo == 1 ? 0.20f : 0.13f) *
+                Main.rand.NextFloat(Combo == 2 ? 4.6f : 3.2f, Combo == 2 ? 8.4f : 6.5f) +
+                blade * Main.rand.NextFloat(0.35f, 1.35f) + Owner.velocity * 0.12f;
+            Color particleColor = (timer + i) % 4 == 0 ? Color.White :
+                Color.Lerp(color, new Color(255, 220, 132), 0.24f);
+            FranParticleSystem.Spawn(new FranLightParticle(position, velocity,
+                Main.rand.NextFloat(0.34f, Combo == 2 ? 0.72f : 0.60f), particleColor,
+                Main.rand.Next(16, Combo == 2 ? 27 : 24), 0.82f, 1.18f, 2.7f,
+                (timer + i) % 7 == 0 ? 0.0025f : 0f));
+        }
+
+        int orbInterval = Combo == 2 ? 3 : Combo == 1 ? 4 : 5;
+        if (timer % orbInterval != 0)
+            return;
+
+        int orbHistoryIndex = Main.rand.Next(maximumHistoryIndex + 1);
+        Vector2 orbPoint = tipHistory[orbHistoryIndex];
+        Vector2 orbOlderPoint = tipHistory[Math.Min(orbHistoryIndex + SamplesPerTick, TrailSamples - 1)];
+        Vector2 orbTangent = (orbPoint - orbOlderPoint).SafeNormalize(tangent);
+        Vector2 orbPosition = Vector2.Lerp(Owner.MountedCenter, orbPoint,
+            Combo == 3 ? Main.rand.NextFloat(0.78f, 1f) : Main.rand.NextFloat(0.66f, 1f));
+        Vector2 orbVelocity = orbTangent.RotatedByRandom(0.18f) * Main.rand.NextFloat(1.8f, 3.8f) +
+            blade * Main.rand.NextFloat(0.15f, 0.72f) + Owner.velocity * 0.08f;
+        FranParticleSystem.Spawn(new FranGlowOrbParticle(
+            orbPosition + Main.rand.NextVector2Circular(3f, 3f), orbVelocity,
+            Color.Lerp(color, Color.White, 0.20f), Main.rand.NextFloat(0.16f, 0.27f),
+            0.025f, Main.rand.Next(13, 20), true));
     }
 
     private void EmitQuickdrawAirbursts(Vector2 tip, Vector2 blade, Vector2 tangent)

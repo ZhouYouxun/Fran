@@ -5,14 +5,20 @@ using Terraria;
 
 namespace FranMod.Particles;
 
+/// <summary>
+/// “辉光球”：Fran自己的双层辉光粒子。运动节奏参考常见的高速收束光球，
+/// 使用Fran独立贴图，不依赖或再分发其他模组的视觉资产。
+/// </summary>
 internal sealed class FranGlowOrbParticle : FranParticle
 {
     private readonly float startScale;
     private readonly float endScale;
     private readonly bool whiteCore;
+    private readonly bool affectedByGravity;
 
     public FranGlowOrbParticle(Vector2 position, Vector2 velocity, Color color, float startScale, float endScale,
-        int lifetime, bool whiteCore = true, FranParticleLayer layer = FranParticleLayer.AfterProjectiles)
+        int lifetime, bool whiteCore = true, FranParticleLayer layer = FranParticleLayer.AfterProjectiles,
+        bool affectedByGravity = false)
     {
         Position = position;
         Velocity = velocity;
@@ -21,19 +27,95 @@ internal sealed class FranGlowOrbParticle : FranParticle
         this.endScale = endScale;
         Lifetime = lifetime;
         this.whiteCore = whiteCore;
+        this.affectedByGravity = affectedByGravity;
         Layer = layer;
     }
 
-    protected override void Update() => Velocity *= 0.94f;
+    protected override void Update()
+    {
+        Velocity *= 0.95f;
+        if (affectedByGravity && Velocity.LengthSquared() < 144f)
+        {
+            Velocity.X *= 0.94f;
+            Velocity.Y += 0.25f;
+        }
+        Rotation = Velocity.ToRotation() + MathHelper.PiOver2;
+    }
 
     public override void Draw(SpriteBatch spriteBatch)
     {
-        float fade = MathF.Sin(Completion * MathHelper.Pi);
+        float fade = MathF.Pow(1f - Completion, 0.72f) *
+            MathHelper.Clamp(Completion * 8f, 0f, 1f);
         float size = MathHelper.Lerp(startScale, endScale, 1f - MathF.Pow(1f - Completion, 3f));
-        FranParticleAssets.Draw(spriteBatch, "GlowOrbParticle", Position, Color * (0.72f * fade), 0f, Vector2.One * size);
-        FranParticleAssets.Draw(spriteBatch, "BloomCircle", Position, Color * (0.44f * fade), 0f, Vector2.One * size * 0.72f);
+        Vector2 motionStretch = new(0.88f, 1f + MathHelper.Clamp(Velocity.Length() * 0.025f, 0f, 0.55f));
+        FranParticleAssets.Draw(spriteBatch, "GlowOrbParticle", Position, Color * (0.78f * fade), Rotation,
+            motionStretch * size);
+        FranParticleAssets.Draw(spriteBatch, "BloomCircle", Position, Color * (0.38f * fade), Rotation,
+            motionStretch * size * 0.72f);
         if (whiteCore)
-            FranParticleAssets.Draw(spriteBatch, "BloomCircle", Position, Color.White * (0.58f * fade), 0f, Vector2.One * size * 0.18f);
+            FranParticleAssets.Draw(spriteBatch, "BloomCircle", Position, Color.White * (0.64f * fade), Rotation,
+                motionStretch * size * 0.18f);
+    }
+}
+
+/// <summary>
+/// Fran“光粒子”：一颗沿速度方向被压扁/拉长的三层发光粒子。
+/// 用于挥剑释放与爆炸散射，与Dust、辉光球和神秘文字组成不同尺度的视觉层。
+/// </summary>
+internal sealed class FranLightParticle : FranParticle
+{
+    private readonly float opacity;
+    private readonly float squishStrength;
+    private readonly float maxSquish;
+    private readonly float hueShift;
+
+    public FranLightParticle(Vector2 position, Vector2 velocity, float scale, Color color, int lifetime,
+        float opacity = 1f, float squishStrength = 1f, float maxSquish = 3f, float hueShift = 0f,
+        FranParticleLayer layer = FranParticleLayer.AfterProjectiles)
+    {
+        Position = position;
+        Velocity = velocity;
+        Scale = scale;
+        Color = color;
+        Lifetime = lifetime;
+        this.opacity = opacity;
+        this.squishStrength = squishStrength;
+        this.maxSquish = Math.Max(1f, maxSquish);
+        this.hueShift = hueShift;
+        Layer = layer;
+    }
+
+    protected override void Update()
+    {
+        Velocity *= Completion >= 0.34f ? 0.93f : 1.02f;
+        Scale *= 0.95f;
+        Rotation = Velocity.ToRotation() + MathHelper.PiOver2;
+        if (hueShift != 0f)
+        {
+            Vector3 hsl = Main.rgbToHsl(Color);
+            hsl.X = (hsl.X + hueShift) % 1f;
+            if (hsl.X < 0f)
+                hsl.X += 1f;
+            Color = Main.hslToRgb(hsl);
+        }
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        float fade = Completion > 0.5f
+            ? MathF.Sin(Completion * MathHelper.Pi) * 0.2f + 0.8f
+            : MathF.Sin(Completion * MathHelper.Pi);
+        fade *= opacity;
+        float squish = MathHelper.Clamp(Velocity.Length() / 10f * squishStrength, 1f, maxSquish);
+        float widthFactor = Math.Max(0.12f, 1f - squish * 0.30f);
+        Vector2 bodySize = new(34f * Scale * widthFactor, 34f * Scale * squish);
+
+        FranParticleAssets.DrawPixels(spriteBatch, "BloomCircle", Position, Color * (fade * 0.52f), Rotation,
+            bodySize * 1.8f);
+        FranParticleAssets.DrawPixels(spriteBatch, "GlowSpark", Position, Color * (fade * 0.82f), Rotation,
+            bodySize * new Vector2(0.72f, 1.16f));
+        FranParticleAssets.DrawPixels(spriteBatch, "GlowSpark", Position, Color.White * (fade * 0.92f), Rotation,
+            bodySize * new Vector2(0.28f, 0.94f));
     }
 }
 

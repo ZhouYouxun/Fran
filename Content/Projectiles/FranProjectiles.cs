@@ -16,7 +16,7 @@ namespace FranMod.Content.Projectiles;
 
 internal static class FranVfx
 {
-    private const string SharedRoot = "Fran/Particles/Textures/";
+    private const string SharedRoot = "Fran/Textures/Particles/";
     private const string OriginalRoot = "Fran/Assets/OriginalVFX/";
     private const float MaximumDrawSegment = 1200f;
     private const float MaximumSpriteScale = 96f;
@@ -413,8 +413,10 @@ public sealed class FloatingTeacherVisual : ModProjectile
     public override void AI()
     {
         Player owner = Main.player[Projectile.owner];
-        if (!owner.active || owner.dead || !owner.GetModPlayer<FranPlayer>().HasTeacher ||
-            owner.HeldItem.type == ModContent.ItemType<Content.Items.Teacher>())
+        FranPlayer fran = owner.GetModPlayer<FranPlayer>();
+        if (!owner.active || owner.dead || !fran.HasTeacher || fran.TelekineticFlightVisualActive ||
+            owner.HeldItem.type == ModContent.ItemType<Content.Items.Teacher>() ||
+            owner.HeldItem.type == ModContent.ItemType<Content.Items.TeacherExcavationTool>())
         {
             Projectile.Kill();
             return;
@@ -2119,15 +2121,23 @@ public sealed class ShipCutterProjectile : ModProjectile
 
 public sealed class ThorsHammerMarker : ModProjectile
 {
+    private int TargetIndex => (int)Projectile.ai[0];
+
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
     public override void SetDefaults()
     {
         Projectile.width = 120; Projectile.height = 120; Projectile.timeLeft = 75;
         Projectile.tileCollide = false; Projectile.penetrate = -1;
+        Projectile.netImportant = true;
     }
     public override bool? CanDamage() => false;
+    public override bool ShouldUpdatePosition() => false;
     public override void AI()
     {
+        NPC trackedTarget = GetTrackedTarget();
+        if (trackedTarget is not null)
+            Projectile.Center = trackedTarget.Center;
+
         float age = 75f - Projectile.timeLeft;
         float focus = FranMotion.EaseInCubic(FranMotion.Segment(age, 10f, 49f));
         Lighting.AddLight(Projectile.Center, 0.12f, 0.22f, 0.65f);
@@ -2145,14 +2155,18 @@ public sealed class ThorsHammerMarker : ModProjectile
                 35, default, 0.9f + focus * 0.4f);
             dust.noGravity = true;
         }
-        if (Projectile.timeLeft == 25 && Main.myPlayer == Projectile.owner)
+        if (Projectile.timeLeft == 25)
         {
-            Vector2 spawn = Projectile.Center + new Vector2(Main.rand.NextFloat(-130f, 130f), -720f);
-            Vector2 velocity = (Projectile.Center - spawn).SafeNormalize(Vector2.UnitY) * 12f;
-            Projectile.NewProjectile(Projectile.GetSource_FromThis(), spawn, velocity,
-                ModContent.ProjectileType<FranThorsHammerDrop>(), Projectile.damage, Projectile.knockBack,
-                Projectile.owner, Projectile.Center.X, Projectile.Center.Y);
-            Projectile.netUpdate = true;
+            if (Main.myPlayer == Projectile.owner)
+            {
+                Vector2 spawn = Projectile.Center + new Vector2(Main.rand.NextFloat(-130f, 130f), -720f);
+                Vector2 velocity = (Projectile.Center - spawn).SafeNormalize(Vector2.UnitY) * 24f;
+                Projectile.NewProjectile(Projectile.GetSource_FromThis(), spawn, velocity,
+                    ModContent.ProjectileType<FranThorsHammerDrop>(), Projectile.damage, Projectile.knockBack,
+                    Projectile.owner, Projectile.Center.X, Projectile.Center.Y, TargetIndex);
+            }
+            Projectile.Kill();
+            return;
         }
     }
     public override bool PreDraw(ref Color lightColor)
@@ -2161,7 +2175,7 @@ public sealed class ThorsHammerMarker : ModProjectile
         float introduction = FranMotion.EaseOutBack(FranMotion.Segment(age, 0f, 12f));
         float focus = FranMotion.EaseInCubic(FranMotion.Segment(age, 10f, 50f));
         float preflash = FranMotion.Smooth(FranMotion.Segment(age, 44f, 50f));
-        float opacity = introduction * (1f - FranMotion.Smooth(FranMotion.Segment(age, 52f, 64f)));
+        float opacity = introduction * (1f - FranMotion.Smooth(FranMotion.Segment(age, 44f, 50f)));
         float outerRadius = MathHelper.Lerp(108f, 55f, focus);
         Color telegraphColor = Color.Lerp(new Color(65, 95, 225), Color.White, preflash * 0.72f);
         FranVfx.BeginAdditive();
@@ -2184,6 +2198,14 @@ public sealed class ThorsHammerMarker : ModProjectile
         }
         FranVfx.EndAdditive();
         return false;
+    }
+
+    private NPC GetTrackedTarget()
+    {
+        if (!Main.npc.IndexInRange(TargetIndex))
+            return null;
+        NPC target = Main.npc[TargetIndex];
+        return target.active && !target.friendly && target.life > 0 ? target : null;
     }
 }
 
@@ -2221,7 +2243,7 @@ public sealed class ThorsHammerBolt : ModProjectile
                         Projectile.Center + direction * Main.rand.NextFloat(8f, 54f),
                         direction * Main.rand.NextFloat(2.2f, 8.5f) - Vector2.UnitY * Main.rand.NextFloat(1f, 5f),
                         new Color(30, 42, 72), Main.rand.NextFloat(0.65f, 1.25f), Main.rand.Next(28, 45),
-                        Main.rand.NextFloat(0.38f, 0.68f), i % 4 == 0));
+                        Main.rand.NextFloat(0.38f, 0.68f), glowing: true));
                 }
                 for (int i = 0; i < 24; i++)
                 {
@@ -2251,10 +2273,12 @@ public sealed class ThorsHammerBolt : ModProjectile
         float opacity = FranMotion.Smooth(FranMotion.Segment(age, 0f, 2f)) *
             (1f - FranMotion.Smooth(FranMotion.Segment(age, 6f, 16f)));
         float coreFlash = 1f - FranMotion.Smooth(FranMotion.Segment(age, 1f, 7f));
-        FranVfx.DrawShared("Cal_CircularSmearSmokey", Projectile.Center,
-            new Color(18, 26, 58, 210) * opacity, Main.GlobalTimeWrappedHourly * 1.7f,
-            0.96f + coreFlash * 0.34f);
         FranVfx.BeginAdditive();
+        // This greyscale emission mask belongs in the glow pass. AlphaBlend exposes its dark RGB
+        // bed as a rotating square during the hammer detonation.
+        FranVfx.DrawShared("Cal_CircularSmearSmokey", Projectile.Center,
+            new Color(72, 98, 205) * (0.48f * opacity), Main.GlobalTimeWrappedHourly * 1.7f,
+            0.96f + coreFlash * 0.34f);
         Color azure = Color.Lerp(new Color(65, 105, 255), new Color(120, 245, 255), coreFlash * 0.6f);
         FranVfx.DrawCappedLaser(start, end, new Color(45, 60, 205), azure,
             18f + coreFlash * 14f, opacity);
@@ -2441,18 +2465,18 @@ public sealed class FranBurst : ModProjectile
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
     public static int Spawn(IEntitySource source, Vector2 center, int owner, FranBurstStyle style, float scale,
-        int damage = 0, float knockback = 0f)
+        int damage = 0, float knockback = 0f, float? rotation = null)
     {
         return Projectile.NewProjectile(source, center, Vector2.Zero, ModContent.ProjectileType<FranBurst>(),
-            damage, knockback, owner, (float)style, scale, Main.rand.NextFloat(MathHelper.TwoPi));
+            damage, knockback, owner, (float)style, scale, rotation ?? Main.rand.NextFloat(MathHelper.TwoPi));
     }
 
     public static int SpawnForOwner(IEntitySource source, Vector2 center, int owner, FranBurstStyle style, float scale,
-        int damage = 0, float knockback = 0f)
+        int damage = 0, float knockback = 0f, float? rotation = null)
     {
         if (Main.netMode == NetmodeID.Server || Main.myPlayer != owner)
             return -1;
-        return Spawn(source, center, owner, style, scale, damage, knockback);
+        return Spawn(source, center, owner, style, scale, damage, knockback, rotation);
     }
 
     public override void SetDefaults()
@@ -2679,17 +2703,31 @@ public sealed class FranBurst : ModProjectile
 
 public sealed class FranDashTrail : ModProjectile
 {
+    private const int HistoryLength = 10;
+    private const int FadeDuration = 11;
+    private readonly Vector2[] centerHistory = new Vector2[HistoryLength];
+    private int historyCount;
+    private int visualAge;
+    private int fadeAge;
+    private bool initialized;
+    private bool ending;
+    private Vector2 dashOrigin;
+    private Vector2 dashEnd;
+    private Vector2 dashDirection;
+
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
     public override void SetDefaults()
     {
         Projectile.width = 2;
         Projectile.height = 2;
-        Projectile.timeLeft = 20;
+        Projectile.timeLeft = DashDurationWithFade;
         Projectile.tileCollide = false;
         Projectile.ignoreWater = true;
         Projectile.penetrate = -1;
     }
+
+    private int DashDurationWithFade => FranPlayer.DashDuration + FadeDuration + 2;
 
     public override bool? CanDamage() => false;
     public override bool ShouldUpdatePosition() => false;
@@ -2697,43 +2735,163 @@ public sealed class FranDashTrail : ModProjectile
     public override void AI()
     {
         Player owner = Main.player[Projectile.owner];
-        if (!owner.active || owner.dead || owner.GetModPlayer<FranPlayer>().DashTimer <= 0)
+        if (!owner.active || owner.dead)
         {
             Projectile.Kill();
             return;
         }
-        if (Projectile.localAI[0]++ == 0f)
-            Projectile.timeLeft = Math.Max(2, (int)Projectile.ai[0]);
-        Projectile.Center = owner.Center;
-        Lighting.AddLight(owner.Center, 0.12f, 0.34f, 0.52f);
-        if (!Main.dedServ)
+
+        if (!initialized)
         {
-            FranParticleEffects.DashSmoke(owner.Center, owner.velocity);
-            FranParticleEffects.DashSmoke(owner.Center - owner.velocity.SafeNormalize(Vector2.UnitX) * 18f,
-                owner.velocity);
+            initialized = true;
+            dashOrigin = Projectile.Center;
+            dashEnd = owner.Center;
+            dashDirection = Projectile.velocity.SafeNormalize(Vector2.UnitX * owner.direction);
+            Projectile.timeLeft = DashDurationWithFade;
+            for (int i = 0; i < centerHistory.Length; i++)
+                centerHistory[i] = dashOrigin;
+            historyCount = 1;
+            if (!Main.dedServ)
+                FranParticleEffects.DashLaunch(dashOrigin, dashDirection * 16f);
         }
+
+        FranPlayer fran = owner.GetModPlayer<FranPlayer>();
+        if (!ending && fran.DashTimer > 0)
+        {
+            visualAge++;
+            Vector2 motion = owner.velocity.LengthSquared() > 1f ? owner.velocity : Projectile.velocity;
+            dashDirection = Vector2.Lerp(dashDirection, motion.SafeNormalize(dashDirection), 0.42f)
+                .SafeNormalize(dashDirection);
+            dashEnd = owner.Center;
+            PushHistory(dashEnd);
+            Projectile.Center = dashEnd;
+            Lighting.AddLight(owner.Center, 0.14f, 0.06f, 0.23f);
+            if (!Main.dedServ)
+                FranParticleEffects.DashWake(owner.Center, motion, visualAge);
+            return;
+        }
+
+        if (!ending)
+        {
+            ending = true;
+            fadeAge = 0;
+            Projectile.timeLeft = Math.Min(Projectile.timeLeft, FadeDuration + 1);
+            if (!Main.dedServ)
+                FranParticleEffects.DashBrake(dashEnd, dashDirection * 16f);
+        }
+
+        fadeAge++;
+        Projectile.Center = dashEnd;
+        Lighting.AddLight(dashEnd, 0.08f, 0.03f, 0.13f);
+    }
+
+    private void PushHistory(Vector2 center)
+    {
+        if (!float.IsFinite(center.X) || !float.IsFinite(center.Y))
+            return;
+        for (int i = centerHistory.Length - 1; i > 0; i--)
+            centerHistory[i] = centerHistory[i - 1];
+        centerHistory[0] = center;
+        historyCount = Math.Min(historyCount + 1, centerHistory.Length);
     }
 
     public override bool PreDraw(ref Color lightColor)
     {
-        Player owner = Main.player[Projectile.owner];
-        Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitX * owner.direction);
-        float opacity = MathHelper.Clamp(Projectile.timeLeft / Math.Max(1f, Projectile.ai[0]), 0f, 1f);
-        Vector2 start = owner.Center - direction * 115f;
-        Vector2 end = owner.Center + direction * 24f;
-        FranVfx.DrawShared("Cal_CircularSmearSmokey", owner.Center - direction * 16f,
-            new Color(5, 3, 10, 205) * opacity, direction.ToRotation(),
-            new Vector2(0.52f, 0.34f));
-        for (int i = 1; i <= 4; i++)
-            FranVfx.DrawShared("Smoke", owner.Center - direction * (i * 22f),
-                new Color(16, 7, 25, 150) * (opacity * (1f - i * 0.14f)),
-                direction.ToRotation() + i * 0.31f, 0.16f + i * 0.025f);
+        if (!initialized || historyCount < 1)
+            return false;
+
+        float fade = ending ? MathHelper.Clamp(1f - fadeAge / (float)FadeDuration, 0f, 1f) : 1f;
+        float appear = MathHelper.Clamp(visualAge / 2f, 0f, 1f);
+        float opacity = fade * appear;
+        float rotation = dashDirection.ToRotation();
+        float launchOpacity = ending ? 0f : MathHelper.Clamp(1f - visualAge / 9f, 0f, 1f);
+
+        // AlphaBlend establishes a stable black body before any emission is added. This keeps the
+        // Black Cat silhouette readable on bright backgrounds instead of turning transparent.
+        for (int i = historyCount - 1; i >= 1; i--)
+        {
+            float ageFade = 1f - i / (float)(historyCount + 1);
+            FranVfx.DrawVertical("TraceSoft", centerHistory[i], centerHistory[i - 1],
+                new Color(5, 2, 10, 225) * (opacity * ageFade), 42f * ageFade + 8f);
+        }
+        for (int i = 1; i < historyCount; i += 2)
+        {
+            float ageFade = 1f - i / (float)(historyCount + 1);
+            FranVfx.DrawShared("Smoke", centerHistory[i], new Color(18, 6, 29, 165) * (opacity * ageFade),
+                rotation + i * 0.27f, 0.13f + ageFade * 0.10f);
+        }
+        if (launchOpacity > 0f)
+            FranVfx.DrawShared("Cal_CircularSmearSmokey", dashOrigin - dashDirection * 8f,
+                new Color(6, 2, 12, 230) * launchOpacity, rotation,
+                new Vector2(0.58f, 0.30f) * (0.72f + visualAge * 0.045f));
+
         FranVfx.BeginAdditive();
-        FranVfx.DrawVertical("TraceSoft", start, end, new Color(80, 35, 125) * (0.58f * opacity), 48f);
-        FranVfx.DrawVertical("TraceLong", start + direction * 18f, end,
-            new Color(180, 125, 225) * (0.34f * opacity), 12f);
-        FranVfx.DrawShared("SlashNarrow", owner.Center - direction * 22f,
-            new Color(105, 55, 155) * (0.34f * opacity), direction.ToRotation() + MathHelper.PiOver2, 0.22f);
+        Vector2 normal = dashDirection.RotatedBy(MathHelper.PiOver2);
+        for (int i = historyCount - 1; i >= 1; i--)
+        {
+            float ageFade = 1f - i / (float)(historyCount + 1);
+            Vector2 start = centerHistory[i];
+            Vector2 end = centerHistory[i - 1];
+            Color body = Color.Lerp(new Color(68, 25, 108), new Color(187, 128, 231), ageFade);
+            FranVfx.DrawVertical("TraceSoft", start, end, body * (opacity * ageFade * 0.62f),
+                28f * ageFade + 3f);
+            FranVfx.DrawVertical("TraceLong", start, end, new Color(218, 184, 255) * (opacity * ageFade * 0.54f),
+                7f * ageFade + 1.2f);
+            FranVfx.DrawVertical("Cal_ThinEndedLine", start, end, Color.White * (opacity * ageFade * 0.72f),
+                2.3f * ageFade + 0.6f);
+
+            if (i % 2 == 0)
+            {
+                float railOffset = 9f + ageFade * 8f;
+                FranVfx.DrawVertical("Cal_ThinEndedLine", start + normal * railOffset,
+                    end + normal * railOffset, new Color(133, 74, 195) * (opacity * ageFade * 0.34f),
+                    2.2f + ageFade * 1.6f);
+                FranVfx.DrawVertical("Cal_ThinEndedLine", start - normal * railOffset,
+                    end - normal * railOffset, new Color(206, 157, 250) * (opacity * ageFade * 0.25f),
+                    1.6f + ageFade * 1.2f);
+            }
+        }
+
+        for (int i = 1; i < historyCount; i += 3)
+        {
+            float ageFade = 1f - i / (float)(historyCount + 1);
+            FranVfx.DrawOriginalPixels("FranSmearForward", centerHistory[i],
+                new Color(132, 70, 194) * (opacity * ageFade * 0.30f), rotation,
+                new Vector2(76f + ageFade * 42f, 18f + ageFade * 12f));
+        }
+
+        Vector2 head = ending ? dashEnd : centerHistory[0];
+        FranVfx.DrawBloom(head, new Color(112, 55, 171), 28f, opacity * 0.52f);
+        FranVfx.DrawOriginalPixels("FranFlashFourPoint", head + dashDirection * 7f,
+            Color.White * (opacity * 0.74f), rotation, new Vector2(74f, 21f));
+        FranVfx.DrawOriginalPixels("FranPressureNeedle", head + dashDirection * 13f,
+            new Color(222, 192, 255) * (opacity * 0.72f), rotation, new Vector2(82f, 11f));
+
+        if (launchOpacity > 0f)
+        {
+            float launchProgress = MathHelper.Clamp(visualAge / 9f, 0f, 1f);
+            FranVfx.DrawRing(dashOrigin, new Color(117, 55, 178), 22f + launchProgress * 45f,
+                launchOpacity * 0.62f, rotation, "Cal_BloomRing");
+            FranVfx.DrawOriginalPixels("FranImpactBurst", dashOrigin - dashDirection * 5f,
+                new Color(194, 140, 238) * (launchOpacity * 0.54f), rotation,
+                new Vector2(116f + launchProgress * 42f, 58f));
+            for (int side = -1; side <= 1; side += 2)
+                FranVfx.DrawOriginalPixels("FranSmearForward", dashOrigin - dashDirection * 9f + normal * side * 13f,
+                    new Color(218, 178, 255) * (launchOpacity * 0.38f),
+                    rotation + side * 0.23f, new Vector2(106f, 18f));
+        }
+
+        if (ending)
+        {
+            float brakeProgress = MathHelper.Clamp(fadeAge / (float)FadeDuration, 0f, 1f);
+            float brakeOpacity = MathF.Sin(brakeProgress * MathHelper.Pi);
+            FranVfx.DrawRing(dashEnd, new Color(106, 47, 165), 18f + brakeProgress * 54f,
+                brakeOpacity * 0.66f, -rotation, "Cal_HighResHollowCircle");
+            FranVfx.DrawOriginalPixels("FranImpactBurst", dashEnd, new Color(169, 105, 220) * (brakeOpacity * 0.52f),
+                rotation, new Vector2(104f + brakeProgress * 54f, 52f));
+            FranVfx.DrawOriginalPixels("FranFlashFourPoint", dashEnd, Color.White * (brakeOpacity * 0.78f),
+                rotation, new Vector2(92f, 28f));
+        }
         FranVfx.EndAdditive();
         return false;
     }

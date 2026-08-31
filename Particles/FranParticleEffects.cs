@@ -1,4 +1,5 @@
 using System;
+using FranMod.Core;
 using FranMod.Particles;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -237,15 +238,106 @@ internal static class FranParticleEffects
         }
     }
 
-    public static void DashSmoke(Vector2 center, Vector2 velocity)
+    public static void DashLaunch(Vector2 center, Vector2 velocity)
     {
-        Vector2 back = -velocity.SafeNormalize(Vector2.UnitX);
-        Spawn(new FranHeavySmokeParticle(center + Main.rand.NextVector2Circular(10f, 10f),
-            back.RotatedByRandom(0.45f) * Main.rand.NextFloat(1.2f, 3.8f), new Color(18, 8, 30),
-            Main.rand.NextFloat(0.28f, 0.48f), Main.rand.Next(20, 34), 0.86f));
-        if (Main.rand.NextBool(2))
-            Spawn(new FranBoltParticle(center, back * Main.rand.NextFloat(1.5f, 3.2f), new Color(105, 48, 160),
-                Main.rand.NextFloat(0.12f, 0.2f), new Vector2(0.45f, 1.25f), Main.rand.Next(8, 13)));
+        if (Main.dedServ)
+            return;
+
+        Vector2 direction = velocity.SafeNormalize(Vector2.UnitX);
+        Vector2 back = -direction;
+        Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
+        Color shadow = new(24, 8, 42);
+        Color violet = new(122, 62, 184);
+        Color edge = new(214, 176, 255);
+
+        Spawn(new FranDirectionalRingParticle(center - direction * 8f, back * 0.35f, violet,
+            new Vector2(0.08f, 0.20f), new Vector2(1.12f, 0.46f), direction.ToRotation(), 14));
+        Spawn(new FranDirectionalRingParticle(center - direction * 14f, back * 0.22f, edge,
+            new Vector2(0.05f, 0.12f), new Vector2(0.76f, 0.26f), direction.ToRotation(), 11));
+        Spawn(new FranBloomParticle(center, back * 0.18f, violet, 58f, 9f, 12, 0.82f, hardCenter: true));
+
+        for (int i = 0; i < 8; i++)
+        {
+            float side = Main.rand.NextFloat(-22f, 22f);
+            Vector2 position = center + normal * side + direction * Main.rand.NextFloat(-8f, 12f);
+            Vector2 particleVelocity = back.RotatedByRandom(0.34f) * Main.rand.NextFloat(4.5f, 10.5f) +
+                normal * MathF.Sign(side == 0f ? Main.rand.NextFloat(-1f, 1f) : side) * Main.rand.NextFloat(0.3f, 1.6f);
+            Spawn(new FranNeedleParticle(position, particleVelocity, i % 3 == 0 ? Color.White : edge,
+                new Vector2(Main.rand.NextFloat(36f, 60f), Main.rand.NextFloat(5f, 9f)),
+                new Vector2(10f, 2f), Main.rand.Next(10, 17), particleVelocity.ToRotation()));
+        }
+
+        for (int i = 0; i < 3; i++)
+            Spawn(new FranHeavySmokeParticle(center - direction * Main.rand.NextFloat(4f, 18f) +
+                normal * Main.rand.NextFloat(-16f, 16f), back.RotatedByRandom(0.5f) * Main.rand.NextFloat(1.4f, 3.8f),
+                shadow, Main.rand.NextFloat(0.32f, 0.52f), Main.rand.Next(22, 34), 0.90f));
+
+        FranVanillaDustEffects.SkillRelease(center, back, FranSkill.None, edge, 14, 0.92f);
+    }
+
+    public static void DashWake(Vector2 center, Vector2 velocity, int tick)
+    {
+        if (Main.dedServ || velocity.LengthSquared() < 1f)
+            return;
+
+        Vector2 direction = velocity.SafeNormalize(Vector2.UnitX);
+        Vector2 back = -direction;
+        Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
+        float side = tick % 2 == 0 ? 1f : -1f;
+        Color violet = tick % 3 == 0 ? new Color(188, 136, 238) : new Color(112, 55, 172);
+
+        Spawn(new FranLineParticle(center - direction * Main.rand.NextFloat(10f, 28f) +
+            normal * side * Main.rand.NextFloat(9f, 18f), back * Main.rand.NextFloat(2.8f, 5.6f), violet,
+            Main.rand.NextFloat(34f, 68f), Main.rand.NextFloat(1.5f, 2.8f), Main.rand.Next(9, 15), 0.91f));
+
+        if (tick % 2 == 0)
+        {
+            Spawn(new FranNeedleParticle(center - direction * Main.rand.NextFloat(18f, 42f) -
+                normal * side * Main.rand.NextFloat(4f, 15f), back * Main.rand.NextFloat(3f, 7f),
+                tick % 4 == 0 ? Color.White : new Color(205, 164, 255),
+                new Vector2(Main.rand.NextFloat(34f, 58f), Main.rand.NextFloat(4f, 7f)), new Vector2(8f, 1.5f),
+                Main.rand.Next(8, 14), back.ToRotation()));
+            Spawn(new FranHeavySmokeParticle(center - direction * Main.rand.NextFloat(18f, 36f) +
+                Main.rand.NextVector2Circular(8f, 8f), back.RotatedByRandom(0.40f) * Main.rand.NextFloat(1.2f, 3.4f),
+                new Color(18, 7, 29), Main.rand.NextFloat(0.24f, 0.40f), Main.rand.Next(18, 28), 0.76f));
+        }
+
+        // Together with the authored wake particles this keeps vanilla Dust close to the project's
+        // intended one-fifth support layer without allowing it to replace the readable dash silhouette.
+        FranVanillaDustEffects.ProjectileTrail(center - direction * 8f, velocity, FranSkill.None,
+            new Color(174, 112, 228), 0.44f, 0.88f);
+    }
+
+    public static void DashBrake(Vector2 center, Vector2 velocity)
+    {
+        if (Main.dedServ)
+            return;
+
+        Vector2 direction = velocity.SafeNormalize(Vector2.UnitX);
+        Vector2 back = -direction;
+        Color violet = new(112, 53, 174);
+        Color edge = new(218, 182, 255);
+
+        Spawn(new FranDirectionalRingParticle(center, back * 0.25f, violet,
+            new Vector2(0.10f, 0.22f), new Vector2(0.92f, 0.40f), direction.ToRotation(), 15));
+        Spawn(new FranDirectionalRingParticle(center, Vector2.Zero, edge,
+            new Vector2(0.06f, 0.14f), new Vector2(0.62f, 0.28f), direction.ToRotation(), 11));
+        Spawn(new FranBloomParticle(center, Vector2.Zero, violet, 42f, 8f, 13, 0.72f, hardCenter: true));
+
+        for (int i = 0; i < 9; i++)
+        {
+            Vector2 ray = direction.RotatedBy(Main.rand.NextFloat(-1.12f, 1.12f));
+            Spawn(new FranLineParticle(center + ray * Main.rand.NextFloat(2f, 12f), ray * Main.rand.NextFloat(2.5f, 7f),
+                i % 4 == 0 ? Color.White : edge, Main.rand.NextFloat(24f, 52f), Main.rand.NextFloat(1.2f, 2.8f),
+                Main.rand.Next(9, 16)));
+        }
+
+        for (int i = 0; i < 3; i++)
+            Spawn(new FranHeavySmokeParticle(center - direction * Main.rand.NextFloat(4f, 22f) +
+                Main.rand.NextVector2Circular(9f, 9f), back.RotatedByRandom(0.65f) * Main.rand.NextFloat(0.8f, 2.8f),
+                new Color(22, 8, 35), Main.rand.NextFloat(0.26f, 0.44f), Main.rand.Next(20, 32), 0.80f));
+
+        FranVanillaDustEffects.Impact(center, direction, FranSkill.None, edge, 15, 0.9f);
     }
 
     public static void PotentialAura(Vector2 center, Color color)

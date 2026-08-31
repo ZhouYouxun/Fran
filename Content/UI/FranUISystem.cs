@@ -108,7 +108,7 @@ public sealed class FranUISystem : ModSystem
         if (!fran.FranMode && !holdingTeacher)
             return true;
 
-        if (fran.FranMode && ModContent.GetInstance<FranClientConfig>().ShowUltimateGauge)
+        if (fran.FranMode && !ModContent.GetInstance<FranClientConfig>().HideUltimateGauge)
             DrawUltimateGauge(fran);
         DrawMatrix(fran);
         if (wheelOpen)
@@ -118,7 +118,8 @@ public sealed class FranUISystem : ModSystem
 
     private static void UpdateUltimateGaugeDrag(Player player, FranPlayer fran)
     {
-        if (!fran.FranMode || !ModContent.GetInstance<FranClientConfig>().ShowUltimateGauge ||
+        FranClientConfig config = ModContent.GetInstance<FranClientConfig>();
+        if (!fran.FranMode || config.HideUltimateGauge || !config.AllowUltimateGaugeDragging ||
             Main.playerInventory)
         {
             draggingUltimateGauge = false;

@@ -998,6 +998,7 @@ public sealed class FranThorsHammerDrop : ModProjectile
 {
     private bool Impacted => Projectile.localAI[1] > 0f;
     private float Age => Projectile.localAI[0];
+    private int TargetIndex => (int)Projectile.ai[2];
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.PaladinsHammerFriendly}";
 
@@ -1018,6 +1019,7 @@ public sealed class FranThorsHammerDrop : ModProjectile
         Projectile.timeLeft = 90;
         Projectile.tileCollide = false;
         Projectile.ignoreWater = true;
+        Projectile.netImportant = true;
         Projectile.usesLocalNPCImmunity = true;
         Projectile.localNPCHitCooldown = -1;
     }
@@ -1028,31 +1030,44 @@ public sealed class FranThorsHammerDrop : ModProjectile
     {
         float age = Projectile.localAI[0]++;
         Vector2 anchor = new(Projectile.ai[0], Projectile.ai[1]);
-        NPC trackedTarget = FindImpactTarget(anchor, 290f);
-        Vector2 target = trackedTarget?.Center + trackedTarget.velocity * 1.8f ?? anchor;
+        NPC trackedTarget = GetTrackedTarget();
+        Vector2 target = trackedTarget?.Center + trackedTarget.velocity * 1.2f ?? anchor;
         Vector2 fallback = Projectile.velocity.SafeNormalize(Vector2.UnitY);
-        float speed = MathHelper.Lerp(15f, 34f, FranMotion.Smooth(FranMotion.Segment(age, 0f, 24f)));
+        float speed = MathHelper.Lerp(30f, 68f, FranMotion.Smooth(FranMotion.Segment(age, 0f, 24f)));
         float corkscrew = MathF.Sin(age * 0.25f + Projectile.identity * 0.61f) *
             MathHelper.Lerp(0.13f, 0.018f, FranMotion.Smooth(FranMotion.Segment(age, 0f, 34f)));
         Vector2 desired = (target - Projectile.Center).SafeNormalize(fallback).RotatedBy(corkscrew) * speed;
         Projectile.velocity = Vector2.Lerp(Projectile.velocity, desired, 0.14f);
         Projectile.rotation += 0.42f * Math.Sign(Projectile.velocity.X == 0f ? 1f : Projectile.velocity.X);
-        Lighting.AddLight(Projectile.Center, 0.24f, 0.42f, 0.78f);
+        Lighting.AddLight(Projectile.Center, 0.38f, 0.68f, 1.18f);
         FranVanillaDustEffects.ProjectileTrail(Projectile.Center, Projectile.velocity,
-            FranSkill.ThorsHammer, new Color(105, 165, 255), 0.18f, 1.08f);
+            FranSkill.ThorsHammer, new Color(105, 185, 255), 0.36f, 1.34f);
 
-        if (!Main.dedServ && (int)age % 2 == 0)
+        if (!Main.dedServ)
         {
             FranParticleSystem.Spawn(new FranBarrierShardParticle(Projectile.Center + Main.rand.NextVector2Circular(20f, 20f),
-                -Projectile.velocity * 0.06f + Main.rand.NextVector2Circular(1.6f, 1.6f),
-                new Color(120, 185, 255), new Vector2(Main.rand.NextFloat(12f, 24f), Main.rand.NextFloat(3f, 6f)), 16));
-            if ((int)age % 4 == 0)
+                -Projectile.velocity * 0.075f + Main.rand.NextVector2Circular(2.1f, 2.1f),
+                new Color(120, 205, 255), new Vector2(Main.rand.NextFloat(16f, 31f), Main.rand.NextFloat(3f, 7f)), 17));
+            FranParticleSystem.Spawn(new FranLightParticle(
+                Projectile.Center + Main.rand.NextVector2Circular(16f, 16f),
+                -Projectile.velocity * Main.rand.NextFloat(0.055f, 0.11f) + Main.rand.NextVector2Circular(1.4f, 1.4f),
+                Main.rand.NextFloat(0.44f, 0.76f), Main.rand.NextBool(3) ? Color.White : new Color(105, 185, 255),
+                Main.rand.Next(15, 24), 0.88f, 1.35f, 3.2f));
+            if ((int)age % 2 == 0)
+                FranParticleSystem.Spawn(new FranGlowOrbParticle(
+                    Projectile.Center + Main.rand.NextVector2Circular(18f, 18f),
+                    -Projectile.velocity * 0.045f + Main.rand.NextVector2Circular(1f, 1f),
+                    new Color(105, 185, 255), Main.rand.NextFloat(0.20f, 0.34f), 0.03f,
+                    Main.rand.Next(13, 20)));
+            if ((int)age % 3 == 0)
                 FranParticleSystem.Spawn(new FranHeavySmokeParticle(Projectile.Center + Main.rand.NextVector2Circular(14f, 14f),
-                    -Projectile.velocity * 0.04f, new Color(35, 50, 86), Main.rand.NextFloat(0.42f, 0.72f), 25,
-                    0.48f, true));
+                    -Projectile.velocity * 0.045f, new Color(28, 44, 82), Main.rand.NextFloat(0.52f, 0.86f), 27,
+                    0.56f, true));
         }
 
-        if (Vector2.DistanceSquared(Projectile.Center, target) <= 34f * 34f || age >= 46f)
+        Vector2 remaining = target - Projectile.Center;
+        bool passedTarget = age >= 3f && Vector2.Dot(remaining, Projectile.velocity) <= 0f;
+        if (remaining.LengthSquared() <= 42f * 42f || passedTarget || age >= 46f)
             Impact(target);
     }
 
@@ -1077,18 +1092,21 @@ public sealed class FranThorsHammerDrop : ModProjectile
         Texture2D texture = TextureAssets.Projectile[ProjectileID.PaladinsHammerFriendly].Value;
         Vector2 origin = texture.Size() * 0.5f;
         if (!FranProjectileTrailRenderer.TryDraw(Projectile, FranProjectileTrailProfile.HeavyHammer,
-                new Color(12, 32, 72), new Color(80, 145, 255), Color.White, 28f, 0.86f))
+                new Color(8, 24, 64), new Color(80, 165, 255), Color.White, 38f, 0.94f))
             FranProjectileTrailRenderer.DrawFallback(Projectile, FranProjectileTrailProfile.HeavyHammer,
-                new Color(80, 145, 255), 32f, 0.82f);
+                new Color(80, 165, 255), 44f, 0.92f);
         FranVfx.BeginAdditive();
-        FranVfx.DrawVertical("Cal_BloomLineSoftEdge", Projectile.Center - Projectile.velocity.SafeNormalize(Vector2.UnitY) * 92f,
-            Projectile.Center, new Color(95, 155, 255) * 0.42f, 34f);
         Vector2 fallDirection = Projectile.velocity.SafeNormalize(Vector2.UnitY);
+        Vector2 lightningRear = Projectile.Center - fallDirection * 176f;
+        FranVfx.DrawVertical("Cal_BloomLineSoftEdge", lightningRear,
+            Projectile.Center, new Color(95, 175, 255) * 0.66f, 48f);
         FranVfx.DrawOriginalPixels("FranSmearForward", Projectile.Center - fallDirection * 42f,
-            new Color(105, 165, 255) * 0.42f, fallDirection.ToRotation(), new Vector2(148f, 48f));
+            new Color(105, 185, 255) * 0.62f, fallDirection.ToRotation(), new Vector2(186f, 60f));
         FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
-            new Color(180, 225, 255) * 0.66f, fallDirection.ToRotation(), new Vector2(82f, 46f));
-        FranVfx.DrawBloom(Projectile.Center, new Color(95, 155, 255), 58f, 0.52f, true);
+            new Color(195, 238, 255) * 0.82f, fallDirection.ToRotation(), new Vector2(104f, 56f));
+        FranVfx.DrawTexturedLightning(lightningRear, Projectile.Center, new Color(125, 225, 255),
+            7.5f, 8, Projectile.identity * 0.73f + Main.GlobalTimeWrappedHourly * 21f, 0.78f);
+        FranVfx.DrawBloom(Projectile.Center, new Color(95, 175, 255), 76f, 0.72f, true);
         FranVfx.EndAdditive();
 
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null, Color.White,
@@ -1096,20 +1114,11 @@ public sealed class FranThorsHammerDrop : ModProjectile
         return false;
     }
 
-    private static NPC FindImpactTarget(Vector2 anchor, float distance)
+    private NPC GetTrackedTarget()
     {
-        NPC best = null;
-        float bestDistance = distance * distance;
-        foreach (NPC npc in Main.ActiveNPCs)
-        {
-            if (!npc.CanBeChasedBy())
-                continue;
-            float candidate = Vector2.DistanceSquared(anchor, npc.Center);
-            if (candidate >= bestDistance)
-                continue;
-            bestDistance = candidate;
-            best = npc;
-        }
-        return best;
+        if (!Main.npc.IndexInRange(TargetIndex))
+            return null;
+        NPC target = Main.npc[TargetIndex];
+        return target.active && !target.friendly && target.life > 0 ? target : null;
     }
 }

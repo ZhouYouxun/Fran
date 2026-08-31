@@ -43,7 +43,7 @@ internal abstract class FranParticle
 
 internal static class FranParticleAssets
 {
-    private const string Root = "Fran/Particles/Textures/";
+    private const string Root = "Fran/Textures/Particles/";
     private const string OriginalVfxRoot = "Fran/Assets/OriginalVFX/";
     private const float MaximumRenderedDimension = 256f;
 

@@ -20,12 +20,13 @@ public sealed class FranPlayer : ModPlayer
 {
     public const int DashDuration = 12;
     public const int UltimateChargeDuration = 3 * 60 * 60;
+    public static readonly Vector2 DefaultUltimateGaugeAnchor = new(0.5f, 0f);
     private const int DashCooldownNormal = 50;
 
     public bool FranMode { get; private set; }
     public FranSkill SelectedSkill = FranSkill.None;
     public int UltimateChargeTicks;
-    public Vector2 UltimateGaugeAnchor = new(0.5f, 0.075f);
+    public Vector2 UltimateGaugeAnchor = DefaultUltimateGaugeAnchor;
     public int DashTimer;
     public int DashCooldown;
     public Vector2 DashVelocity;
@@ -37,6 +38,8 @@ public sealed class FranPlayer : ModPlayer
     public int ResonanceHealCooldown;
     public readonly int[] SkillCooldowns = new int[FranSkillInfo.Count];
     public readonly int[] SkillCooldownMaximums = new int[FranSkillInfo.Count];
+    public bool TelekineticFlightEnabled { get; private set; }
+    public bool TelekineticFlightVisualActive { get; private set; }
 
     private readonly HashSet<int> dashHitNpcs = new();
     private static readonly Dictionary<Type, PropertyInfo> ExternalDashIdProperties = new();
@@ -44,12 +47,16 @@ public sealed class FranPlayer : ModPlayer
     private bool wasFranMode;
     private bool networkFranMode;
     private bool teacherBonded;
+    private bool teacherToolGranted;
     private bool restoreTeacherAfterRespawn;
     private bool dashStartedThisTick;
     private int teacherRecoveryCooldown;
     private float screenShakePower;
+    private Vector2 ultimateCameraFocus;
+    private int ultimateCameraLockTime;
     private int ultimateChargeSyncTimer;
     private bool ultimateReadyAnnounced;
+    private bool telekineticFlightSession;
 
     public bool HasTeacher
     {
@@ -60,7 +67,11 @@ public sealed class FranPlayer : ModPlayer
         }
     }
     public bool HasSelectedSkill => FranSkillInfo.IsRealSkill(SelectedSkill);
-    public bool HasExternalDash => Player.dashType != 0 || Player.dashDelay != 0 || HasNamedExternalDash();
+    // dashDelay is runtime state, not proof that another dash is equipped. In particular,
+    // Calamity's built-in DefaultDash may touch it before Fran reads input this frame.
+    public bool HasExternalDash => Player.dashType != 0 || HasNamedExternalDash();
+    public bool HasExternalWings => Player.wingsLogic > 0 &&
+        !FranTelekineticFlightSystem.IsTelekineticWingSlot(Player.wingsLogic);
     public bool UltimateReady => UltimateChargeTicks >= UltimateChargeDuration;
     public bool UltimateActive => Player.ownedProjectileCounts[ModContent.ProjectileType<FranUltimateController>()] > 0;
 
@@ -82,7 +93,8 @@ public sealed class FranPlayer : ModPlayer
                 continue;
             try
             {
-                if (property.GetValue(modPlayer) is string id && !string.IsNullOrWhiteSpace(id))
+                if (property.GetValue(modPlayer) is string id && !string.IsNullOrWhiteSpace(id) &&
+                    !IsNonBlockingFrameworkDefaultDash(type, id))
                     return true;
             }
             catch
@@ -91,6 +103,15 @@ public sealed class FranPlayer : ModPlayer
             }
         }
         return false;
+    }
+
+    private static bool IsNonBlockingFrameworkDefaultDash(Type modPlayerType, string dashId)
+    {
+        // Calamity reports DefaultDash through DashID even when no dash accessory is equipped.
+        // Fran replaces only this fallback while Fran mode is active; real Calamity/vanilla
+        // accessory dashes still win through their distinct DashID or Player.dashType.
+        return modPlayerType.FullName == "CalamityMod.CalPlayer.CalamityPlayer" &&
+            dashId.EndsWith("/DefaultDash", StringComparison.OrdinalIgnoreCase);
     }
 
     public override void Initialize()
@@ -103,7 +124,7 @@ public sealed class FranPlayer : ModPlayer
         tag["SelectedSkillV2"] = (int)SelectedSkill;
         if (UltimateChargeTicks > 0)
             tag["UltimateChargeTicks"] = Math.Clamp(UltimateChargeTicks, 0, UltimateChargeDuration);
-        if (Vector2.DistanceSquared(UltimateGaugeAnchor, new Vector2(0.5f, 0.075f)) > 0.000001f)
+        if (Vector2.DistanceSquared(UltimateGaugeAnchor, DefaultUltimateGaugeAnchor) > 0.000001f)
         {
             tag["UltimateGaugeX"] = UltimateGaugeAnchor.X;
             tag["UltimateGaugeY"] = UltimateGaugeAnchor.Y;
@@ -112,6 +133,8 @@ public sealed class FranPlayer : ModPlayer
             tag["IntroShown"] = true;
         if (teacherBonded)
             tag["TeacherBonded"] = true;
+        if (teacherToolGranted)
+            tag["TeacherToolGranted"] = true;
     }
 
     public override void LoadData(TagCompound tag)
@@ -133,23 +156,45 @@ public sealed class FranPlayer : ModPlayer
         }
         SelectedSkill = value >= 0 && value < FranSkillInfo.Count ? (FranSkill)value : FranSkill.None;
         UltimateChargeTicks = Math.Clamp(tag.GetInt("UltimateChargeTicks"), 0, UltimateChargeDuration);
-        float gaugeX = tag.ContainsKey("UltimateGaugeX") ? tag.GetFloat("UltimateGaugeX") : 0.5f;
-        float gaugeY = tag.ContainsKey("UltimateGaugeY") ? tag.GetFloat("UltimateGaugeY") : 0.075f;
+        float gaugeX = tag.ContainsKey("UltimateGaugeX") ? tag.GetFloat("UltimateGaugeX") : DefaultUltimateGaugeAnchor.X;
+        float gaugeY = tag.ContainsKey("UltimateGaugeY") ? tag.GetFloat("UltimateGaugeY") : DefaultUltimateGaugeAnchor.Y;
         UltimateGaugeAnchor = new Vector2(MathHelper.Clamp(gaugeX, 0f, 1f),
             MathHelper.Clamp(gaugeY, 0f, 1f));
         ultimateReadyAnnounced = UltimateReady;
         introShown = tag.GetBool("IntroShown");
         teacherBonded = tag.GetBool("TeacherBonded");
+        teacherToolGranted = tag.GetBool("TeacherToolGranted");
     }
 
     public override void ResetEffects()
     {
+        TelekineticFlightEnabled = false;
         bool localAuthority = Main.netMode == NetmodeID.SinglePlayer || Player.whoAmI == Main.myPlayer;
         FranMode = IsFranName(Player.name) || (localAuthority ? HasFavoritedHeadwear() : networkFranMode);
         if (!FranMode)
             return;
 
         Player.AddBuff(ModContent.BuffType<BlackCatWarriorBuff>(), 2);
+    }
+
+    public override void PostUpdateEquips()
+    {
+        if (!FranMode || !Main.hardMode || Player.mount.Active || HasExternalWings)
+            return;
+
+        int wingSlot = FranTelekineticFlightSystem.GetCurrentWingSlot();
+        if (wingSlot <= 0)
+            return;
+
+        WingStats stats = FranTelekineticFlightSystem.GetCurrentWingStats();
+        Player.wingsLogic = wingSlot;
+        Player.wingTimeMax = Math.Max(Player.wingTimeMax, stats.FlyTime);
+        TelekineticFlightEnabled = true;
+
+        // Empress of Light is the final mastery breakpoint. Refilling before movement makes the
+        // built-in wing logic infinite without granting that benefit to an equipped external wing.
+        if (FranTelekineticFlightSystem.HasInfiniteFlight)
+            Player.wingTime = Math.Max(Player.wingTime, Player.wingTimeMax);
     }
 
     public override void FrameEffects()
@@ -188,11 +233,29 @@ public sealed class FranPlayer : ModPlayer
 
     public override void ModifyScreenPosition()
     {
-        if (Player.whoAmI != Main.myPlayer || screenShakePower <= 0.05f)
+        if (Player.whoAmI != Main.myPlayer)
             return;
 
-        Main.screenPosition += Main.rand.NextVector2Circular(screenShakePower, screenShakePower);
-        screenShakePower *= 0.82f;
+        // During the execution sequence the target owns the composition.  The player is
+        // deliberately allowed to cross the frame instead of dragging the camera with every dash.
+        if (ultimateCameraLockTime > 0)
+        {
+            Main.screenPosition = ultimateCameraFocus - new Vector2(Main.screenWidth, Main.screenHeight) * 0.5f;
+            ultimateCameraLockTime--;
+        }
+
+        if (screenShakePower > 0.05f)
+        {
+            Main.screenPosition += Main.rand.NextVector2Circular(screenShakePower, screenShakePower);
+            screenShakePower *= 0.82f;
+        }
+        else
+            screenShakePower = 0f;
+
+        Main.screenPosition.X = MathHelper.Clamp(Main.screenPosition.X, 0f,
+            Math.Max(0f, Main.maxTilesX * 16f - Main.screenWidth));
+        Main.screenPosition.Y = MathHelper.Clamp(Main.screenPosition.Y, 0f,
+            Math.Max(0f, Main.maxTilesY * 16f - Main.screenHeight));
     }
 
     public override void OnEnterWorld()
@@ -238,12 +301,18 @@ public sealed class FranPlayer : ModPlayer
     public override void PostUpdate()
     {
         if (Player.dead)
+        {
+            TelekineticFlightVisualActive = false;
+            telekineticFlightSession = false;
+            Player.fullRotation = 0f;
             return;
+        }
 
         if (FranMode || HasTeacher)
             teacherBonded = true;
         if (Player.whoAmI == Main.myPlayer && teacherBonded)
         {
+            EnsureTeacherToolInitialGrant();
             RecallTeacherFromStorage();
             if (teacherRecoveryCooldown > 0)
                 teacherRecoveryCooldown--;
@@ -253,6 +322,8 @@ public sealed class FranPlayer : ModPlayer
         if (!FranMode)
         {
             wasFranMode = false;
+            TelekineticFlightVisualActive = false;
+            telekineticFlightSession = false;
             if (DashTimer > 0 || DashVelocity != Vector2.Zero)
                 EndDash(sync: Player.whoAmI == Main.myPlayer);
             if (HasTeacher)
@@ -279,6 +350,7 @@ public sealed class FranPlayer : ModPlayer
         UpdateUltimateCharge();
         UpdateInputs();
         UpdateDash();
+        UpdateTelekineticFlightVisual();
         EnsureFloatingTeacher();
     }
 
@@ -375,6 +447,9 @@ public sealed class FranPlayer : ModPlayer
         DashCooldown = 0;
         DashVelocity = Vector2.Zero;
         dashStartedThisTick = false;
+        TelekineticFlightVisualActive = false;
+        telekineticFlightSession = false;
+        Player.fullRotation = 0f;
         ComboIndex = 0;
         ComboReset = 0;
         BlueResonanceTimer = 0;
@@ -468,6 +543,24 @@ public sealed class FranPlayer : ModPlayer
         screenShakePower = Math.Max(screenShakePower, power * falloff);
     }
 
+    internal void LockUltimateCamera(Vector2 focus)
+    {
+        if (Main.dedServ || Player.whoAmI != Main.myPlayer ||
+            !float.IsFinite(focus.X) || !float.IsFinite(focus.Y))
+            return;
+
+        ultimateCameraFocus = focus;
+        // The controller refreshes this every update.  Two ticks cover normal network jitter
+        // without letting a stale lock survive after the ultimate ends.
+        ultimateCameraLockTime = 2;
+    }
+
+    internal void ClearUltimateCamera()
+    {
+        if (Player.whoAmI == Main.myPlayer)
+            ultimateCameraLockTime = 0;
+    }
+
     private void UpdateTimers()
     {
         if (DashCooldown > 0)
@@ -559,16 +652,45 @@ public sealed class FranPlayer : ModPlayer
         }
 
         bool canDash = CanStartFranDash();
-        if (canDash && FranModMain.DashKey.JustPressed)
+        bool dashKeyBound = IsDashKeyBound();
+        if (dashKeyBound)
         {
-            StartDash(ResolveManualDashDirection());
+            if (canDash && FranModMain.DashKey.JustPressed)
+                StartDash(ResolveManualDashDirection());
+
+            // Match Calamity's input contract: once a manual dash key is assigned, vanilla
+            // left/right double taps are not a secondary trigger.
             return;
         }
 
-        if (canDash && Player.controlLeft && Player.releaseLeft && Player.doubleTapCardinalTimer[3] < 15)
+        if (!canDash)
+            return;
+
+        if (Player.controlLeft && Player.releaseLeft && Player.doubleTapCardinalTimer[3] < 15)
             StartDash(-Vector2.UnitX);
-        else if (canDash && Player.controlRight && Player.releaseRight && Player.doubleTapCardinalTimer[2] < 15)
+        else if (Player.controlRight && Player.releaseRight && Player.doubleTapCardinalTimer[2] < 15)
             StartDash(Vector2.UnitX);
+    }
+
+    private static bool IsDashKeyBound()
+    {
+        if (Main.dedServ || FranModMain.DashKey is null)
+            return false;
+
+        try
+        {
+            foreach (string key in FranModMain.DashKey.GetAssignedKeys())
+            {
+                if (!string.IsNullOrWhiteSpace(key) && !key.Equals("None", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        catch
+        {
+            // Input profiles can be rebuilt while the controls menu is applying changes.
+            // Falling back to the double-tap route is safe for that one frame.
+        }
+        return false;
     }
 
     private bool CanStartFranDash() =>
@@ -612,6 +734,9 @@ public sealed class FranPlayer : ModPlayer
             : DashCooldownNormal;
         DashVelocity = direction * dashSpeed;
         Player.velocity = DashVelocity;
+        // Cancel a fallback framework dash that may have reacted to the same double tap earlier
+        // in the update order. Equipped external dashes never reach StartDash in the first place.
+        Player.dashDelay = 0;
         if (Math.Abs(direction.X) > 0.05f)
             Player.ChangeDir(Math.Sign(direction.X));
         dashStartedThisTick = true;
@@ -619,7 +744,7 @@ public sealed class FranPlayer : ModPlayer
         FranModMain.SendCombatState(Player.whoAmI, DashTimer, DashVelocity);
         Player.GiveImmuneTimeForCollisionAttack(DashDuration + 2);
         SoundEngine.PlaySound(SoundID.Item74 with { Pitch = 0.18f, Volume = 0.65f }, Player.Center);
-        ShakeScreen(Player.Center, 1.8f);
+        ShakeScreen(Player.Center, 2.4f);
         if (Player.whoAmI == Main.myPlayer)
             Projectile.NewProjectile(Player.GetSource_Misc("FranDashVisual"), Player.Center, DashVelocity,
                 ModContent.ProjectileType<FranDashTrail>(), 0, 0f, Player.whoAmI, DashDuration);
@@ -641,7 +766,7 @@ public sealed class FranPlayer : ModPlayer
         }
 
         Lighting.AddLight(Player.Center, 0.10f, 0.04f, 0.16f);
-        if (!Main.dedServ)
+        if (!Main.dedServ && Main.GameUpdateCount % 2 == 0)
         {
             Vector2 dashMotion = Player.velocity;
             Dust dust = Dust.NewDustPerfect(Player.Center - dashMotion * 0.45f, DustID.Shadowflame,
@@ -664,7 +789,7 @@ public sealed class FranPlayer : ModPlayer
                 dashHitNpcs.Add(npc.whoAmI);
                 int damage = (int)(FranSkillInfo.BaseDamage * 1.2f);
                 FranBurst.Spawn(Player.GetSource_Misc("FranDash"), npc.Center, Player.whoAmI,
-                    FranBurstStyle.DashImpact, 1f, damage, 6f);
+                    FranBurstStyle.DashImpact, 1f, damage, 6f, Player.velocity.ToRotation());
                 Player.GetModPlayer<FranEvolutionPlayer>().ApplyDashHit(npc);
             }
         }
@@ -674,8 +799,40 @@ public sealed class FranPlayer : ModPlayer
 
         if (DashTimer <= 0)
             EndDash(sync: Player.whoAmI == Main.myPlayer);
-        else if (collisionChangedVelocity && Player.whoAmI == Main.myPlayer)
-            FranModMain.SendCombatState(Player.whoAmI, DashTimer, DashVelocity);
+        else
+        {
+            ApplyDashRollVisual();
+            if (collisionChangedVelocity && Player.whoAmI == Main.myPlayer)
+                FranModMain.SendCombatState(Player.whoAmI, DashTimer, DashVelocity);
+        }
+    }
+
+    private void ApplyDashRollVisual()
+    {
+        float progress = 1f - (DashTimer - 1f) / Math.Max(1f, DashDuration - 1f);
+        float rollDirection = Math.Abs(DashVelocity.X) > 0.05f
+            ? Math.Sign(DashVelocity.X)
+            : Player.direction == 0 ? 1f : Player.direction;
+        Player.fullRotationOrigin = Player.Size * 0.5f;
+        Player.fullRotation = rollDirection * MathHelper.TwoPi * 2f * progress * Player.gravDir;
+    }
+
+    private void UpdateTelekineticFlightVisual()
+    {
+        bool airborne = Math.Abs(Player.velocity.Y) > 0.01f;
+        if (!TelekineticFlightEnabled || Player.mount.Active || !airborne)
+            telekineticFlightSession = false;
+        else if (Player.controlJump)
+            telekineticFlightSession = true;
+
+        TelekineticFlightVisualActive = TelekineticFlightEnabled && telekineticFlightSession;
+        if (!TelekineticFlightVisualActive || Main.dedServ || Player.whoAmI != Main.myPlayer)
+            return;
+
+        int visualType = ModContent.ProjectileType<FranTelekineticFlightVisual>();
+        if (Player.ownedProjectileCounts[visualType] <= 0)
+            Projectile.NewProjectile(Player.GetSource_Misc("FranTelekineticFlight"), Player.Center,
+                Vector2.Zero, visualType, 0, 0f, Player.whoAmI);
     }
 
     private void EndDash(bool sync)
@@ -684,6 +841,7 @@ public sealed class FranPlayer : ModPlayer
         DashVelocity = Vector2.Zero;
         dashStartedThisTick = false;
         dashHitNpcs.Clear();
+        Player.fullRotation = 0f;
         if (sync)
             FranModMain.SendCombatState(Player.whoAmI, 0, Vector2.Zero);
     }
@@ -695,6 +853,17 @@ public sealed class FranPlayer : ModPlayer
         Player.QuickSpawnItem(Player.GetSource_Misc("FranModeTeacher"), ModContent.ItemType<Teacher>());
         if (!HasTeacher)
             teacherRecoveryCooldown = 5 * 60;
+    }
+
+    private void EnsureTeacherToolInitialGrant()
+    {
+        if (teacherToolGranted)
+            return;
+
+        int toolType = ModContent.ItemType<TeacherExcavationTool>();
+        if (!Player.HasItem(toolType) && Main.mouseItem.type != toolType)
+            Player.QuickSpawnItem(Player.GetSource_Misc("FranTeacherToolForm"), toolType);
+        teacherToolGranted = true;
     }
 
     private void RecallTeacherFromStorage()
@@ -748,10 +917,11 @@ public sealed class FranPlayer : ModPlayer
 
     private void EnsureFloatingTeacher()
     {
-        if (!HasTeacher || Player.dead)
+        if (!HasTeacher || Player.dead || TelekineticFlightVisualActive)
             return;
 
-        if (Player.HeldItem.type == ModContent.ItemType<Teacher>())
+        if (Player.HeldItem.type == ModContent.ItemType<Teacher>() ||
+            Player.HeldItem.type == ModContent.ItemType<TeacherExcavationTool>())
             return;
 
         int type = ModContent.ProjectileType<FloatingTeacherVisual>();
