@@ -65,6 +65,12 @@ public static class FranSkillInfo
     public static string Description(FranSkill skill) =>
         Language.GetTextValue($"Mods.Fran.Skills.{skill}.Description");
 
+    public static string FirstLayerText(FranSkill skill) =>
+        Language.GetTextValue($"Mods.Fran.Skills.{skill}.FirstLayer");
+
+    public static string AdditionalLayerText(FranSkill skill) =>
+        Language.GetTextValue($"Mods.Fran.Skills.{skill}.AdditionalLayer");
+
     public static string UnlockText(FranSkill skill) =>
         Language.GetTextValue($"Mods.Fran.Stages.Stage{RequiredStage(skill)}.Unlock");
 

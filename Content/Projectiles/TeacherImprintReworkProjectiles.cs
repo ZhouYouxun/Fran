@@ -998,7 +998,7 @@ public sealed class FranThorsHammerDrop : ModProjectile
 {
     private bool Impacted => Projectile.localAI[1] > 0f;
     private float Age => Projectile.localAI[0];
-    private int TargetIndex => (int)Projectile.ai[2];
+    private int TargetIndex => (int)Projectile.ai[2] - 1;
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.PaladinsHammerFriendly}";
 
@@ -1116,7 +1116,7 @@ public sealed class FranThorsHammerDrop : ModProjectile
 
     private NPC GetTrackedTarget()
     {
-        if (!Main.npc.IndexInRange(TargetIndex))
+        if (TargetIndex < 0 || !Main.npc.IndexInRange(TargetIndex))
             return null;
         NPC target = Main.npc[TargetIndex];
         return target.active && !target.friendly && target.life > 0 ? target : null;

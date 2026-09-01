@@ -18,8 +18,8 @@ public sealed class FranEvolutionPlayer : ModPlayer
 {
     private readonly HashSet<string> claimedBosses = new(StringComparer.Ordinal);
     private readonly Dictionary<int, ulong> dashRefundLocks = new();
-    private ushort nodeMask;
-    private int syncedClaimedBossCount;
+    private uint nodeMask;
+    private int syncedEarnedPoints;
 
     private int directSequenceExpected;
     private int directSequenceHits;
@@ -29,8 +29,9 @@ public sealed class FranEvolutionPlayer : ModPlayer
     private bool hunterTempoReady;
     private int unityTimer;
 
-    public ushort NodeMask => nodeMask;
-    public int EarnedPoints => Math.Max(claimedBosses.Count, syncedClaimedBossCount);
+    public uint NodeMask => nodeMask;
+    public int EarnedPoints => Math.Max(FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses),
+        syncedEarnedPoints);
     public int UsablePoints => Math.Min(EarnedPoints, FranEvolutionInfo.CurrentStagePointCap);
     public int SpentPoints => FranEvolutionInfo.SpentPoints(nodeMask);
     public int AvailablePoints => Math.Max(0, UsablePoints - SpentPoints);
@@ -43,7 +44,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
     {
         claimedBosses.Clear();
         nodeMask = 0;
-        syncedClaimedBossCount = 0;
+        syncedEarnedPoints = 0;
         ResetTransientState();
     }
 
@@ -52,7 +53,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
         if (claimedBosses.Count > 0)
             tag["EvolutionBosses"] = claimedBosses.OrderBy(key => key, StringComparer.Ordinal).ToList();
         if (nodeMask != 0)
-            tag["EvolutionNodeMask"] = (int)nodeMask;
+            tag["EvolutionNodeMaskV2"] = (long)nodeMask;
     }
 
     public override void LoadData(TagCompound tag)
@@ -69,9 +70,11 @@ public sealed class FranEvolutionPlayer : ModPlayer
             }
         }
 
-        syncedClaimedBossCount = claimedBosses.Count;
-        ushort loadedMask = (ushort)Math.Clamp(tag.GetInt("EvolutionNodeMask"), 0, ushort.MaxValue);
-        nodeMask = FranEvolutionInfo.NormalizeMask(loadedMask, claimedBosses.Count);
+        syncedEarnedPoints = FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses);
+        uint loadedMask = tag.ContainsKey("EvolutionNodeMaskV2")
+            ? (uint)Math.Clamp(tag.GetLong("EvolutionNodeMaskV2"), 0L, uint.MaxValue)
+            : (uint)Math.Clamp(tag.GetInt("EvolutionNodeMask"), 0, ushort.MaxValue);
+        nodeMask = FranEvolutionInfo.NormalizeMask(loadedMask, syncedEarnedPoints);
         ResetTransientState();
     }
 
@@ -88,6 +91,33 @@ public sealed class FranEvolutionPlayer : ModPlayer
         int ignoreClient = toWho < 0 ? Player.whoAmI : fromWho;
         FranModMain.SendEvolutionState(Player.whoAmI, nodeMask, EarnedPoints,
             null, toWho, ignoreClient);
+    }
+
+    public override void PostUpdateEquips()
+    {
+        FranPlayer fran = Player.GetModPlayer<FranPlayer>();
+        if (!fran.FranMode && !fran.HasTeacher)
+            return;
+
+        if (HasNode(FranEvolutionNode.ArcaneCirculation))
+            Player.manaCost = Math.Max(0.1f, Player.manaCost - 0.08f);
+        if (HasNode(FranEvolutionNode.FelineReflex))
+            Player.moveSpeed += 0.05f;
+        if (HasNode(FranEvolutionNode.SharedMana))
+            Player.statManaMax2 += 20;
+        if (HasNode(FranEvolutionNode.HarmonicGuard))
+        {
+            Player.statDefense += 3;
+            Player.endurance += 0.02f;
+        }
+        if (HasNode(FranEvolutionNode.SynchronizedVolley))
+            Player.GetDamage<MagicDamageClass>() += 0.06f;
+        if (HasNode(FranEvolutionNode.EternalContract))
+        {
+            Player.GetDamage<GenericDamageClass>() += 0.05f;
+            Player.statManaMax2 += 20;
+            Player.statDefense += 3;
+        }
     }
 
     public override void PostUpdate()
@@ -180,13 +210,13 @@ public sealed class FranEvolutionPlayer : ModPlayer
         if (!FranEvolutionBossSystem.IsValidBossKey(bossKey) ||
             claimedBosses.Count >= FranEvolutionInfo.MaximumClaimedBosses || !claimedBosses.Add(bossKey))
             return false;
-        syncedClaimedBossCount = claimedBosses.Count;
+        syncedEarnedPoints = FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses);
         return true;
     }
 
     internal IReadOnlyCollection<string> GetClaimedBosses() => claimedBosses;
 
-    internal void MergeClientProfile(IEnumerable<string> bossKeys, ushort requestedMask)
+    internal void MergeClientProfile(IEnumerable<string> bossKeys, uint requestedMask)
     {
         foreach (string key in bossKeys)
         {
@@ -195,16 +225,16 @@ public sealed class FranEvolutionPlayer : ModPlayer
             if (FranEvolutionBossSystem.IsValidBossKey(key))
                 claimedBosses.Add(key);
         }
-        syncedClaimedBossCount = claimedBosses.Count;
-        nodeMask = FranEvolutionInfo.NormalizeMask(requestedMask, claimedBosses.Count);
+        syncedEarnedPoints = FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses);
+        nodeMask = FranEvolutionInfo.NormalizeMask(requestedMask, syncedEarnedPoints);
         ResetTransientState();
     }
 
-    internal void ReceiveEvolutionState(ushort receivedMask, int receivedClaimedCount,
+    internal void ReceiveEvolutionState(uint receivedMask, int receivedEarnedPoints,
         IReadOnlyCollection<string> receivedClaims)
     {
-        ushort oldMask = nodeMask;
-        syncedClaimedBossCount = Math.Clamp(receivedClaimedCount, 0, FranEvolutionInfo.MaximumClaimedBosses);
+        uint oldMask = nodeMask;
+        syncedEarnedPoints = Math.Clamp(receivedEarnedPoints, 0, ushort.MaxValue);
         if (receivedClaims is not null)
         {
             claimedBosses.Clear();
@@ -212,25 +242,47 @@ public sealed class FranEvolutionPlayer : ModPlayer
                 if (FranEvolutionBossSystem.IsValidBossKey(key) &&
                     claimedBosses.Count < FranEvolutionInfo.MaximumClaimedBosses)
                     claimedBosses.Add(key);
-            syncedClaimedBossCount = claimedBosses.Count;
+            syncedEarnedPoints = FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses);
         }
-        nodeMask = FranEvolutionInfo.NormalizeMask(receivedMask, syncedClaimedBossCount);
-        ushort newBits = (ushort)(nodeMask & ~oldMask);
+        nodeMask = FranEvolutionInfo.NormalizeMask(receivedMask, syncedEarnedPoints);
+        uint newBits = nodeMask & ~oldMask;
         if (newBits != 0)
             AnnounceNewNodes(newBits);
         if (nodeMask == 0 && oldMask != 0)
             ResetTransientState();
     }
 
-    public int ComboResetDuration => HasNode(FranEvolutionNode.MindSync) ? 105 : 70;
+    public int ComboResetDuration => HasNode(FranEvolutionNode.SharedVision) ? 125 :
+        HasNode(FranEvolutionNode.MindSync) ? 105 : 70;
+
+    public int AnalysisArmorPenetration => HasNode(FranEvolutionNode.DeeperAnalysis) ? 18 : 12;
+
+    public float EvolutionEchoDamageMultiplier => HasNode(FranEvolutionNode.DeeperAnalysis) ? 0.70f : 0.50f;
+
+    public int DashCooldownTicks => !HasNode(FranEvolutionNode.CatStep) ? 50 :
+        HasNode(FranEvolutionNode.BlackCatAwakening) ? 34 :
+        HasNode(FranEvolutionNode.FelineReflex) ? 38 : 42;
+
+    public float DashSpeedMultiplier => 1f + (HasNode(FranEvolutionNode.SkyHunter) ? 0.10f : 0f) +
+        (HasNode(FranEvolutionNode.BlackCatAwakening) ? 0.05f : 0f);
+
+    public float DashImpactDamageMultiplier => 1.20f +
+        (HasNode(FranEvolutionNode.PredatorSight) ? 0.20f : 0f) +
+        (HasNode(FranEvolutionNode.BlackCatAwakening) ? 0.10f : 0f);
+
+    public int DashImmunityBonus => HasNode(FranEvolutionNode.PhantomStep) ? 4 : 0;
+
+    public bool AcceleratedUltimateCharge => HasNode(FranEvolutionNode.LimitResonance);
 
     public float BladeReachMultiplier
     {
         get
         {
             float multiplier = HasNode(FranEvolutionNode.EdgeCalibration) ? 1.06f : 1f;
+            if (HasNode(FranEvolutionNode.ArcaneCirculation))
+                multiplier *= 1.04f;
             if (UnityActive)
-                multiplier *= 1.10f;
+                multiplier *= HasNode(FranEvolutionNode.MutualGrowth) ? 1.12f : 1.10f;
             return multiplier;
         }
     }
@@ -241,21 +293,23 @@ public sealed class FranEvolutionPlayer : ModPlayer
         if (combo == 3 && HasNode(FranEvolutionNode.SharedRhythm))
             multiplier *= 0.88f;
         if (UnityActive)
-            multiplier /= 1.10f;
+            multiplier /= HasNode(FranEvolutionNode.MutualGrowth) ? 1.12f : 1.10f;
         if (HunterTempoReady)
         {
             hunterTempoReady = false;
-            multiplier *= 0.88f;
+            multiplier *= HasNode(FranEvolutionNode.BlackCatAwakening) ? 0.82f : 0.88f;
         }
         return multiplier;
     }
 
     public float DirectSwordDamageMultiplier(int combo)
     {
+        float multiplier = HasNode(FranEvolutionNode.SwordSaintReasoning) ? 1.06f : 1f;
         if (!HasNode(FranEvolutionNode.ComboCalculation) || combo != directSequenceExpected ||
             directSequenceTimer <= 0 || directSequenceHits <= 0)
-            return 1f;
-        return 1f + Math.Min(3, directSequenceHits) * 0.03f;
+            return multiplier;
+        float stepBonus = HasNode(FranEvolutionNode.SwordSaintReasoning) ? 0.04f : 0.03f;
+        return multiplier * (1f + Math.Min(3, directSequenceHits) * stepBonus);
     }
 
     public void RegisterDirectSwordHit(int combo)
@@ -287,7 +341,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
         if (HasNode(FranEvolutionNode.SelfEvolution))
             evolutionEchoReady = true;
         if (HasNode(FranEvolutionNode.OneAsSword) && directSequenceUnhurt)
-            unityTimer = 5 * 60;
+            unityTimer = (HasNode(FranEvolutionNode.MutualGrowth) ? 7 : 5) * 60;
         ResetDirectSequence(keepUnhurtFlag: true);
     }
 
@@ -312,7 +366,8 @@ public sealed class FranEvolutionPlayer : ModPlayer
         dashRefundLocks[target.whoAmI] = now + 180;
 
         FranPlayer fran = Player.GetModPlayer<FranPlayer>();
-        fran.DashCooldown = Math.Max(0, (int)MathF.Ceiling(fran.DashCooldown * 0.40f));
+        float remainingMultiplier = HasNode(FranEvolutionNode.BlackCatAwakening) ? 0.25f : 0.40f;
+        fran.DashCooldown = Math.Max(0, (int)MathF.Ceiling(fran.DashCooldown * remainingMultiplier));
     }
 
     public void ApplyResonantPull(NPC target, Vector2 bladeTip)
@@ -325,7 +380,9 @@ public sealed class FranEvolutionPlayer : ModPlayer
         float distance = offset.Length();
         if (distance < 12f)
             return;
-        float speed = Math.Min(5f, distance * 0.08f) * MathHelper.Clamp(target.knockBackResist, 0.25f, 1f);
+        float resonanceStrength = HasNode(FranEvolutionNode.SoulBridge) ? 1.40f : 1f;
+        float speed = Math.Min(5f * resonanceStrength, distance * 0.08f * resonanceStrength) *
+            MathHelper.Clamp(target.knockBackResist, 0.25f, 1f);
         target.velocity += offset.SafeNormalize(Vector2.Zero) * speed;
         if (target.velocity.LengthSquared() > 12f * 12f)
             target.velocity = target.velocity.SafeNormalize(Vector2.UnitY) * 12f;
@@ -343,7 +400,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
         return false;
     }
 
-    private void AnnounceNewNodes(ushort newBits)
+    private void AnnounceNewNodes(uint newBits)
     {
         if (Main.dedServ || Player.whoAmI != Main.myPlayer)
             return;
@@ -352,7 +409,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
         bool foundBranch = false;
         for (int i = 0; i < FranEvolutionInfo.Count; i++)
         {
-            if ((newBits & (1 << i)) == 0)
+            if ((newBits & (1u << i)) == 0)
                 continue;
             string name = Language.GetTextValue($"Mods.Fran.Evolution.Nodes.{(FranEvolutionNode)i}.DisplayName");
             FranEvolutionBranch branch = FranEvolutionInfo.Get((FranEvolutionNode)i).Branch;

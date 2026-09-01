@@ -29,6 +29,7 @@ public sealed class FranModMain : Mod
     private const byte SyncEvolutionStateMessage = 7;
     private const byte SubmitEvolutionProfileMessage = 8;
     private const byte RequestBossProgressChangeMessage = 9;
+    private const byte SyncTacticLoadoutMessage = 10;
     public static ModKeybind SkillWheelKey { get; private set; }
     public static ModKeybind UltimateKey { get; private set; }
     public static ModKeybind DashKey { get; private set; }
@@ -98,6 +99,31 @@ public sealed class FranModMain : Mod
         packet.Write(dashVelocity.X);
         packet.Write(dashVelocity.Y);
         packet.Send(toWho, ignoreClient);
+    }
+
+    internal static void SendTacticLoadout(int playerIndex, IReadOnlyList<FranSkill> tactics,
+        int toWho = -1, int ignoreClient = -1)
+    {
+        if (Main.netMode == NetmodeID.SinglePlayer || tactics is null)
+            return;
+        ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
+        packet.Write(SyncTacticLoadoutMessage);
+        packet.Write((byte)playerIndex);
+        for (int i = 0; i < FranPlayer.MaximumTacticSlots; i++)
+        {
+            FranSkill skill = i < tactics.Count ? tactics[i] : FranSkill.None;
+            packet.Write(FranSkillInfo.IsRealSkill(skill) ? (byte)skill : (byte)FranSkill.None);
+        }
+        packet.Send(toWho, ignoreClient);
+    }
+
+    private static void SendTacticLoadout(int playerIndex, FranPlayer fran,
+        int toWho = -1, int ignoreClient = -1)
+    {
+        FranSkill[] tactics = new FranSkill[FranPlayer.MaximumTacticSlots];
+        for (int i = 0; i < tactics.Length; i++)
+            tactics[i] = fran.GetRawTactic(i);
+        SendTacticLoadout(playerIndex, tactics, toWho, ignoreClient);
     }
 
     internal static void SendUltimateRequest(Vector2 focusPoint)
@@ -174,7 +200,7 @@ public sealed class FranModMain : Mod
         packet.Send();
     }
 
-    internal static void SendEvolutionState(int playerIndex, ushort nodeMask, int claimedBossCount,
+    internal static void SendEvolutionState(int playerIndex, uint nodeMask, int earnedPoints,
         IReadOnlyCollection<string> claims, int toWho = -1, int ignoreClient = -1)
     {
         if (Main.netMode != NetmodeID.Server || !ValidPlayer(playerIndex))
@@ -183,7 +209,7 @@ public sealed class FranModMain : Mod
         packet.Write(SyncEvolutionStateMessage);
         packet.Write((byte)playerIndex);
         packet.Write(nodeMask);
-        packet.Write((ushort)Math.Clamp(claimedBossCount, 0, FranEvolutionInfo.MaximumClaimedBosses));
+        packet.Write((ushort)Math.Clamp(earnedPoints, 0, ushort.MaxValue));
         bool includeClaims = claims is not null;
         packet.Write(includeClaims);
         if (includeClaims)
@@ -336,11 +362,10 @@ public sealed class FranModMain : Mod
             case SyncEvolutionStateMessage:
             {
                 int playerIndex = reader.ReadByte();
-                ushort mask = reader.ReadUInt16();
-                int claimedCount = reader.ReadUInt16();
+                uint mask = reader.ReadUInt32();
+                int earnedPoints = reader.ReadUInt16();
                 bool includesClaims = reader.ReadBoolean();
-                if (Main.netMode != NetmodeID.MultiplayerClient || !ValidPlayer(playerIndex) ||
-                    claimedCount > FranEvolutionInfo.MaximumClaimedBosses)
+                if (Main.netMode != NetmodeID.MultiplayerClient || !ValidPlayer(playerIndex))
                     return;
                 List<string> claims = null;
                 if (includesClaims)
@@ -357,12 +382,12 @@ public sealed class FranModMain : Mod
                     }
                 }
                 Main.player[playerIndex].GetModPlayer<FranEvolutionPlayer>()
-                    .ReceiveEvolutionState(mask, claimedCount, claims);
+                    .ReceiveEvolutionState(mask, earnedPoints, claims);
                 break;
             }
             case SubmitEvolutionProfileMessage:
             {
-                ushort requestedMask = reader.ReadUInt16();
+                uint requestedMask = reader.ReadUInt32();
                 int count = reader.ReadUInt16();
                 if (Main.netMode != NetmodeID.Server || !ValidPlayer(whoAmI) ||
                     count > FranEvolutionInfo.MaximumClaimedBosses)
@@ -393,6 +418,26 @@ public sealed class FranModMain : Mod
                     return;
                 if (FranBossProgressRegistry.Apply(action, index, state) > 0)
                     NetMessage.SendData(MessageID.WorldData);
+                break;
+            }
+            case SyncTacticLoadoutMessage:
+            {
+                int playerIndex = reader.ReadByte();
+                FranSkill[] tactics = new FranSkill[FranPlayer.MaximumTacticSlots];
+                for (int i = 0; i < tactics.Length; i++)
+                {
+                    FranSkill skill = (FranSkill)reader.ReadByte();
+                    tactics[i] = FranSkillInfo.IsRealSkill(skill) ? skill : FranSkill.None;
+                }
+                if (Main.netMode == NetmodeID.Server)
+                    playerIndex = whoAmI;
+                if (!ValidPlayer(playerIndex))
+                    return;
+
+                FranPlayer fran = Main.player[playerIndex].GetModPlayer<FranPlayer>();
+                fran.ReceiveTacticLoadout(tactics);
+                if (Main.netMode == NetmodeID.Server)
+                    SendTacticLoadout(playerIndex, fran, -1, whoAmI);
                 break;
             }
         }

@@ -5,4 +5,4 @@ modReferences = Luminance
 hideCode = false
 hideResources = false
 includeSource = true
-buildIgnore = *.zip*, .git/*, bin/*, obj/*, lib/*
+buildIgnore = *.zip*, .git/*, bin/*, obj/*, lib/*, Font/*.ttf, Textures/FranArtwork/Portraits/Masters/*, Textures/FranArtwork/SkillIcons/Masters/*

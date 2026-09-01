@@ -15,28 +15,72 @@ using Terraria.UI;
 
 namespace FranMod.Content.UI;
 
+/// <summary>
+/// A backgroundless constellation chart. The rectangle returned by GetCanvas is only a coordinate
+/// space: no panel, dimmer, border, or pixel window is drawn from it.
+/// </summary>
 public sealed class FranEvolutionUISystem : ModSystem
 {
-    private const int ResetHoldDuration = 36;
+    private const float NodeRadius = 20f;
     private const string StellarBloomTexture = "Fran/Assets/OriginalVFX/FranBloomCore";
     private const string StellarSparkleTexture = "Fran/Assets/OriginalVFX/FranFlashFourPoint";
     private const string StellarLineTexture = "Fran/Textures/Particles/BloomLine";
     private const string StellarRingTexture = "Fran/Textures/Particles/BloomRing";
+
     private static readonly Color StellarDormant = new(66, 78, 128, 210);
     private static readonly Color StellarAvailable = new(174, 153, 255, 245);
     private static readonly Color StellarLit = new(255, 222, 116, 255);
+
+    // The original twelve ordinals remain in their old order. New stars are appended and laid out
+    // by branch so old saves continue to mean the same thing.
     private static readonly Vector2[] NormalizedNodePositions =
     [
-        new(0.40f, 0.62f), new(0.32f, 0.49f), new(0.24f, 0.36f), new(0.17f, 0.22f),
-        new(0.60f, 0.62f), new(0.68f, 0.49f), new(0.76f, 0.36f), new(0.83f, 0.22f),
-        new(0.50f, 0.59f), new(0.50f, 0.45f), new(0.50f, 0.31f), new(0.50f, 0.17f)
+        // Teacher: original four-star spine.
+        new(0.50f, 0.43f), new(0.44f, 0.35f), new(0.40f, 0.25f), new(0.45f, 0.14f),
+        // Fran: original four-star spine.
+        new(0.43f, 0.54f), new(0.35f, 0.58f), new(0.27f, 0.65f), new(0.18f, 0.74f),
+        // Bond: original four-star spine.
+        new(0.57f, 0.54f), new(0.65f, 0.58f), new(0.73f, 0.65f), new(0.82f, 0.74f),
+        // Teacher additions: 7 stars total.
+        new(0.56f, 0.35f), new(0.61f, 0.25f), new(0.55f, 0.14f),
+        // Fran additions: 9 stars total.
+        new(0.39f, 0.68f), new(0.31f, 0.76f), new(0.24f, 0.55f), new(0.15f, 0.61f),
+        new(0.23f, 0.79f),
+        // Bond additions: 12 stars total.
+        new(0.61f, 0.68f), new(0.69f, 0.76f), new(0.53f, 0.68f), new(0.57f, 0.79f),
+        new(0.76f, 0.55f), new(0.85f, 0.61f), new(0.77f, 0.79f), new(0.88f, 0.77f)
+    ];
+
+    // These extra lines complete each constellation silhouette without adding hidden unlock rules.
+    private static readonly (FranEvolutionNode A, FranEvolutionNode B)[] DecorativeConnections =
+    [
+        (FranEvolutionNode.ComboCalculation, FranEvolutionNode.ArcaneCirculation),
+        (FranEvolutionNode.MagicStoneAnalysis, FranEvolutionNode.DeeperAnalysis),
+        (FranEvolutionNode.SelfEvolution, FranEvolutionNode.SwordSaintReasoning),
+        (FranEvolutionNode.ArcaneCirculation, FranEvolutionNode.DeeperAnalysis),
+        (FranEvolutionNode.DeeperAnalysis, FranEvolutionNode.SwordSaintReasoning),
+
+        (FranEvolutionNode.AerialHunt, FranEvolutionNode.FelineReflex),
+        (FranEvolutionNode.HuntingTempo, FranEvolutionNode.SkyHunter),
+        (FranEvolutionNode.PredatorSight, FranEvolutionNode.PhantomStep),
+        (FranEvolutionNode.EvolvedFootwork, FranEvolutionNode.BlackCatAwakening),
+        (FranEvolutionNode.SkyHunter, FranEvolutionNode.BlackCatAwakening),
+
+        (FranEvolutionNode.SharedRhythm, FranEvolutionNode.SharedMana),
+        (FranEvolutionNode.ResonantPull, FranEvolutionNode.SharedVision),
+        (FranEvolutionNode.ResonantPull, FranEvolutionNode.SynchronizedVolley),
+        (FranEvolutionNode.OneAsSword, FranEvolutionNode.MutualGrowth),
+        (FranEvolutionNode.SharedMana, FranEvolutionNode.HarmonicGuard),
+        (FranEvolutionNode.SharedVision, FranEvolutionNode.SoulBridge),
+        (FranEvolutionNode.SynchronizedVolley, FranEvolutionNode.LimitResonance),
+        (FranEvolutionNode.SoulBridge, FranEvolutionNode.MutualGrowth),
+        (FranEvolutionNode.LimitResonance, FranEvolutionNode.EternalContract),
+        (FranEvolutionNode.MutualGrowth, FranEvolutionNode.EternalContract)
     ];
 
     private static bool open;
     private static int hoveredNode = -1;
     private static int previousHoveredNode = -2;
-    private static int resetHoldTicks;
-    private static bool resetTriggered;
 
     public static bool IsOpen => open;
 
@@ -45,8 +89,6 @@ public sealed class FranEvolutionUISystem : ModSystem
         open = false;
         hoveredNode = -1;
         previousHoveredNode = -2;
-        resetHoldTicks = 0;
-        resetTriggered = false;
     }
 
     public override void UpdateUI(GameTime gameTime)
@@ -88,17 +130,19 @@ public sealed class FranEvolutionUISystem : ModSystem
 
         Main.blockMouse = true;
         player.mouseInterface = true;
-        PlayerInput.LockVanillaMouseScroll("FranMagicStoneCorridor");
+        PlayerInput.LockVanillaMouseScroll("FranMagicStoneConstellations");
 
-        Rectangle panel = GetPanel();
-        Vector2[] centers = GetNodeCenters(panel);
+        Rectangle canvas = GetCanvas();
+        Vector2[] centers = GetNodeCenters(canvas);
         hoveredNode = -1;
         for (int i = 0; i < centers.Length; i++)
-            if (Vector2.DistanceSquared(Main.MouseScreen, centers[i]) <= 24f * 24f)
-            {
-                hoveredNode = i;
-                break;
-            }
+        {
+            if (Vector2.DistanceSquared(Main.MouseScreen, centers[i]) >
+                (NodeRadius + 7f) * (NodeRadius + 7f))
+                continue;
+            hoveredNode = i;
+            break;
+        }
 
         if (hoveredNode != previousHoveredNode)
         {
@@ -107,37 +151,31 @@ public sealed class FranEvolutionUISystem : ModSystem
             previousHoveredNode = hoveredNode;
         }
 
+        if (!Main.mouseLeft || !Main.mouseLeftRelease)
+            return;
+
         FranEvolutionPlayer evolution = player.GetModPlayer<FranEvolutionPlayer>();
-        Rectangle resetButton = GetResetButton(panel);
-        bool resetHovered = resetButton.Contains(Main.MouseScreen.ToPoint());
-        if (resetHovered && Main.mouseLeft)
+        Rectangle resetButton = GetResetButton(canvas);
+        if (resetButton.Contains(Main.MouseScreen.ToPoint()))
         {
-            if (!resetTriggered && evolution.NodeMask != 0 && evolution.CanAdjustEvolution)
+            if (evolution.NodeMask != 0 && evolution.CanAdjustEvolution)
             {
-                resetHoldTicks++;
-                if (resetHoldTicks >= ResetHoldDuration)
-                {
-                    resetTriggered = true;
-                    evolution.RequestReset();
-                }
+                evolution.RequestReset();
+                SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.68f, Pitch = -0.12f });
             }
-        }
-        else
-        {
-            resetHoldTicks = 0;
-            if (!Main.mouseLeft)
-                resetTriggered = false;
+            else
+                SoundEngine.PlaySound(SoundID.MenuClose with { Volume = 0.35f, Pitch = 0.28f });
+            return;
         }
 
-        if (hoveredNode >= 0 && !resetHovered && Main.mouseLeft && Main.mouseLeftRelease)
-        {
-            FranEvolutionNode node = (FranEvolutionNode)hoveredNode;
-            FranEvolutionUnlockFailure failure = evolution.GetUnlockFailure(node);
-            if (failure == FranEvolutionUnlockFailure.None)
-                evolution.RequestUnlock(node);
-            else if (failure != FranEvolutionUnlockFailure.AlreadyUnlocked)
-                SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.42f, Pitch = -0.42f });
-        }
+        if (hoveredNode < 0)
+            return;
+        FranEvolutionNode node = (FranEvolutionNode)hoveredNode;
+        FranEvolutionUnlockFailure failure = evolution.GetUnlockFailure(node);
+        if (failure == FranEvolutionUnlockFailure.None)
+            evolution.RequestUnlock(node);
+        else if (failure != FranEvolutionUnlockFailure.AlreadyUnlocked)
+            SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.42f, Pitch = -0.42f });
     }
 
     public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)
@@ -145,8 +183,8 @@ public sealed class FranEvolutionUISystem : ModSystem
         int index = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Mouse Text"));
         if (index < 0)
             index = layers.Count;
-        layers.Insert(index, new LegacyGameInterfaceLayer("Fran: Magic Stone Corridor", DrawInterface,
-            InterfaceScaleType.UI));
+        layers.Insert(index, new LegacyGameInterfaceLayer("Fran: Backgroundless Evolution Constellations",
+            DrawInterface, InterfaceScaleType.UI));
     }
 
     private static bool DrawInterface()
@@ -164,14 +202,14 @@ public sealed class FranEvolutionUISystem : ModSystem
         }
 
         FranEvolutionPlayer evolution = Main.LocalPlayer.GetModPlayer<FranEvolutionPlayer>();
-        Rectangle panel = GetPanel();
-        Vector2[] centers = GetNodeCenters(panel);
-        DrawBackdrop(panel);
-        DrawStellarConstellation(panel, centers, evolution);
-        DrawHeader(panel, evolution);
-        DrawStellarLabels(panel, centers, evolution);
-        DrawDescription(panel, evolution);
-        DrawResetButton(panel, evolution);
+        Rectangle canvas = GetCanvas();
+        Vector2[] centers = GetNodeCenters(canvas);
+        DrawConstellations(canvas, centers, evolution);
+        DrawHeader(canvas, evolution);
+        DrawBranchLabels(canvas);
+        DrawNodeLabels(centers, evolution);
+        DrawDescription(canvas, evolution);
+        DrawResetText(canvas, evolution);
         return true;
     }
 
@@ -180,8 +218,6 @@ public sealed class FranEvolutionUISystem : ModSystem
         open = true;
         hoveredNode = -1;
         previousHoveredNode = -2;
-        resetHoldTicks = 0;
-        resetTriggered = false;
         SoundEngine.PlaySound(SoundID.MenuOpen with { Volume = 0.62f, Pitch = 0.05f });
     }
 
@@ -192,14 +228,12 @@ public sealed class FranEvolutionUISystem : ModSystem
         open = false;
         hoveredNode = -1;
         previousHoveredNode = -2;
-        resetHoldTicks = 0;
-        resetTriggered = false;
     }
 
-    private static Rectangle GetPanel()
+    private static Rectangle GetCanvas()
     {
-        int width = Math.Min(860, Math.Max(560, Main.screenWidth - 54));
-        int height = Math.Min(620, Math.Max(460, Main.screenHeight - 54));
+        int width = Math.Min(1180, Math.Max(720, Main.screenWidth - 34));
+        int height = Math.Min(760, Math.Max(520, Main.screenHeight - 30));
         return new Rectangle((Main.screenWidth - width) / 2, (Main.screenHeight - height) / 2, width, height);
     }
 
@@ -211,62 +245,65 @@ public sealed class FranEvolutionUISystem : ModSystem
         return new Rectangle((int)anchor.X, (int)anchor.Y, 30, 30);
     }
 
-    private static Rectangle GetResetButton(Rectangle panel) =>
-        new(panel.Right - 190, panel.Bottom - 44, 162, 28);
+    private static Rectangle GetResetButton(Rectangle canvas) =>
+        new(canvas.Right - 204, canvas.Bottom - 40, 184, 28);
 
-    private static Vector2[] GetNodeCenters(Rectangle panel)
+    private static Vector2[] GetNodeCenters(Rectangle canvas)
     {
         Vector2[] result = new Vector2[FranEvolutionInfo.Count];
         for (int i = 0; i < result.Length; i++)
-            result[i] = panel.TopLeft() + NormalizedNodePositions[i] * panel.Size();
+            result[i] = canvas.TopLeft() + NormalizedNodePositions[i] * canvas.Size();
         return result;
     }
 
+    private static Vector2 GetCore(Rectangle canvas) =>
+        canvas.TopLeft() + new Vector2(0.50f, 0.48f) * canvas.Size();
+
     private static void DrawEntryButton()
     {
-        Rectangle button = GetEntryButton();
-        bool hovered = button.Contains(Main.MouseScreen.ToPoint());
+        Rectangle hitbox = GetEntryButton();
+        bool hovered = hitbox.Contains(Main.MouseScreen.ToPoint());
+        Vector2 center = hitbox.Center.ToVector2();
         float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 4.8f);
-        DrawRect(button, new Color(5, 8, 16, hovered ? 240 : 205));
-        DrawBorder(button, hovered ? new Color(205, 165, 255) : new Color(105, 88, 176), hovered ? 2 : 1);
-        Vector2 center = button.Center.ToVector2();
-        DrawDiamond(center, hovered ? 11f : 9f, new Color(164, 104, 236) * (0.78f + pulse * 0.18f),
-            Color.White * (hovered ? 0.72f : 0.38f), 1f);
+
+        Main.spriteBatch.End();
+        Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp,
+            DepthStencilState.None, RasterizerState.CullNone, null, Main.UIScaleMatrix);
+        DrawStellarSparkle(Main.spriteBatch, center, Color.White,
+            hovered ? new Color(205, 165, 255) : new Color(137, 104, 231),
+            hovered ? 18f : 14f + pulse * 2f, 3);
+        Main.spriteBatch.End();
+        Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp,
+            DepthStencilState.None, RasterizerState.CullNone, null, Main.UIScaleMatrix);
+
         if (hovered)
             Main.instance.MouseText(Language.GetTextValue("Mods.Fran.Evolution.OpenHint"));
     }
 
-    private static void DrawBackdrop(Rectangle panel)
+    private static void DrawHeader(Rectangle canvas, FranEvolutionPlayer evolution)
     {
-        DrawRect(new Rectangle(0, 0, Main.screenWidth, Main.screenHeight), new Color(1, 3, 10, 202));
-        DrawRect(panel, new Color(3, 6, 17, 218));
-        DrawBorder(panel, new Color(35, 51, 91, 214), 3);
-        DrawBorder(new Rectangle(panel.X + 4, panel.Y + 4, panel.Width - 8, panel.Height - 8),
-            new Color(111, 95, 196) * 0.48f, 1);
-    }
-
-    private static void DrawHeader(Rectangle panel, FranEvolutionPlayer evolution)
-    {
-        DrawCentered(Language.GetTextValue("Mods.Fran.Evolution.Title"),
-            new Rectangle(panel.X + 120, panel.Y + 15, panel.Width - 240, 30),
-            new Color(226, 235, 255), 0.82f);
+        DrawCenteredText(Language.GetTextValue("Mods.Fran.Evolution.Title"),
+            new Vector2(canvas.Center.X, canvas.Y + 12f), new Color(226, 235, 255), 0.86f);
         string points = Language.GetTextValue("Mods.Fran.Evolution.PointSummary", evolution.AvailablePoints,
             evolution.SpentPoints, evolution.EarnedPoints, FranEvolutionInfo.CurrentStagePointCap);
-        DrawCentered(points, new Rectangle(panel.X + 80, panel.Y + 46, panel.Width - 160, 24),
-            new Color(184, 202, 222), 0.53f);
-
-        DrawCentered(Language.GetTextValue("Mods.Fran.Evolution.Branches.Teacher"),
-            new Rectangle(panel.X + 26, panel.Y + 74, panel.Width / 3, 24),
-            FranEvolutionInfo.BranchColor(FranEvolutionBranch.Teacher), 0.57f);
-        DrawCentered(Language.GetTextValue("Mods.Fran.Evolution.Branches.Bond"),
-            new Rectangle(panel.Center.X - panel.Width / 6, panel.Y + 74, panel.Width / 3, 24),
-            FranEvolutionInfo.BranchColor(FranEvolutionBranch.Bond), 0.57f);
-        DrawCentered(Language.GetTextValue("Mods.Fran.Evolution.Branches.Fran"),
-            new Rectangle(panel.Right - panel.Width / 3 - 26, panel.Y + 74, panel.Width / 3, 24),
-            FranEvolutionInfo.BranchColor(FranEvolutionBranch.Fran), 0.57f);
+        DrawCenteredText(points, new Vector2(canvas.Center.X, canvas.Y + 42f),
+            new Color(184, 202, 222), 0.54f);
     }
 
-    private static void DrawStellarConstellation(Rectangle panel, Vector2[] centers,
+    private static void DrawBranchLabels(Rectangle canvas)
+    {
+        DrawCenteredText(Language.GetTextValue("Mods.Fran.Evolution.Branches.Teacher"),
+            canvas.TopLeft() + new Vector2(0.50f, 0.085f) * canvas.Size(),
+            FranEvolutionInfo.BranchColor(FranEvolutionBranch.Teacher), 0.55f);
+        DrawCenteredText(Language.GetTextValue("Mods.Fran.Evolution.Branches.Fran"),
+            canvas.TopLeft() + new Vector2(0.17f, 0.49f) * canvas.Size(),
+            FranEvolutionInfo.BranchColor(FranEvolutionBranch.Fran), 0.55f);
+        DrawCenteredText(Language.GetTextValue("Mods.Fran.Evolution.Branches.Bond"),
+            canvas.TopLeft() + new Vector2(0.83f, 0.49f) * canvas.Size(),
+            FranEvolutionInfo.BranchColor(FranEvolutionBranch.Bond), 0.55f);
+    }
+
+    private static void DrawConstellations(Rectangle canvas, Vector2[] centers,
         FranEvolutionPlayer evolution)
     {
         SpriteBatch spriteBatch = Main.spriteBatch;
@@ -274,23 +311,23 @@ public sealed class FranEvolutionUISystem : ModSystem
         spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp,
             DepthStencilState.None, RasterizerState.CullNone, null, Main.UIScaleMatrix);
 
-        Vector2 core = panel.TopLeft() + new Vector2(0.5f, 0.735f) * panel.Size();
-        DrawCelestialBackdrop(spriteBatch, panel, core);
+        Vector2 core = GetCore(canvas);
+        DrawCelestialField(spriteBatch, canvas, core);
 
         int connectionIndex = 0;
-        DrawStellarConnection(spriteBatch, core, centers[0], FranEvolutionNode.EdgeCalibration,
-            evolution, connectionIndex++);
-        DrawStellarConnection(spriteBatch, core, centers[4], FranEvolutionNode.CatStep,
-            evolution, connectionIndex++);
-        DrawStellarConnection(spriteBatch, core, centers[8], FranEvolutionNode.MindSync,
-            evolution, connectionIndex++);
-        for (int branch = 0; branch < 3; branch++)
+        for (int i = 0; i < FranEvolutionInfo.Count; i++)
         {
-            int start = branch * 4;
-            for (int tier = 1; tier < 4; tier++)
-                DrawStellarConnection(spriteBatch, centers[start + tier - 1], centers[start + tier],
-                    (FranEvolutionNode)(start + tier), evolution, connectionIndex++);
+            FranEvolutionNode node = (FranEvolutionNode)i;
+            FranEvolutionNodeDefinition definition = FranEvolutionInfo.Get(node);
+            Vector2 start = definition.Prerequisite == FranEvolutionNode.None
+                ? core
+                : centers[(int)definition.Prerequisite];
+            DrawProgressConnection(spriteBatch, start, centers[i], node, evolution, connectionIndex++);
         }
+
+        foreach ((FranEvolutionNode a, FranEvolutionNode b) in DecorativeConnections)
+            DrawDecorativeConnection(spriteBatch, centers[(int)a], centers[(int)b], a, b, evolution,
+                connectionIndex++);
 
         DrawStellarCore(spriteBatch, core, evolution);
         for (int i = 0; i < FranEvolutionInfo.Count; i++)
@@ -308,19 +345,17 @@ public sealed class FranEvolutionUISystem : ModSystem
             Color bloomColor = purchased ? Color.Lerp(branch, StellarLit, 0.32f)
                 : available ? Color.Lerp(branch, StellarAvailable, 0.42f)
                 : StellarDormant;
-            float size = purchased ? 25f : available ? 21f : 17f;
+            float size = purchased ? 23f : available ? 19f : 15f;
             if (hovered)
-                size *= 1.18f;
+                size *= 1.20f;
 
             DrawStellarSparkle(spriteBatch, centers[i], starColor, bloomColor, size, i + 17);
-            if (hovered)
-            {
-                Texture2D ring = ModContent.Request<Texture2D>(StellarRingTexture).Value;
-                float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 4.2f);
-                DrawTexturePixels(spriteBatch, ring, centers[i], bloomColor * (0.42f + pulse * 0.24f),
-                    -Main.GlobalTimeWrappedHourly * 0.72f,
-                    Vector2.One * (54f + pulse * 6f));
-            }
+            if (!hovered)
+                continue;
+            Texture2D ring = ModContent.Request<Texture2D>(StellarRingTexture).Value;
+            float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 4.2f);
+            DrawTexturePixels(spriteBatch, ring, centers[i], bloomColor * (0.42f + pulse * 0.24f),
+                -Main.GlobalTimeWrappedHourly * 0.72f, Vector2.One * (50f + pulse * 6f));
         }
 
         spriteBatch.End();
@@ -328,32 +363,33 @@ public sealed class FranEvolutionUISystem : ModSystem
             DepthStencilState.None, RasterizerState.CullNone, null, Main.UIScaleMatrix);
     }
 
-    private static void DrawCelestialBackdrop(SpriteBatch spriteBatch, Rectangle panel, Vector2 center)
+    private static void DrawCelestialField(SpriteBatch spriteBatch, Rectangle canvas, Vector2 center)
     {
         Texture2D bloom = ModContent.Request<Texture2D>(StellarBloomTexture).Value;
         float breath = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 0.72f);
-        DrawTexturePixels(spriteBatch, bloom, center + new Vector2(-116f, -32f),
-            new Color(48, 71, 190) * (0.11f + breath * 0.035f), 0f, new Vector2(480f, 340f));
-        DrawTexturePixels(spriteBatch, bloom, center + new Vector2(178f, 42f),
-            new Color(151, 78, 213) * (0.08f + (1f - breath) * 0.028f), 0f, new Vector2(390f, 278f));
-        DrawTexturePixels(spriteBatch, bloom, center + new Vector2(-8f, -168f),
-            StellarLit * (0.045f + breath * 0.016f), 0f, new Vector2(260f, 170f));
 
-        for (int i = 0; i < 42; i++)
+        // These are transparent light emissions, not a panel or backdrop rectangle.
+        DrawTexturePixels(spriteBatch, bloom, center + new Vector2(-220f, -80f),
+            new Color(48, 71, 190) * (0.055f + breath * 0.018f), 0f, new Vector2(520f, 330f));
+        DrawTexturePixels(spriteBatch, bloom, center + new Vector2(250f, 105f),
+            new Color(151, 78, 213) * (0.045f + (1f - breath) * 0.015f), 0f,
+            new Vector2(470f, 300f));
+
+        for (int i = 0; i < 54; i++)
         {
-            float x = panel.X + 34f + Hash01(i * 37 + 11) * (panel.Width - 68f);
-            float y = panel.Y + 78f + Hash01(i * 53 + 29) * (panel.Height - 186f);
+            float x = canvas.X + 28f + Hash01(i * 37 + 11) * (canvas.Width - 56f);
+            float y = canvas.Y + 58f + Hash01(i * 53 + 29) * (canvas.Height - 126f);
             float speed = 0.82f + Hash01(i * 71 + 5) * 1.28f;
             float twinkle = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * speed + i * 1.71f);
-            float size = 3.2f + Hash01(i * 97 + 17) * 5.8f;
+            float size = 2.6f + Hash01(i * 97 + 17) * 4.8f;
             Color color = Color.Lerp(new Color(102, 145, 255), new Color(225, 207, 255),
                 Hash01(i * 43 + 3));
-            DrawStellarSparkle(spriteBatch, new Vector2(x, y), color * (0.52f + twinkle * 0.30f),
-                color * 0.42f, size, i + 101);
+            DrawStellarSparkle(spriteBatch, new Vector2(x, y), color * (0.35f + twinkle * 0.24f),
+                color * 0.26f, size, i + 101);
         }
     }
 
-    private static void DrawStellarConnection(SpriteBatch spriteBatch, Vector2 start, Vector2 end,
+    private static void DrawProgressConnection(SpriteBatch spriteBatch, Vector2 start, Vector2 end,
         FranEvolutionNode destination, FranEvolutionPlayer evolution, int index)
     {
         FranEvolutionNodeDefinition definition = FranEvolutionInfo.Get(destination);
@@ -361,66 +397,117 @@ public sealed class FranEvolutionUISystem : ModSystem
         bool prerequisiteMet = definition.Prerequisite == FranEvolutionNode.None ||
             evolution.HasNode(definition.Prerequisite);
         Color branch = FranEvolutionInfo.BranchColor(definition.Branch);
-        Color lineColor = purchased ? Color.Lerp(branch, StellarLit, 0.22f)
-            : prerequisiteMet ? branch * 0.55f
-            : StellarDormant * 0.72f;
-        DrawStellarLine(spriteBatch, start, end, lineColor, purchased ? 3.6f : 2.0f,
-            purchased ? 0.72f : prerequisiteMet ? 0.30f : 0.16f);
+        Color color = purchased ? Color.Lerp(branch, StellarLit, 0.22f)
+            : prerequisiteMet ? branch * 0.55f : StellarDormant * 0.72f;
+        DrawStellarLine(spriteBatch, start, end, color, purchased ? 3.2f : 1.7f,
+            purchased ? 0.72f : prerequisiteMet ? 0.28f : 0.13f);
+        if (purchased)
+            DrawTravelingLight(spriteBatch, start, end, branch, index);
+    }
 
-        if (!purchased)
-            return;
-        float travel = (Main.GlobalTimeWrappedHourly * 0.17f + index * 0.173f) % 1f;
+    private static void DrawDecorativeConnection(SpriteBatch spriteBatch, Vector2 start, Vector2 end,
+        FranEvolutionNode a, FranEvolutionNode b, FranEvolutionPlayer evolution, int index)
+    {
+        bool bright = evolution.HasNode(a) && evolution.HasNode(b);
+        FranEvolutionBranch branch = FranEvolutionInfo.Get(a).Branch;
+        Color color = bright ? Color.Lerp(FranEvolutionInfo.BranchColor(branch), StellarLit, 0.16f)
+            : StellarDormant;
+        DrawStellarLine(spriteBatch, start, end, color, bright ? 2.5f : 1.25f,
+            bright ? 0.50f : 0.10f);
+        if (bright)
+            DrawTravelingLight(spriteBatch, start, end, FranEvolutionInfo.BranchColor(branch), index);
+    }
+
+    private static void DrawTravelingLight(SpriteBatch spriteBatch, Vector2 start, Vector2 end,
+        Color branch, int index)
+    {
+        float travel = (Main.GlobalTimeWrappedHourly * 0.16f + index * 0.173f) % 1f;
         travel = travel * travel * (3f - 2f * travel);
         DrawStellarSparkle(spriteBatch, Vector2.Lerp(start, end, travel), Color.White,
-            Color.Lerp(branch, StellarLit, 0.48f), 8.5f, 51 + index);
+            Color.Lerp(branch, StellarLit, 0.48f), 7.2f, 211 + index);
     }
 
     private static void DrawStellarCore(SpriteBatch spriteBatch, Vector2 center,
         FranEvolutionPlayer evolution)
     {
-        int orbitCount = Math.Min(FranEvolutionInfo.MaximumSpendablePoints, evolution.EarnedPoints);
+        int orbitCount = Math.Min(18, (evolution.EarnedPoints + 2) / 3);
         for (int i = 0; i < orbitCount; i++)
         {
             float angle = MathHelper.TwoPi * i / Math.Max(1, orbitCount) +
                 Main.GlobalTimeWrappedHourly * (i % 2 == 0 ? 0.13f : -0.10f);
-            Vector2 position = center + angle.ToRotationVector2() * (52f + i % 3 * 5f);
+            Vector2 position = center + angle.ToRotationVector2() * (45f + i % 3 * 4f);
             Color color = Color.Lerp(new Color(161, 112, 242), StellarLit, (i % 4) / 7f);
-            DrawStellarSparkle(spriteBatch, position, Color.White * 0.72f, color, 7f, 211 + i);
+            DrawStellarSparkle(spriteBatch, position, Color.White * 0.68f, color, 6.4f, 311 + i);
         }
 
         Texture2D ring = ModContent.Request<Texture2D>(StellarRingTexture).Value;
         DrawTexturePixels(spriteBatch, ring, center, new Color(149, 113, 235) * 0.58f,
-            Main.GlobalTimeWrappedHourly * 0.32f, new Vector2(82f));
+            Main.GlobalTimeWrappedHourly * 0.32f, new Vector2(76f));
         DrawStellarSparkle(spriteBatch, center, Color.White,
-            Color.Lerp(new Color(137, 104, 231), StellarLit, 0.24f), 38f, 7);
+            Color.Lerp(new Color(137, 104, 231), StellarLit, 0.24f), 36f, 7);
     }
 
-    private static void DrawStellarLabels(Rectangle panel, Vector2[] centers,
-        FranEvolutionPlayer evolution)
+    private static void DrawNodeLabels(Vector2[] centers, FranEvolutionPlayer evolution)
     {
         for (int i = 0; i < FranEvolutionInfo.Count; i++)
         {
             FranEvolutionNode node = (FranEvolutionNode)i;
             FranEvolutionNodeDefinition definition = FranEvolutionInfo.Get(node);
             bool purchased = evolution.HasNode(node);
-            bool hovered = hoveredNode == i;
             Color branch = FranEvolutionInfo.BranchColor(definition.Branch);
             string label = purchased ? "★" : definition.Cost.ToString();
-            DrawCentered(label,
-                new Rectangle((int)centers[i].X - 18, (int)centers[i].Y + 17, 36, 22),
+            DrawCenteredText(label, centers[i] + new Vector2(0f, 22f),
                 purchased ? Color.Lerp(branch, Color.White, 0.48f) : new Color(211, 219, 241),
-                hovered ? 0.58f : 0.50f);
+                hoveredNode == i ? 0.57f : 0.48f);
+        }
+    }
+
+    private static void DrawDescription(Rectangle canvas, FranEvolutionPlayer evolution)
+    {
+        if (hoveredNode < 0)
+        {
+            DrawCenteredText(Language.GetTextValue("Mods.Fran.Evolution.Overview"),
+                new Vector2(canvas.Center.X, canvas.Bottom - 22f), new Color(201, 215, 229), 0.47f,
+                canvas.Width - 430f);
+            return;
         }
 
-        Vector2 core = panel.TopLeft() + new Vector2(0.5f, 0.735f) * panel.Size();
-        DrawLine(core + new Vector2(0f, -24f), core + new Vector2(0f, 23f),
-            new Color(232, 238, 248), 3f);
-        DrawLine(core + new Vector2(-11f, 11f), core + new Vector2(11f, 11f),
-            StellarLit, 2.5f);
-        DrawLine(core + new Vector2(0f, -23f), core + new Vector2(-6f, -14f),
-            new Color(203, 224, 245), 2f);
-        DrawLine(core + new Vector2(0f, -23f), core + new Vector2(6f, -14f),
-            new Color(203, 224, 245), 2f);
+        FranEvolutionNode node = (FranEvolutionNode)hoveredNode;
+        FranEvolutionNodeDefinition definition = FranEvolutionInfo.Get(node);
+        Color branch = FranEvolutionInfo.BranchColor(definition.Branch);
+        string name = Language.GetTextValue($"Mods.Fran.Evolution.Nodes.{node}.DisplayName");
+        string body = Language.GetTextValue($"Mods.Fran.Evolution.Nodes.{node}.Description");
+        FranEvolutionUnlockFailure failure = evolution.GetUnlockFailure(node);
+        string status = evolution.HasNode(node)
+            ? Language.GetTextValue("Mods.Fran.Evolution.Status.Active")
+            : failure == FranEvolutionUnlockFailure.StageLocked
+                ? Language.GetTextValue("Mods.Fran.Evolution.Status.StageLocked", definition.RequiredStage)
+                : Language.GetTextValue($"Mods.Fran.Evolution.Status.{failure}");
+
+        float left = canvas.X + 22f;
+        float bottom = canvas.Bottom - 14f;
+        Utils.DrawBorderString(Main.spriteBatch, $"✦ {name}", new Vector2(left, bottom - 78f), branch, 0.66f);
+        Utils.DrawBorderString(Main.spriteBatch, body, new Vector2(left, bottom - 49f),
+            new Color(226, 233, 248), 0.46f);
+        Utils.DrawBorderString(Main.spriteBatch, status, new Vector2(left, bottom - 23f),
+            failure == FranEvolutionUnlockFailure.None || evolution.HasNode(node)
+                ? new Color(142, 232, 199) : new Color(212, 171, 148), 0.43f);
+    }
+
+    private static void DrawResetText(Rectangle canvas, FranEvolutionPlayer evolution)
+    {
+        Rectangle hitbox = GetResetButton(canvas);
+        bool hovered = hitbox.Contains(Main.MouseScreen.ToPoint());
+        string text = evolution.NodeMask == 0
+            ? Language.GetTextValue("Mods.Fran.Evolution.ResetEmpty")
+            : !evolution.CanAdjustEvolution
+                ? Language.GetTextValue("Mods.Fran.Evolution.ResetLocked")
+                : Language.GetTextValue("Mods.Fran.Evolution.ResetFree");
+        Color color = evolution.NodeMask == 0 || !evolution.CanAdjustEvolution
+            ? new Color(112, 119, 142)
+            : hovered ? Color.White : new Color(214, 198, 255);
+        DrawCenteredText(text, hitbox.Center.ToVector2(), color, hovered ? 0.58f : 0.53f,
+            hitbox.Width);
     }
 
     private static void DrawStellarSparkle(SpriteBatch spriteBatch, Vector2 position, Color color,
@@ -450,9 +537,9 @@ public sealed class FranEvolutionUISystem : ModSystem
             SpriteEffects.None, 0f);
 
         Texture2D bloom = ModContent.Request<Texture2D>(StellarBloomTexture).Value;
-        Vector2 capSize = Vector2.One * Math.Max(9f, thickness * 4.5f);
-        DrawTexturePixels(spriteBatch, bloom, start, color * opacity * 0.58f, 0f, capSize);
-        DrawTexturePixels(spriteBatch, bloom, end, color * opacity * 0.58f, 0f, capSize);
+        Vector2 capSize = Vector2.One * Math.Max(8f, thickness * 4f);
+        DrawTexturePixels(spriteBatch, bloom, start, color * opacity * 0.48f, 0f, capSize);
+        DrawTexturePixels(spriteBatch, bloom, end, color * opacity * 0.48f, 0f, capSize);
     }
 
     private static void DrawTexturePixels(SpriteBatch spriteBatch, Texture2D texture, Vector2 position,
@@ -473,142 +560,12 @@ public sealed class FranEvolutionUISystem : ModSystem
         return (value & 0x00FFFFFF) / 16777215f;
     }
 
-    private static void DrawDescription(Rectangle panel, FranEvolutionPlayer evolution)
-    {
-        Rectangle description = new(panel.X + 24, panel.Bottom - 112, panel.Width - 238, 88);
-        DrawRect(description, new Color(3, 7, 13, 232));
-        DrawBorder(description, new Color(46, 75, 98) * 0.85f, 1);
-
-        if (hoveredNode < 0)
-        {
-            DrawWrappedCentered(Language.GetTextValue("Mods.Fran.Evolution.Overview"),
-                new Rectangle(description.X + 12, description.Y + 9, description.Width - 24,
-                    description.Height - 18), new Color(201, 215, 229), 0.51f);
-            return;
-        }
-
-        FranEvolutionNode node = (FranEvolutionNode)hoveredNode;
-        FranEvolutionNodeDefinition definition = FranEvolutionInfo.Get(node);
-        Color branch = FranEvolutionInfo.BranchColor(definition.Branch);
-        string name = Language.GetTextValue($"Mods.Fran.Evolution.Nodes.{node}.DisplayName");
-        string body = Language.GetTextValue($"Mods.Fran.Evolution.Nodes.{node}.Description");
-        FranEvolutionUnlockFailure failure = evolution.GetUnlockFailure(node);
-        string status = evolution.HasNode(node)
-            ? Language.GetTextValue("Mods.Fran.Evolution.Status.Active")
-            : failure == FranEvolutionUnlockFailure.StageLocked
-                ? Language.GetTextValue("Mods.Fran.Evolution.Status.StageLocked", definition.RequiredStage)
-                : Language.GetTextValue($"Mods.Fran.Evolution.Status.{failure}");
-        DrawCentered(name, new Rectangle(description.X + 8, description.Y + 5, description.Width - 16, 22),
-            branch, 0.61f);
-        DrawWrappedCentered(body, new Rectangle(description.X + 12, description.Y + 27,
-            description.Width - 24, 38), Color.White, 0.46f);
-        DrawCentered(status, new Rectangle(description.X + 8, description.Bottom - 22, description.Width - 16, 18),
-            failure == FranEvolutionUnlockFailure.None || evolution.HasNode(node) ? new Color(142, 232, 199) :
-                new Color(212, 171, 148), 0.43f);
-    }
-
-    private static void DrawResetButton(Rectangle panel, FranEvolutionPlayer evolution)
-    {
-        Rectangle button = GetResetButton(panel);
-        bool hovered = button.Contains(Main.MouseScreen.ToPoint());
-        float ratio = resetTriggered ? 1f : MathHelper.Clamp(resetHoldTicks / (float)ResetHoldDuration, 0f, 1f);
-        DrawRect(button, new Color(9, 12, 20, 235));
-        DrawBorder(button, hovered ? new Color(221, 177, 103) : new Color(88, 78, 93), hovered ? 2 : 1);
-        if (ratio > 0f)
-            DrawRect(new Rectangle(button.X + 3, button.Y + 3, (int)((button.Width - 6) * ratio), button.Height - 6),
-                new Color(174, 111, 84) * 0.52f);
-        string text = evolution.NodeMask == 0
-            ? Language.GetTextValue("Mods.Fran.Evolution.ResetEmpty")
-            : !evolution.CanAdjustEvolution
-                ? Language.GetTextValue("Mods.Fran.Evolution.ResetLocked")
-            : Language.GetTextValue("Mods.Fran.Evolution.ResetHold");
-        DrawCentered(text, button, evolution.NodeMask == 0 || !evolution.CanAdjustEvolution
-            ? new Color(110, 113, 122)
-            : Color.White, 0.48f);
-    }
-
-    private static void DrawCentered(string text, Rectangle area, Color color, float scale)
+    private static void DrawCenteredText(string text, Vector2 center, Color color, float scale,
+        float maximumWidth = float.MaxValue)
     {
         Vector2 size = FontAssets.MouseText.Value.MeasureString(text);
-        float actualScale = Math.Min(scale, area.Width / Math.Max(1f, size.X));
-        Vector2 position = new(area.Center.X - size.X * actualScale * 0.5f,
-            area.Center.Y - size.Y * actualScale * 0.5f);
-        Utils.DrawBorderString(Main.spriteBatch, text, position, color, actualScale);
-    }
-
-    private static void DrawWrappedCentered(string text, Rectangle area, Color color, float scale)
-    {
-        List<string> lines = WrapText(text, area.Width, scale);
-        float lineHeight = FontAssets.MouseText.Value.MeasureString("国").Y * scale;
-        float y = area.Center.Y - lines.Count * lineHeight * 0.5f;
-        foreach (string line in lines)
-        {
-            Vector2 size = FontAssets.MouseText.Value.MeasureString(line) * scale;
-            Utils.DrawBorderString(Main.spriteBatch, line, new Vector2(area.Center.X - size.X * 0.5f, y),
-                color, scale);
-            y += lineHeight;
-        }
-    }
-
-    private static List<string> WrapText(string text, float maxWidth, float scale)
-    {
-        List<string> lines = new();
-        string remaining = text.Trim();
-        while (remaining.Length > 0)
-        {
-            int bestLength = 1;
-            int lastWhitespace = -1;
-            for (int i = 0; i < remaining.Length; i++)
-            {
-                if (char.IsWhiteSpace(remaining[i]))
-                    lastWhitespace = i;
-                if (FontAssets.MouseText.Value.MeasureString(remaining[..(i + 1)]).X * scale <= maxWidth)
-                {
-                    bestLength = i + 1;
-                    continue;
-                }
-                if (lastWhitespace > 0)
-                    bestLength = lastWhitespace;
-                break;
-            }
-            string line = remaining[..bestLength].Trim();
-            if (line.Length == 0)
-                line = remaining[..1];
-            lines.Add(line);
-            remaining = remaining[bestLength..].TrimStart();
-        }
-        return lines;
-    }
-
-    private static void DrawRect(Rectangle rectangle, Color color) =>
-        Main.spriteBatch.Draw(TextureAssets.MagicPixel.Value, rectangle, color);
-
-    private static void DrawBorder(Rectangle rectangle, Color color, int thickness)
-    {
-        DrawRect(new Rectangle(rectangle.X, rectangle.Y, rectangle.Width, thickness), color);
-        DrawRect(new Rectangle(rectangle.X, rectangle.Bottom - thickness, rectangle.Width, thickness), color);
-        DrawRect(new Rectangle(rectangle.X, rectangle.Y, thickness, rectangle.Height), color);
-        DrawRect(new Rectangle(rectangle.Right - thickness, rectangle.Y, thickness, rectangle.Height), color);
-    }
-
-    private static void DrawDiamond(Vector2 center, float size, Color fill, Color border, float borderThickness)
-    {
-        Texture2D pixel = TextureAssets.MagicPixel.Value;
-        if (borderThickness > 0f && border != Color.Transparent)
-            Main.spriteBatch.Draw(pixel, center, new Rectangle(0, 0, 1, 1), border, MathHelper.PiOver4,
-                new Vector2(0.5f), new Vector2(size), SpriteEffects.None, 0f);
-        float innerSize = Math.Max(0f, size - borderThickness);
-        if (innerSize > 0f && fill != Color.Transparent)
-            Main.spriteBatch.Draw(pixel, center, new Rectangle(0, 0, 1, 1), fill, MathHelper.PiOver4,
-                new Vector2(0.5f), new Vector2(innerSize), SpriteEffects.None, 0f);
-    }
-
-    private static void DrawLine(Vector2 start, Vector2 end, Color color, float thickness)
-    {
-        Vector2 edge = end - start;
-        if (edge.LengthSquared() < 0.1f)
-            return;
-        Main.spriteBatch.Draw(TextureAssets.MagicPixel.Value, start, new Rectangle(0, 0, 1, 1), color,
-            edge.ToRotation(), new Vector2(0f, 0.5f), new Vector2(edge.Length(), thickness), SpriteEffects.None, 0f);
+        float actualScale = Math.Min(scale, maximumWidth / Math.Max(1f, size.X));
+        Utils.DrawBorderString(Main.spriteBatch, text, center - size * actualScale * 0.5f,
+            color, actualScale);
     }
 }

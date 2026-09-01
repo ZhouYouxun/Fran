@@ -16,8 +16,9 @@ internal enum FranProjectileTrailProfile
     HeavyHammer
 }
 
-// Texture-driven projectile ribbons. Each projectile family owns a width envelope and authored
-// primary texture; the common shader only supplies moving material, edge light and a hot core.
+// Texture-driven projectile ribbons. Geometry is shared, but every projectile family owns its
+// width envelope, two material maps, flow direction and a distinct shader branch. This keeps the
+// trails related without reducing them to the same ribbon with a different color.
 internal static class FranProjectileTrailRenderer
 {
     private const float MaximumTrailRadius = 760f;
@@ -58,14 +59,17 @@ internal static class FranProjectileTrailRenderer
             shader.TrySetParameter("uProfile", (float)profile);
             shader.TrySetParameter("uFlowSpeed", FlowSpeed(profile));
             shader.TrySetParameter("uNoiseStrength", NoiseStrength(profile));
-            shader.SetTexture(PrimaryTexture(profile), 1, SamplerState.LinearClamp);
-            shader.SetTexture(FranVfx.Shared("NoiseSoft"), 2, SamplerState.LinearWrap);
+            float seed = (projectile.identity * 0.61803395f + projectile.type * 0.131f) % 1f;
+            shader.TrySetParameter("uSeed", seed);
+            shader.SetTexture(MaterialTexture(profile), 1, SamplerState.LinearWrap);
+            shader.SetTexture(DetailTexture(profile), 2, SamplerState.LinearWrap);
 
-            DrawPass(points, shader, profile, halfWidth * AuraScale(profile), opacity * 0.70f,
+            DrawPass(points, shader, profile, halfWidth * AuraScale(profile), opacity * AuraOpacity(profile),
                 1f, BlendState.Additive);
-            DrawPass(points, shader, profile, halfWidth, opacity, 0f, BlendState.AlphaBlend);
+            DrawPass(points, shader, profile, halfWidth, opacity * BodyOpacity(profile),
+                0f, BlendState.AlphaBlend);
             DrawPass(points, shader, profile, Math.Max(2.5f, halfWidth * CoreScale(profile)),
-                opacity * 0.96f, 2f, BlendState.Additive);
+                opacity * CoreOpacity(profile), 2f, BlendState.Additive);
             return true;
         }
         catch
@@ -135,28 +139,42 @@ internal static class FranProjectileTrailRenderer
         completion = MathHelper.Clamp(completion, 0f, 1f);
         float tail = profile switch
         {
-            FranProjectileTrailProfile.TelekineticNeedle => MathF.Pow(1f - completion, 0.74f),
-            FranProjectileTrailProfile.ArcaneWisp => MathF.Pow(1f - completion, 0.52f),
-            FranProjectileTrailProfile.SpectralBlade => MathF.Pow(1f - completion, 0.64f),
-            _ => MathF.Pow(1f - completion, 0.40f)
+            FranProjectileTrailProfile.TelekineticNeedle => MathF.Pow(1f - completion, 0.82f),
+            FranProjectileTrailProfile.ArcaneWisp => MathF.Pow(1f - completion, 0.46f),
+            FranProjectileTrailProfile.SpectralBlade => MathF.Pow(1f - completion, 0.68f),
+            _ => MathF.Pow(1f - completion, 0.34f)
         };
         float headShape = profile switch
         {
-            FranProjectileTrailProfile.TelekineticNeedle => MathHelper.Lerp(0.58f, 1f,
-                FranMotion.Smooth(FranMotion.Segment(completion, 0f, 0.14f))),
-            FranProjectileTrailProfile.ArcaneWisp => 0.76f + MathF.Sin(completion * MathHelper.Pi) * 0.24f,
-            FranProjectileTrailProfile.SpectralBlade => 0.84f + MathF.Sin(completion * MathHelper.Pi) * 0.16f,
-            _ => 0.92f + MathF.Sin(completion * MathHelper.Pi * 3f) * 0.08f
+            // A needle starts at a sharp point and opens into a pressure wake.
+            FranProjectileTrailProfile.TelekineticNeedle => MathHelper.Lerp(0.10f, 1f,
+                FranMotion.Smooth(FranMotion.Segment(completion, 0f, 0.18f))),
+            // Wisps breathe through the middle rather than preserving a rigid beam silhouette.
+            FranProjectileTrailProfile.ArcaneWisp => 0.70f + MathF.Sin(completion * MathHelper.Pi) * 0.38f,
+            // Spectral blades read as a hard wedge with a broad cutting shoulder.
+            FranProjectileTrailProfile.SpectralBlade => MathHelper.Lerp(0.22f, 1f,
+                FranMotion.Smooth(FranMotion.Segment(completion, 0f, 0.22f))) *
+                (0.90f + MathF.Sin(completion * MathHelper.Pi) * 0.18f),
+            // Hammer wakes retain mass and break into repeating compression knots.
+            _ => 0.92f + MathF.Sin(completion * MathHelper.Pi * 4f) * 0.10f
         };
         return MathHelper.Clamp(width * tail * headShape, 1.2f, 96f);
     }
 
-    private static Texture2D PrimaryTexture(FranProjectileTrailProfile profile) => profile switch
+    private static Texture2D MaterialTexture(FranProjectileTrailProfile profile) => profile switch
     {
-        FranProjectileTrailProfile.TelekineticNeedle => FranVfx.Original("FranPressureNeedle"),
-        FranProjectileTrailProfile.ArcaneWisp => FranVfx.Original("FranSmearForward"),
-        FranProjectileTrailProfile.SpectralBlade => FranVfx.Original("FranSmearForward"),
-        _ => FranVfx.Original("FranPressureNeedle")
+        FranProjectileTrailProfile.TelekineticNeedle => FranVfx.Original("FranTrailFilamentNoise"),
+        FranProjectileTrailProfile.ArcaneWisp => FranVfx.Original("FranTrailWispNoise"),
+        FranProjectileTrailProfile.SpectralBlade => FranVfx.Original("FranTrailFractureNoise"),
+        _ => FranVfx.Original("FranTrailFractureNoise")
+    };
+
+    private static Texture2D DetailTexture(FranProjectileTrailProfile profile) => profile switch
+    {
+        FranProjectileTrailProfile.TelekineticNeedle => FranVfx.Original("FranTrailFractureNoise"),
+        FranProjectileTrailProfile.ArcaneWisp => FranVfx.Original("FranTrailFilamentNoise"),
+        FranProjectileTrailProfile.SpectralBlade => FranVfx.Original("FranTrailFilamentNoise"),
+        _ => FranVfx.Original("FranTrailWispNoise")
     };
 
     private static float AuraScale(FranProjectileTrailProfile profile) => profile switch
@@ -185,10 +203,32 @@ internal static class FranProjectileTrailRenderer
 
     private static float NoiseStrength(FranProjectileTrailProfile profile) => profile switch
     {
-        FranProjectileTrailProfile.TelekineticNeedle => 0.36f,
-        FranProjectileTrailProfile.ArcaneWisp => 0.62f,
-        FranProjectileTrailProfile.SpectralBlade => 0.28f,
-        _ => 0.48f
+        FranProjectileTrailProfile.TelekineticNeedle => 0.52f,
+        FranProjectileTrailProfile.ArcaneWisp => 0.86f,
+        FranProjectileTrailProfile.SpectralBlade => 0.68f,
+        _ => 0.74f
+    };
+
+    private static float AuraOpacity(FranProjectileTrailProfile profile) => profile switch
+    {
+        FranProjectileTrailProfile.TelekineticNeedle => 0.58f,
+        FranProjectileTrailProfile.ArcaneWisp => 0.78f,
+        FranProjectileTrailProfile.SpectralBlade => 0.62f,
+        _ => 0.72f
+    };
+
+    private static float BodyOpacity(FranProjectileTrailProfile profile) => profile switch
+    {
+        FranProjectileTrailProfile.ArcaneWisp => 0.88f,
+        _ => 1f
+    };
+
+    private static float CoreOpacity(FranProjectileTrailProfile profile) => profile switch
+    {
+        FranProjectileTrailProfile.TelekineticNeedle => 1f,
+        FranProjectileTrailProfile.ArcaneWisp => 0.74f,
+        FranProjectileTrailProfile.SpectralBlade => 0.94f,
+        _ => 0.88f
     };
 
     private static List<Vector2> CollectSafePoints(Projectile projectile)

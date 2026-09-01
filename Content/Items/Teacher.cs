@@ -99,11 +99,18 @@ public sealed class Teacher : ModItem
         int duration = Math.Max(12, (int)MathF.Round(baseDuration / attackSpeed * evolutionDuration));
         FranSkill skill = fran.HasSelectedSkill ? fran.SelectedSkill : FranSkill.None;
         int packedImprint = skill == FranSkill.None ? 0 : (int)skill + 1;
-        Projectile.NewProjectile(source, player.MountedCenter, aim, type, damage, knockback, player.whoAmI,
+        int projectileIndex = Projectile.NewProjectile(source, player.MountedCenter, aim, type, damage, knockback, player.whoAmI,
             combo, duration, packedImprint);
+        if (Main.projectile.IndexInRange(projectileIndex) &&
+            Main.projectile[projectileIndex].ModProjectile is TeacherSwingRebuild swing)
+        {
+            swing.SetTactics(fran.GetActiveTacticSnapshot());
+            Main.projectile[projectileIndex].netUpdate = true;
+        }
         if (combo == 0 && evolution.TryConsumeEvolutionEcho() && player.whoAmI == Main.myPlayer)
             Projectile.NewProjectile(source, player.MountedCenter, aim,
-                ModContent.ProjectileType<FranEvolutionEchoSlash>(), Math.Max(1, (int)(damage * 0.50f)),
+                ModContent.ProjectileType<FranEvolutionEchoSlash>(),
+                Math.Max(1, (int)(damage * evolution.EvolutionEchoDamageMultiplier)),
                 knockback * 0.35f, player.whoAmI, duration);
         return false;
     }

@@ -97,9 +97,16 @@ Mods: {
 		UI: {
 			UltimateCharge: Black Tiger: {0}%
 			UltimateReady: BLACK TIGER READY
-			PureSwordsmanship: Detach Tactical Imprint
-			PureSwordsmanshipDescription: Detach the current tactical module; Teacher's four-part sword combo always remains intact
+			PureSwordsmanship: Pure Swordsmanship Core
+			PureSwordsmanshipDescription: Empty every lower slot to use pure swordsmanship. Teacher's four-part combo always remains; tactics are layered onto it rather than replacing it
+			TacticSlots: Tactic slots: {0}/{1}
+			TacticControls: Left-click an upper icon to equip | left-click a lower slot to remove | right-click again or open inventory to close
+			TacticLayerDetails: Equipped: {0} layer(s) | First layer: {1} | Each later layer: {2}
+			TacticEquipped: Equipped: {0} x{1}
+			TacticUnequipped: Removed: {0} (x{1} remaining)
 		}
+
+		MainMenu.DisplayName: Fran · Reincarnated as a Sword
 
 		BossProgress: {
 			Title: Vanilla Boss Progress Adjuster
@@ -146,7 +153,7 @@ Mods: {
 		Notices: {
 			IntroTitle: "[Fran Mode activated: Teacher has returned to your side]"
 			IntroCombat: Hold left click for the four-part greatsword combo; Teacher floats behind you while another weapon is held
-			IntroSkills: Hold right click to open the imprint wheel, then release it in a sector; the imprint joins the four-part combo automatically
+			IntroSkills: Right-click to open or close the tactic wheel; left-click upper icons to equip duplicates and lower slots to remove them; opening inventory closes the wheel
 			IntroEvolution: Participate in a boss victory to absorb its unique magic stone; press J to shape Teacher, Fran, and their long-term resonance in the Corridor
 			IntroDash: When Fran Dash is bound, only that key triggers it; when unbound, double-tap left/right instead; equipped dashes take priority
 			IntroPotential: The ultimate charges automatically over three minutes of active play; press G when full to begin Black Heavenly Tiger's execution rush immediately
@@ -157,6 +164,7 @@ Mods: {
 				Line: "[Dash] Current progress: {0} | {1} | Effect: {2}"
 				Progress: Unlocked from the beginning
 				Effect: Speed 16, 12-tick duration, 50-tick base cooldown; Fran makes two visual rolls during the dash
+
 				States: {
 					Enabled: Enabled: no other dash is equipped
 					Overridden: Disabled: an external dash is active and takes priority
@@ -166,6 +174,7 @@ Mods: {
 
 			Flight: {
 				Line: "[Telekinetic Flight] Current progress: {0} | {1} | Effect: {2}"
+
 				Progress: {
 					Locked: Pre-Hardmode — not yet unlocked
 					Tier1: Hardmode — Telekinetic Liftoff
@@ -174,6 +183,7 @@ Mods: {
 					Tier4: Post-Golem — Telekinetic Final Form
 					Infinite: Post-Empress of Light — Infinite Flight
 				}
+
 				States: {
 					Enabled: Enabled: no functional wings are equipped
 					Overridden: Disabled: functional wings are equipped and take priority
@@ -181,10 +191,11 @@ Mods: {
 					Locked: Locked: automatically gained upon entering Hardmode
 					InactiveFranMode: Disabled: Fran Mode is not active
 				}
+
 				Effects: {
 					Locked: Counts as an innate pair of wings after entering Hardmode
 					Finite: "{0} flight ticks ({1:0.00}s), horizontal speed {2}, acceleration multiplier {3}{4}"
-					Infinite: "Infinite flight, horizontal speed {2}, acceleration multiplier {3}{4}"
+					Infinite: Infinite flight, horizontal speed {2}, acceleration multiplier {3}{4}
 					Hover: ", hold Down to hover"
 					NoHover: ""
 				}
@@ -194,12 +205,12 @@ Mods: {
 		Evolution: {
 			Title: Magic-Stone Corridor — Self Evolution
 			OpenHint: Open the Magic-Stone Corridor (default J)
-			Tooltip: Magic-Stone Corridor: {0} available / {1} boss stones absorbed; press J to allocate
-			PointSummary: Available {0}   Invested {1}   Absorbed {2}   Current stage cap {3}
-			Overview: Participate in a boss victory to absorb one unique magic stone. These paths shape base swordplay, Fran's dash, and Teacher–Fran coordination without changing tactical imprints or the Black Tiger ultimate.
-			MagicStoneAcquired: Magic-stone imprint acquired — Self Evolution Point +1
+			Tooltip: Magic-Stone Corridor: {0} available / {1} total; press J to unfold three constellations
+			PointSummary: Available {0}   Invested {1}   Total {2}   Current stage cap {3}
+			Overview: First-time participation in each boss victory grants 2–5 points. Three constellations extend upward, down-left, and down-right from the central core; hover a star to inspect it.
+			MagicStoneAcquired: Magic-stone imprint acquired — Self Evolution Points +{0}
 			NodeUnlocked: Self Evolution: {0}
-			ResetHold: Hold to respec (free)
+			ResetFree: ✦ Click to respec for free ✦
 			ResetEmpty: No evolution points invested
 			ResetLocked: Cannot respec during combat
 
@@ -280,6 +291,86 @@ Mods: {
 					DisplayName: One as Sword
 					Description: Complete four direct blade hits without taking damage to gain 10% base swing speed and reach for 5 seconds; taking damage ends it.
 				}
+
+				ArcaneCirculation: {
+					DisplayName: Arcane Circulation
+					Description: Carrying Teacher reduces mana costs by 8%; Teacher's direct blade reach gains another 4% beyond Edge Calibration.
+				}
+
+				DeeperAnalysis: {
+					DisplayName: Deeper Analysis
+					Description: Direct blade hits against an analyzed boss gain 18 rather than 12 armor penetration; Evolution Echo damage rises from 50% to 70%.
+				}
+
+				SwordSaintReasoning: {
+					DisplayName: Sword-Saint Reasoning
+					Description: Teacher's direct blade damage rises by 6%; Combo Calculation increases from 3%/6%/9% to 4%/8%/12%.
+				}
+
+				FelineReflex: {
+					DisplayName: Feline Reflex
+					Description: Fran's dash cooldown falls from 42 to 38 ticks; carrying Teacher also grants 5% movement speed.
+				}
+
+				SkyHunter: {
+					DisplayName: Sky Hunter
+					Description: Fran's manual dash speed rises by 10%, improving eight-direction aerial pursuit and escape.
+				}
+
+				PredatorSight: {
+					DisplayName: Predator Sight
+					Description: Dash contact damage rises from 120% to 140% of the current skill base damage.
+				}
+
+				PhantomStep: {
+					DisplayName: Phantom Step
+					Description: Every manual dash gains 4 additional ticks of collision-damage immunity for safer passes through enemies.
+				}
+
+				BlackCatAwakening: {
+					DisplayName: Black Cat Awakening
+					Description: Dash cooldown becomes 34 ticks, total speed bonus reaches 15%, and contact damage reaches 150%; Evolved Footwork refunds 75% cooldown and Hunter Tempo shortens the next cut by 18%.
+				}
+
+				SharedMana: {
+					DisplayName: Shared Mana
+					Description: Carrying Teacher grants 20 maximum mana.
+				}
+
+				SharedVision: {
+					DisplayName: Shared Vision
+					Description: The base four-part combo timeout increases from 105 to 125 ticks.
+				}
+
+				HarmonicGuard: {
+					DisplayName: Harmonic Guard
+					Description: Carrying Teacher grants 3 defense and 2% damage reduction.
+				}
+
+				SoulBridge: {
+					DisplayName: Soul Bridge
+					Description: Resonant Pull becomes 40% stronger against ordinary enemies.
+				}
+
+				SynchronizedVolley: {
+					DisplayName: Synchronized Volley
+					Description: Carrying Teacher grants 6% magic damage, strengthening Teacher's tactical spells and projectiles.
+				}
+
+				LimitResonance: {
+					DisplayName: Limit Resonance
+					Description: The Black Tiger ultimate's passive charge rate increases by 20%.
+				}
+
+				MutualGrowth: {
+					DisplayName: Mutual Growth
+					Description: One as Sword's speed and reach bonus rises from 10% to 12%, and its duration increases from 5 to 7 seconds.
+				}
+
+				EternalContract: {
+					DisplayName: Eternal Contract
+					Description: Carrying Teacher grants 5% all damage, 20 additional maximum mana, and 3 defense.
+				}
 			}
 		}
 
@@ -287,13 +378,43 @@ Mods: {
 			FranClientConfig: {
 				DisplayName: Fran Client Settings
 
+				EnablePlayerTextureReplacement: {
+					Label: "[i:FamiliarShirt] Enable Fran player textures"
+					Tooltip: Enabled by default. This will control Fran's player-sprite replacement once its artwork is ready; currently reserved as the stable switch.
+				}
+
+				EnableFranVoice: {
+					Label: "[i:Megaphone] Enable Fran voice"
+					Tooltip: Enabled by default. Controls Fran's hurt, sleep, and future character voice lines; missing audio safely remains silent.
+				}
+
+				EnableCustomMainMenu: {
+					Label: "[i:WorldGlobe] Enable Fran main menu"
+					Tooltip: Enabled by default. Makes Fran's widescreen key visual and falling-fire-particle theme available in the main-menu selector.
+				}
+
+				EnableCustomFont: {
+					Label: "[i:Book] Enable custom font"
+					Tooltip: Enabled by default. Controls Fran's custom font replacement.
+				}
+
+				EnableModIconFlicker: {
+					Label: "[i:FallenStar] Enable mod icon shimmer"
+					Tooltip: Enabled by default. Disable this to keep Fran's icon completely static in the Mods list.
+				}
+
+				EnableVideoPlayback: {
+					Label: "[i:MusicBox] Enable story video playback"
+					Tooltip: Enabled by default. Allows future client-side videos to play; it does nothing while no video assets exist.
+				}
+
 				HideUltimateGauge: {
-					Label: Hide Black Tiger ultimate gauge
+					Label: "[i:InvisibilityPotion] Hide Black Tiger ultimate gauge"
 					Tooltip: The ultimate gauge is shown at the top center by default. Enable this only if you want to hide it.
 				}
 
 				AllowUltimateGaugeDragging: {
-					Label: Allow ultimate gauge dragging
+					Label: "[i:Toolbox] Allow ultimate gauge dragging"
 					Tooltip: Disabled by default. When enabled, drag the gauge with the left mouse button; its position is saved with the character.
 				}
 			}
@@ -328,41 +449,57 @@ Mods: {
 			TelekineticCatapult: {
 				DisplayName: Telekinetic Catapult
 				Description: The full sword combo remains intact; the first three cuts fire 2, 3, and 4 parallel telekinetic shells, while the fourth uses an infinitely piercing directional laser. In Hardmode, every cut also drops 2 to 3 planets from above; each planet brakes, accelerates, and explodes on its first enemy or tile impact
+				FirstLayer: The first three cuts fire 2/3/4 parallel needles and the fourth fires an infinitely piercing laser; in Hardmode every cut also drops 2 to 3 planets
+				AdditionalLayer: Adds 1 needle to the first three cuts, 25% laser damage to the fourth, and 1 additional Hardmode planet
 			}
 
 			SkillTaker: {
 				DisplayName: Skill Taker
 				Description: Only direct sword hits trigger a purple technique burst and a theft stack; each hit splits two violet wisps that scatter before homing, up to four stacks with 10% sword damage each
+				FirstLayer: Sword hits apply up to 4 seals, each adding 10% later sword damage, and split 2 homing wisps
+				AdditionalLayer: Adds 1 homing wisp per hit and another 3% damage to every active seal
 			}
 
 			MagicBarrier: {
 				DisplayName: Magic Barrier
-				Description: Maintains a two-layer barrier around the player; taking damage reduces it by 28%, spends one of five charges, and releases a retaliatory pulse before the barrier breaks and rebuilds
+				Description: Maintains a spherical barrier around the player; each equipped layer grants 10% damage reduction, taking a hit spends one of five charges and releases a retaliatory pulse before the barrier breaks and rebuilds
+				FirstLayer: Creates a spherical barrier with 5 integrity and grants 10% damage reduction
+				AdditionalLayer: Adds another 10% damage reduction, up to 40% at four layers
 			}
 
 			MultipleBodyCreation: {
 				DisplayName: Multiple Body Creation
 				Description: Every swing arrays two Teacher phantoms behind the player; after a brief hover they lock onto the cursor area and dash, while the fourth cut launches four in sequence
+				FirstLayer: Arrays 2 phantoms on the first three cuts and 4 on the fourth; without an enemy they still dash toward the cursor
+				AdditionalLayer: Adds 1 phantom to normal cuts, 2 to the fourth cut, and 18% total phantom damage
 			}
 
 			BlueResonance: {
 				DisplayName: Blue Resonance
 				Description: Every sword hit leaves a delayed blue repeat-cut; the fourth cut forms a three-note chord whose hits can periodically restore life
+				FirstLayer: Normal sword hits create 1 delayed resonance and the fourth creates 3; resonance can periodically restore life
+				AdditionalLayer: Adds 1 resonance cut to every hit
 			}
 
 			ThunderChain: {
 				DisplayName: Thunder Chain
 				Description: Every swing calls several ancient lightning arcs down over the cursor and adds automatic strikes above up to three nearby enemies; the fourth cut calls even more bolts
+				FirstLayer: Calls a focal bolt and supporting bolt at the cursor and automatically strikes up to 3 nearby enemies; the fourth cut adds more lightning
+				AdditionalLayer: Adds 1 supporting bolt, 1 automatic target, and 12% damage to the full volley
 			}
 
 			PressurizedQuickdraw: {
 				DisplayName: Pressurized Quickdraw
 				Description: Every swing releases a high-pressure wave using the Terra Blade beam form; it pierces without limit and gradually slows, while the fourth cut fires a smaller and faster finishing wave
+				FirstLayer: Detonates a sequence of compressed-air bursts along the blade's swept arc
+				AdditionalLayer: Adds 15% burst damage and 10% burst size
 			}
 
 			ThorsHammer: {
 				DisplayName: Thor's Hammer
-				Description: After two complete four-cut rounds, the second round's fourth cut locks onto the enemy nearest the cursor; the summoning seal follows that target before Thor's Hammer pursues it at high speed and detonates a wide lightning-meteor impact
+				Description: After two complete four-cut rounds, the second round's fourth cut locks onto the enemy nearest the cursor; without a nearby enemy the seal stays at the cursor. Thor's Hammer then strikes the seal and detonates a wide lightning-meteor impact
+				FirstLayer: Every two complete four-cut rounds summons Thor's Hammer at a target or the cursor
+				AdditionalLayer: Adds 22% direct and explosion damage to Thor's Hammer
 			}
 		}
 
@@ -432,6 +569,7 @@ Mods: {
 			FranTelekineticPlanet.DisplayName: Fran Telekinetic Planet
 			FranTelekineticPlanetExplosion.DisplayName: Fran Telekinetic Planet Explosion
 			FranTelekineticFlightVisual.DisplayName: Telekinetic Flight Visual
+			FranTacticalEjecta.DisplayName: Fran Tactical Ejecta
 		}
 	}
 }

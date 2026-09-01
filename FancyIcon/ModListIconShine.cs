@@ -10,6 +10,7 @@ using Terraria;
 using Terraria.GameContent.UI.Elements;
 using Terraria.ModLoader;
 using Terraria.UI;
+using FranMod.Content.Config;
 
 namespace FranMod.FancyIcon;
 
@@ -72,7 +73,8 @@ public sealed class ModListIconShine : ModSystem
         cursor.Emit(OpCodes.Callvirt, modNameProperty.GetMethod);
         cursor.EmitDelegate((UIImage originalIcon, string modName) =>
         {
-            if (modName != OurModName)
+            if (modName != OurModName ||
+                !(FranClientConfig.Instance?.EnableModIconFlicker ?? true))
                 return (UIElement)originalIcon;
 
             return new ShineIconElement(originalIcon);
@@ -105,12 +107,15 @@ public sealed class ModListIconShine : ModSystem
         public override void Update(GameTime gameTime)
         {
             base.Update(gameTime);
-            ShineEffectToolkit.Advance(shine);
+            if (FranClientConfig.Instance?.EnableModIconFlicker ?? true)
+                ShineEffectToolkit.Advance(shine);
         }
 
         public override void Draw(SpriteBatch spriteBatch)
         {
             base.Draw(spriteBatch);
+            if (!(FranClientConfig.Instance?.EnableModIconFlicker ?? true))
+                return;
             ShineEffectToolkit.Draw(spriteBatch, shine, originalIconTexture,
                 originalIcon.GetDimensions().ToRectangle());
         }

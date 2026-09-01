@@ -17,52 +17,59 @@ namespace FranMod.Content.Projectiles;
 internal static class TeacherImprintCombat
 {
     public static void TriggerSwing(Player owner, Projectile swing, int combo, FranSkill skill,
-        Vector2 direction, float reach)
+        int tacticLayers, Vector2 direction, float reach)
     {
         if (Main.myPlayer != owner.whoAmI)
             return;
+        tacticLayers = Math.Clamp(tacticLayers, 1, FranPlayer.MaximumTacticSlots);
 
         FranPlayer fran = owner.GetModPlayer<FranPlayer>();
         FranVanillaDustEffects.SkillRelease(owner.MountedCenter + direction.SafeNormalize(Vector2.UnitX * owner.direction) * 26f,
-            direction, skill, FranSkillInfo.Color(skill), 7 + combo * 2, combo == 3 ? 1.12f : 0.92f);
+            direction, skill, FranSkillInfo.Color(skill), 7 + combo * 2 + (tacticLayers - 1) * 2,
+            (combo == 3 ? 1.12f : 0.92f) * (1f + 0.06f * (tacticLayers - 1)));
         switch (skill)
         {
             case FranSkill.TelekineticCatapult:
                 Vector2 telekineticTarget = ClampTarget(owner, Main.MouseWorld, 2400f);
                 if (combo == 3)
-                    SpawnTelekineticLaser(owner, swing, telekineticTarget);
+                    SpawnTelekineticLaser(owner, swing, telekineticTarget, tacticLayers);
                 else
-                    SpawnTelekineticShells(owner, swing, telekineticTarget, combo + 2);
+                    SpawnTelekineticShells(owner, swing, telekineticTarget, combo + 2 + tacticLayers - 1);
                 if (Main.hardMode)
-                    SpawnTelekineticPlanets(owner, swing, telekineticTarget, combo);
+                    SpawnTelekineticPlanets(owner, swing, telekineticTarget, combo, tacticLayers - 1);
                 break;
 
             case FranSkill.MultipleBodyCreation:
-                SpawnMultipleBodies(owner, swing, direction, combo == 3 ? 4 : 2, combo);
+                SpawnMultipleBodies(owner, swing, direction,
+                    (combo == 3 ? 4 : 2) + (tacticLayers - 1) * (combo == 3 ? 2 : 1), combo,
+                    tacticLayers);
                 break;
 
             case FranSkill.ThunderChain:
-                SpawnThunderVolley(owner, swing, combo);
+                SpawnThunderVolley(owner, swing, combo, tacticLayers);
                 break;
 
             case FranSkill.ThorsHammer when combo == 3 && fran.AdvanceHammerRound():
-                Vector2 hammerTarget = ClampTarget(owner, Main.MouseWorld, 720f);
-                NPC hammerNpc = FindNearestTarget(hammerTarget, 720f);
-                if (hammerNpc is not null)
-                    hammerTarget = hammerNpc.Center;
+                Vector2 hammerCursor = Main.MouseWorld;
+                if (!float.IsFinite(hammerCursor.X) || !float.IsFinite(hammerCursor.Y))
+                    hammerCursor = owner.MountedCenter;
+                NPC hammerNpc = FindNearestTarget(hammerCursor, 720f);
+                Vector2 hammerTarget = hammerNpc?.Center ?? hammerCursor;
                 Projectile.NewProjectile(swing.GetSource_FromThis(), hammerTarget, Vector2.Zero,
-                    ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(swing.damage * 1.18f)),
-                    7f, owner.whoAmI, hammerNpc?.whoAmI ?? -1);
+                    ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(swing.damage * 1.18f *
+                        (1f + 0.22f * (tacticLayers - 1)))),
+                    7f, owner.whoAmI, EncodeOptionalNpc(hammerNpc));
                 SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.58f, Pitch = -0.18f }, hammerTarget);
                 break;
         }
     }
 
     public static void OnSwordHit(Player owner, Projectile swing, NPC target, int combo, FranSkill skill,
-        Vector2 direction, int damageDone)
+        int tacticLayers, Vector2 direction, int damageDone)
     {
         if (skill == FranSkill.None)
             return;
+        tacticLayers = Math.Clamp(tacticLayers, 1, FranPlayer.MaximumTacticSlots);
 
         FranPlayer fran = owner.GetModPlayer<FranPlayer>();
         FranImprintTargetGlobalNPC imprint = target.GetGlobalNPC<FranImprintTargetGlobalNPC>();
@@ -87,9 +94,11 @@ internal static class TeacherImprintCombat
                 FranBurst.Spawn(swing.GetSource_OnHit(target), target.Center, owner.whoAmI,
                     FranBurstStyle.SkillTaker, 0.72f + stacks * 0.08f);
                 float randomAngle = Main.rand.NextFloat(MathHelper.TwoPi);
-                for (int i = 0; i < 2; i++)
+                int wispCount = 2 + tacticLayers - 1;
+                for (int i = 0; i < wispCount; i++)
                 {
-                    float angle = randomAngle + i * MathHelper.Pi + Main.rand.NextFloat(-0.38f, 0.38f);
+                    float angle = randomAngle + i * MathHelper.TwoPi / wispCount +
+                        Main.rand.NextFloat(-0.38f, 0.38f);
                     Vector2 velocity = angle.ToRotationVector2() * Main.rand.NextFloat(7.5f, 10.5f);
                     Projectile.NewProjectile(swing.GetSource_OnHit(target), target.Center, velocity,
                         ModContent.ProjectileType<FranSkillTakerWisp>(),
@@ -105,7 +114,7 @@ internal static class TeacherImprintCombat
         switch (skill)
         {
             case FranSkill.BlueResonance:
-                int echoCount = combo == 3 ? 3 : 1;
+                int echoCount = (combo == 3 ? 3 : 1) + tacticLayers - 1;
                 for (int i = 0; i < echoCount; i++)
                 {
                     float spread = (i - (echoCount - 1) * 0.5f) * 0.20f;
@@ -139,21 +148,23 @@ internal static class TeacherImprintCombat
         owner.GetModPlayer<FranPlayer>().ShakeScreen(owner.Center, 0.8f + count * 0.13f);
     }
 
-    private static void SpawnTelekineticLaser(Player owner, Projectile swing, Vector2 target)
+    private static void SpawnTelekineticLaser(Player owner, Projectile swing, Vector2 target, int tacticLayers)
     {
         Vector2 direction = (target - owner.MountedCenter).SafeNormalize(Vector2.UnitX * owner.direction);
         Projectile.NewProjectile(swing.GetSource_FromThis(), owner.MountedCenter + direction * 20f, direction,
             ModContent.ProjectileType<FranTelekineticLineStrike>(),
-            Math.Max(1, (int)(swing.damage * 0.88f)), swing.knockBack * 0.72f,
+            Math.Max(1, (int)(swing.damage * 0.88f * (1f + 0.25f * (tacticLayers - 1)))),
+            swing.knockBack * 0.72f,
             owner.whoAmI, 2200f, direction.ToRotation());
         FranSpectatorVfx.SpawnReleaseFan(swing.GetSource_FromThis(), owner.MountedCenter + direction * 32f,
             direction, owner.whoAmI, FranSpectatorPalette.Gold, 5, 1.12f);
         owner.GetModPlayer<FranPlayer>().ShakeScreen(owner.Center, 2.4f);
     }
 
-    private static void SpawnTelekineticPlanets(Player owner, Projectile swing, Vector2 target, int combo)
+    private static void SpawnTelekineticPlanets(Player owner, Projectile swing, Vector2 target, int combo,
+        int bonusCount)
     {
-        int count = Main.rand.Next(2, 4);
+        int count = Main.rand.Next(2, 4) + bonusCount;
         float centerIndex = (count - 1) * 0.5f;
         float focusX = MathHelper.Lerp(owner.Center.X, target.X, 0.58f);
         for (int i = 0; i < count; i++)
@@ -174,7 +185,8 @@ internal static class TeacherImprintCombat
             new Color(178, 214, 255), count, 44f, 0.62f, -Vector2.UnitY * 0.25f);
     }
 
-    private static void SpawnMultipleBodies(Player owner, Projectile swing, Vector2 direction, int count, int combo)
+    private static void SpawnMultipleBodies(Player owner, Projectile swing, Vector2 direction, int count, int combo,
+        int tacticLayers)
     {
         Vector2 requestedTarget = Main.MouseWorld;
         if (!float.IsFinite(requestedTarget.X) || !float.IsFinite(requestedTarget.Y))
@@ -192,22 +204,24 @@ internal static class TeacherImprintCombat
             float delay = 6f + i * 3f;
             Projectile.NewProjectile(swing.GetSource_FromThis(), origin, Vector2.Zero,
                 ModContent.ProjectileType<FranTeacherPhantomBlade>(),
-                Math.Max(1, (int)(swing.damage * (count == 4 ? 0.31f : 0.43f))),
+                Math.Max(1, (int)(swing.damage * ((combo == 3 ? 1.24f : 0.86f) / count) *
+                    (1f + 0.18f * (tacticLayers - 1)))),
                 swing.knockBack * 0.48f, owner.whoAmI, hasEnemy ? delay : -delay,
                 lockedTarget.X, lockedTarget.Y);
         }
     }
 
-    private static void SpawnThunderVolley(Player owner, Projectile swing, int combo)
+    private static void SpawnThunderVolley(Player owner, Projectile swing, int combo, int tacticLayers)
     {
         Vector2 mouseTarget = ClampTarget(owner, Main.MouseWorld, 780f);
         bool finisher = combo == 3;
 
         // Every volley has one unmistakable focal strike. Supporting bolts land first and frame it,
         // instead of presenting several equally important thin bolts around the cursor.
-        SpawnThunderDrop(swing, owner, mouseTarget, 0.31f, mainStrike: true, finisher: finisher);
+        float layerDamage = 1f + 0.12f * (tacticLayers - 1);
+        SpawnThunderDrop(swing, owner, mouseTarget, 0.31f * layerDamage, mainStrike: true, finisher: finisher);
 
-        int supportingBoltCount = finisher ? 2 : 1;
+        int supportingBoltCount = (finisher ? 2 : 1) + tacticLayers - 1;
         for (int i = 0; i < supportingBoltCount; i++)
         {
             float horizontalOffset = supportingBoltCount == 1
@@ -215,7 +229,7 @@ internal static class TeacherImprintCombat
                 : MathHelper.Lerp(-96f, 96f, i / (supportingBoltCount - 1f));
             Vector2 impact = mouseTarget + new Vector2(horizontalOffset,
                 Main.rand.NextFloat(-14f, 28f));
-            SpawnThunderDrop(swing, owner, impact, 0.31f, mainStrike: false, finisher: false);
+            SpawnThunderDrop(swing, owner, impact, 0.31f * layerDamage, mainStrike: false, finisher: false);
         }
 
         List<NPC> candidates = new();
@@ -225,9 +239,10 @@ internal static class TeacherImprintCombat
                 candidates.Add(npc);
         candidates.Sort((left, right) =>
             Vector2.DistanceSquared(left.Center, mouseTarget).CompareTo(Vector2.DistanceSquared(right.Center, mouseTarget)));
-        int trackedCount = Math.Min(combo == 3 ? 4 : 3, candidates.Count);
+        int trackedCount = Math.Min((combo == 3 ? 4 : 3) + tacticLayers - 1, candidates.Count);
         for (int i = 0; i < trackedCount; i++)
-            SpawnThunderDrop(swing, owner, candidates[i].Center, 0.37f, mainStrike: false, finisher: false);
+            SpawnThunderDrop(swing, owner, candidates[i].Center, 0.37f * layerDamage,
+                mainStrike: false, finisher: false);
     }
 
     private static void SpawnThunderDrop(Projectile swing, Player owner, Vector2 impact, float damageScale,
@@ -274,6 +289,10 @@ internal static class TeacherImprintCombat
         return best;
     }
 
+    // Projectile AI values are serialized as non-negative numeric state throughout this chain.
+    // Zero means "use the fixed mouse anchor"; a real NPC is stored as whoAmI + 1.
+    private static float EncodeOptionalNpc(NPC npc) => npc is null ? 0f : npc.whoAmI + 1f;
+
     private static Vector2 ClampTarget(Player owner, Vector2 target, float maxDistance = 560f)
     {
         Vector2 offset = target - owner.MountedCenter;
@@ -302,8 +321,14 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
         return skillSeals;
     }
 
-    public float SkillTakerDamageMultiplier(int owner) =>
-        skillSealOwner == owner && skillSealTimer > 0 ? 1f + skillSeals * 0.10f : 1f;
+    public float SkillTakerDamageMultiplier(int owner, int tacticLayers = 1)
+    {
+        if (skillSealOwner != owner || skillSealTimer <= 0)
+            return 1f;
+        float damagePerSeal = 0.10f + 0.03f * (Math.Clamp(tacticLayers, 1,
+            FranPlayer.MaximumTacticSlots) - 1);
+        return 1f + skillSeals * damagePerSeal;
+    }
 
     public override void PostAI(NPC npc)
     {
@@ -864,7 +889,8 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
             FranVanillaDustEffects.SkillRelease(Projectile.Center, -Vector2.UnitY,
                 FranSkill.MagicBarrier, new Color(105, 205, 255), 13, 1f);
         }
-        if (owner.whoAmI == Main.myPlayer && owner.GetModPlayer<FranPlayer>().SelectedSkill != FranSkill.MagicBarrier)
+        if (owner.whoAmI == Main.myPlayer &&
+            owner.GetModPlayer<FranPlayer>().GetSkillStacks(FranSkill.MagicBarrier) <= 0)
         {
             Projectile.localAI[2] = 2f;
             Projectile.Kill();
@@ -882,38 +908,7 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
     {
         float integrity = MathHelper.Clamp(Projectile.ai[1] / MaxIntegrity, 0f, 1f);
         float hitFlash = MathHelper.Clamp(Projectile.ai[2], 0f, 1f);
-        float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 5.4f + Projectile.identity);
-        if (!FranBarrierRenderer.TryDraw(Projectile.Center, integrity, hitFlash, Projectile.rotation))
-            FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-                new Color(55, 145, 225) * (0.26f + integrity * 0.28f), -Projectile.rotation,
-                new Vector2(126f, 158f) * (1f + hitFlash * 0.08f));
-
-        // A restrained alpha body keeps the shield readable on bright backgrounds while the shader
-        // supplies the moving spherical field and Fresnel edge.
-        FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-            new Color(52, 126, 202) * (0.13f + integrity * 0.16f), -Projectile.rotation * 1.3f,
-            new Vector2(104f, 132f) * (1f + hitFlash * 0.08f));
-        FranVfx.BeginAdditive();
-        Color edgeColor = Color.Lerp(new Color(80, 165, 255), Color.White, hitFlash * 0.72f);
-        FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-            new Color(105, 205, 255) * (0.16f + integrity * 0.18f + hitFlash * 0.18f),
-            Projectile.rotation * 1.8f, new Vector2(116f, 146f) * (1f + pulse * 0.025f));
-        FranVfx.DrawRing(Projectile.Center, edgeColor, 48f + pulse * 4f + hitFlash * 9f,
-            0.18f + integrity * 0.18f, Projectile.rotation, "Cal_HighResHollowCircle");
-        for (int i = 0; i < (int)Projectile.ai[1]; i++)
-        {
-            float angle = -MathHelper.PiOver2 + (i - 2f) * 0.31f;
-            Vector2 node = Projectile.Center + angle.ToRotationVector2() * (52f + pulse * 2f);
-            FranVfx.DrawOriginalPixels("FranFlashFourPoint", node,
-                Color.Lerp(new Color(115, 215, 255), Color.White, 0.62f) * (0.52f + hitFlash * 0.34f),
-                -angle, new Vector2(15f, 9f) * (1f + hitFlash * 0.24f));
-        }
-        FranVfx.DrawBloom(Projectile.Center, edgeColor, 34f + hitFlash * 32f,
-            0.12f + hitFlash * 0.48f);
-        if (hitFlash > 0.02f)
-            FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center, Color.White * hitFlash,
-                Projectile.rotation, new Vector2(136f, 82f) * (0.82f + hitFlash * 0.18f));
-        FranVfx.EndAdditive();
+        FranBarrierRenderer.TryDraw(Projectile.Center, integrity, hitFlash, Projectile.rotation);
         return false;
     }
 

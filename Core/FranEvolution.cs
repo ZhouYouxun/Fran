@@ -19,6 +19,28 @@ public enum FranEvolutionNode : byte
     SharedRhythm,
     ResonantPull,
     OneAsSword,
+
+    // Teacher constellation additions (7 stars total).
+    ArcaneCirculation,
+    DeeperAnalysis,
+    SwordSaintReasoning,
+
+    // Fran constellation additions (9 stars total).
+    FelineReflex,
+    SkyHunter,
+    PredatorSight,
+    PhantomStep,
+    BlackCatAwakening,
+
+    // Bond constellation additions (12 stars total).
+    SharedMana,
+    SharedVision,
+    HarmonicGuard,
+    SoulBridge,
+    SynchronizedVolley,
+    LimitResonance,
+    MutualGrowth,
+    EternalContract,
     Count,
     None = byte.MaxValue
 }
@@ -62,7 +84,7 @@ public sealed class FranEvolutionNodeDefinition
 
 public static class FranEvolutionInfo
 {
-    public const int MaximumSpendablePoints = 18;
+    public const int MaximumSpendablePoints = 51;
     public const int MaximumClaimedBosses = 256;
     public const int MaximumBossKeyLength = 64;
 
@@ -81,7 +103,42 @@ public static class FranEvolutionInfo
         new(FranEvolutionNode.MindSync, FranEvolutionBranch.Bond, 1, 1, FranEvolutionNode.None),
         new(FranEvolutionNode.SharedRhythm, FranEvolutionBranch.Bond, 1, 2, FranEvolutionNode.MindSync),
         new(FranEvolutionNode.ResonantPull, FranEvolutionBranch.Bond, 2, 3, FranEvolutionNode.SharedRhythm),
-        new(FranEvolutionNode.OneAsSword, FranEvolutionBranch.Bond, 2, 4, FranEvolutionNode.ResonantPull)
+        new(FranEvolutionNode.OneAsSword, FranEvolutionBranch.Bond, 2, 4, FranEvolutionNode.ResonantPull),
+
+        new(FranEvolutionNode.ArcaneCirculation, FranEvolutionBranch.Teacher, 2, 2,
+            FranEvolutionNode.EdgeCalibration),
+        new(FranEvolutionNode.DeeperAnalysis, FranEvolutionBranch.Teacher, 2, 3,
+            FranEvolutionNode.MagicStoneAnalysis),
+        new(FranEvolutionNode.SwordSaintReasoning, FranEvolutionBranch.Teacher, 3, 4,
+            FranEvolutionNode.SelfEvolution),
+
+        new(FranEvolutionNode.FelineReflex, FranEvolutionBranch.Fran, 1, 1,
+            FranEvolutionNode.CatStep),
+        new(FranEvolutionNode.SkyHunter, FranEvolutionBranch.Fran, 2, 2,
+            FranEvolutionNode.AerialHunt),
+        new(FranEvolutionNode.PredatorSight, FranEvolutionBranch.Fran, 2, 2,
+            FranEvolutionNode.HuntingTempo),
+        new(FranEvolutionNode.PhantomStep, FranEvolutionBranch.Fran, 2, 3,
+            FranEvolutionNode.EvolvedFootwork),
+        new(FranEvolutionNode.BlackCatAwakening, FranEvolutionBranch.Fran, 3, 4,
+            FranEvolutionNode.PhantomStep),
+
+        new(FranEvolutionNode.SharedMana, FranEvolutionBranch.Bond, 1, 1,
+            FranEvolutionNode.MindSync),
+        new(FranEvolutionNode.SharedVision, FranEvolutionBranch.Bond, 1, 2,
+            FranEvolutionNode.SharedRhythm),
+        new(FranEvolutionNode.HarmonicGuard, FranEvolutionBranch.Bond, 2, 2,
+            FranEvolutionNode.SharedMana),
+        new(FranEvolutionNode.SoulBridge, FranEvolutionBranch.Bond, 2, 3,
+            FranEvolutionNode.ResonantPull),
+        new(FranEvolutionNode.SynchronizedVolley, FranEvolutionBranch.Bond, 2, 3,
+            FranEvolutionNode.SharedVision),
+        new(FranEvolutionNode.LimitResonance, FranEvolutionBranch.Bond, 2, 3,
+            FranEvolutionNode.SynchronizedVolley),
+        new(FranEvolutionNode.MutualGrowth, FranEvolutionBranch.Bond, 3, 4,
+            FranEvolutionNode.OneAsSword),
+        new(FranEvolutionNode.EternalContract, FranEvolutionBranch.Bond, 3, 4,
+            FranEvolutionNode.MutualGrowth)
     ];
 
     public static int Count => (int)FranEvolutionNode.Count;
@@ -91,27 +148,27 @@ public static class FranEvolutionInfo
 
     public static bool IsValid(FranEvolutionNode node) => (int)node >= 0 && (int)node < Count;
 
-    public static ushort Bit(FranEvolutionNode node) => IsValid(node) ? (ushort)(1 << (int)node) : (ushort)0;
+    public static uint Bit(FranEvolutionNode node) => IsValid(node) ? 1u << (int)node : 0u;
 
-    public static bool HasNode(ushort mask, FranEvolutionNode node) => (mask & Bit(node)) != 0;
+    public static bool HasNode(uint mask, FranEvolutionNode node) => (mask & Bit(node)) != 0;
 
-    public static int SpentPoints(ushort mask)
+    public static int SpentPoints(uint mask)
     {
         int spent = 0;
         for (int i = 0; i < Count; i++)
-            if ((mask & (1 << i)) != 0)
+            if ((mask & (1u << i)) != 0)
                 spent += Definitions[i].Cost;
         return spent;
     }
 
-    public static ushort NormalizeMask(ushort mask, int earnedPoints)
+    public static uint NormalizeMask(uint mask, int earnedPoints)
     {
-        ushort normalized = 0;
+        uint normalized = 0;
         int spent = 0;
         int limit = Math.Clamp(earnedPoints, 0, MaximumSpendablePoints);
         for (int i = 0; i < Count; i++)
         {
-            if ((mask & (1 << i)) == 0)
+            if ((mask & (1u << i)) == 0)
                 continue;
 
             FranEvolutionNodeDefinition definition = Definitions[i];
@@ -132,14 +189,16 @@ public static class FranEvolutionInfo
         get
         {
             if (NPC.downedMoonlord)
-                return 18;
+                return 51;
             if (NPC.downedGolemBoss)
-                return 16;
+                return 47;
             if (NPC.downedMechBoss1 && NPC.downedMechBoss2 && NPC.downedMechBoss3)
-                return 14;
+                return 40;
             if (Main.hardMode)
-                return 11;
-            return 7;
+                return 28;
+            if (NPC.downedBoss3)
+                return 18;
+            return 12;
         }
     }
 

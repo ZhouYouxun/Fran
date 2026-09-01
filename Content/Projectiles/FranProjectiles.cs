@@ -414,7 +414,9 @@ public sealed class FloatingTeacherVisual : ModProjectile
     {
         Player owner = Main.player[Projectile.owner];
         FranPlayer fran = owner.GetModPlayer<FranPlayer>();
+        int flightVisualType = ModContent.ProjectileType<FranTelekineticFlightVisual>();
         if (!owner.active || owner.dead || !fran.HasTeacher || fran.TelekineticFlightVisualActive ||
+            owner.ownedProjectileCounts[flightVisualType] > 0 ||
             owner.HeldItem.type == ModContent.ItemType<Content.Items.Teacher>() ||
             owner.HeldItem.type == ModContent.ItemType<Content.Items.TeacherExcavationTool>())
         {
@@ -2121,7 +2123,7 @@ public sealed class ShipCutterProjectile : ModProjectile
 
 public sealed class ThorsHammerMarker : ModProjectile
 {
-    private int TargetIndex => (int)Projectile.ai[0];
+    private int TargetIndex => (int)Projectile.ai[0] - 1;
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
     public override void SetDefaults()
@@ -2163,7 +2165,7 @@ public sealed class ThorsHammerMarker : ModProjectile
                 Vector2 velocity = (Projectile.Center - spawn).SafeNormalize(Vector2.UnitY) * 24f;
                 Projectile.NewProjectile(Projectile.GetSource_FromThis(), spawn, velocity,
                     ModContent.ProjectileType<FranThorsHammerDrop>(), Projectile.damage, Projectile.knockBack,
-                    Projectile.owner, Projectile.Center.X, Projectile.Center.Y, TargetIndex);
+                    Projectile.owner, Projectile.Center.X, Projectile.Center.Y, Projectile.ai[0]);
             }
             Projectile.Kill();
             return;
@@ -2202,7 +2204,7 @@ public sealed class ThorsHammerMarker : ModProjectile
 
     private NPC GetTrackedTarget()
     {
-        if (!Main.npc.IndexInRange(TargetIndex))
+        if (TargetIndex < 0 || !Main.npc.IndexInRange(TargetIndex))
             return null;
         NPC target = Main.npc[TargetIndex];
         return target.active && !target.friendly && target.life > 0 ? target : null;

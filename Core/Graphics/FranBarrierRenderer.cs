@@ -4,7 +4,6 @@ using Luminance.Core.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
-using Terraria.GameContent;
 
 namespace FranMod.Core.Graphics;
 
@@ -47,19 +46,25 @@ internal static class FranBarrierRenderer
                 Main.GameViewMatrix.TransformationMatrix);
             customBatchStarted = true;
 
-            Texture2D pixel = TextureAssets.MagicPixel.Value;
-            Vector2 origin = pixel.Size() * 0.5f;
+            // Rover Drive feeds a square noise canvas into its shield shader.  Our old draw used
+            // Terraria's 1x1000 MagicPixel as the canvas and then scaled the whole texture, which
+            // turned the mathematically circular shader into a world-height column.  A square
+            // canvas preserves the shader's 0..1 UV sphere and keeps its dimensions finite.
+            Texture2D canvas = FranVfx.Shared("NoiseSoft");
+            Vector2 origin = canvas.Size() * 0.5f;
             Vector2 position = center - Main.screenPosition;
-            Vector2 size = new(132f + hitFlash * 12f, 168f + hitFlash * 16f);
+            float pulse = 1f + MathF.Sin(Main.GlobalTimeWrappedHourly * 1.9f + rotation * 0.37f) * 0.018f;
+            float diameter = (156f + hitFlash * 18f) * pulse;
+            Vector2 scale = Vector2.One * diameter / canvas.Size();
 
             shader.TrySetParameter("uLayer", 0f);
             shader.Apply();
-            Main.spriteBatch.Draw(pixel, position, null, Color.White, 0f, origin, size,
+            Main.spriteBatch.Draw(canvas, position, null, Color.White, 0f, origin, scale,
                 SpriteEffects.None, 0f);
 
             shader.TrySetParameter("uLayer", 1f);
             shader.Apply();
-            Main.spriteBatch.Draw(pixel, position, null, Color.White, 0f, origin, size * 1.025f,
+            Main.spriteBatch.Draw(canvas, position, null, Color.White, 0f, origin, scale * 1.025f,
                 SpriteEffects.None, 0f);
             return true;
         }

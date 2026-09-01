@@ -39,10 +39,10 @@ public sealed class FranTelekineticFlightSystem : ModSystem
 
     public override void PostSetupContent()
     {
-        SetWingStats(1, new WingStats(100, 6.25f, 1f));
-        SetWingStats(2, new WingStats(130, 7f, 1.5f));
-        SetWingStats(3, new WingStats(160, 8f, 2f, true, 7.25f, 4.5f));
-        SetWingStats(4, new WingStats(180, 8.5f, 2.25f, true, 7.75f, 5.5f));
+        SetWingStats(1, new WingStats(100, 7f, 1.15f));
+        SetWingStats(2, new WingStats(130, 8f, 1.65f));
+        SetWingStats(3, new WingStats(160, 9f, 2.15f, true, 8f, 5f));
+        SetWingStats(4, new WingStats(180, 9.75f, 2.5f, true, 9f, 6f));
     }
 
     public override void Unload()

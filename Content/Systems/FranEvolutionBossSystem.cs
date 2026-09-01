@@ -156,6 +156,27 @@ public sealed class FranEvolutionBossSystem : ModSystem
         return key.Contains('/');
     }
 
+    public static int GetPointReward(string key) => key switch
+    {
+        "Terraria/KingSlime" or "Terraria/EyeOfCthulhu" or "Terraria/WorldEvil" or
+            "Terraria/QueenBee" or "Terraria/Deerclops" or "Terraria/Skeletron" => 2,
+        "Terraria/WallOfFlesh" or "Terraria/QueenSlime" or "Terraria/Destroyer" or
+            "Terraria/Twins" or "Terraria/SkeletronPrime" => 3,
+        "Terraria/Plantera" or "Terraria/Golem" or "Terraria/DukeFishron" or
+            "Terraria/EmpressOfLight" or "Terraria/LunaticCultist" or "Terraria/Betsy" => 4,
+        "Terraria/MoonLord" => 5,
+        _ => 3
+    };
+
+    public static int CalculateEarnedPoints(IEnumerable<string> bossKeys)
+    {
+        int points = 0;
+        foreach (string key in bossKeys)
+            if (IsValidBossKey(key))
+                points += GetPointReward(key);
+        return Math.Clamp(points, 0, ushort.MaxValue);
+    }
+
     internal static bool TryGetBossKey(NPC npc, out string key)
     {
         if (npc.realLife >= 0 && Main.npc.IndexInRange(npc.realLife))
@@ -254,6 +275,8 @@ public sealed class FranEvolutionBossSystem : ModSystem
         if (!Encounters.TryGetValue(key, out EncounterState state))
             return;
 
+        int pointReward = GetPointReward(key);
+
         foreach (int playerIndex in state.Participants)
         {
             if (!Main.player.IndexInRange(playerIndex))
@@ -271,7 +294,7 @@ public sealed class FranEvolutionBossSystem : ModSystem
                 FranModMain.BroadcastEvolutionState(player);
             int projectileIndex = Projectile.NewProjectile(new EntitySource_Misc("FranBossMagicStone"),
                 deathPosition, Vector2.Zero, ModContent.ProjectileType<FranMagicStoneAbsorptionVfx>(),
-                0, 0f, playerIndex, playerIndex);
+                0, 0f, playerIndex, playerIndex, pointReward);
             if (Main.projectile.IndexInRange(projectileIndex))
                 Main.projectile[projectileIndex].netUpdate = true;
         }

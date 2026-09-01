@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using FranMod.Content.Buffs;
+using FranMod.Content.Config;
 using FranMod.Content.Items;
 using FranMod.Content.Projectiles;
 using FranMod.Core;
@@ -20,11 +21,11 @@ public sealed class FranPlayer : ModPlayer
 {
     public const int DashDuration = 12;
     public const int UltimateChargeDuration = 3 * 60 * 60;
+    public const int MaximumTacticSlots = 4;
     public static readonly Vector2 DefaultUltimateGaugeAnchor = new(0.5f, 0f);
-    private const int DashCooldownNormal = 50;
 
     public bool FranMode { get; private set; }
-    public FranSkill SelectedSkill = FranSkill.None;
+    private readonly FranSkill[] equippedTactics = new FranSkill[MaximumTacticSlots];
     public int UltimateChargeTicks;
     public Vector2 UltimateGaugeAnchor = DefaultUltimateGaugeAnchor;
     public int DashTimer;
@@ -66,7 +67,9 @@ public sealed class FranPlayer : ModPlayer
             return Player.HasItem(type) || Player.whoAmI == Main.myPlayer && Main.mouseItem.type == type;
         }
     }
-    public bool HasSelectedSkill => FranSkillInfo.IsRealSkill(SelectedSkill);
+    public int AvailableTacticSlots => NPC.downedMoonlord ? 4 : Main.hardMode ? 3 : 2;
+    public FranSkill SelectedSkill => GetEquippedTactic(0);
+    public bool HasSelectedSkill => GetActiveTacticCount() > 0;
     // dashDelay is runtime state, not proof that another dash is equipped. In particular,
     // Calamity's built-in DefaultDash may touch it before Fran reads input this frame.
     public bool HasExternalDash => Player.dashType != 0 || HasNamedExternalDash();
@@ -116,12 +119,15 @@ public sealed class FranPlayer : ModPlayer
 
     public override void Initialize()
     {
-        SelectedSkill = FranSkill.None;
+        ClearTacticArray();
     }
 
     public override void SaveData(TagCompound tag)
     {
-        tag["SelectedSkillV2"] = (int)SelectedSkill;
+        List<int> savedTactics = new(MaximumTacticSlots);
+        for (int i = 0; i < MaximumTacticSlots; i++)
+            savedTactics.Add(FranSkillInfo.IsRealSkill(equippedTactics[i]) ? (int)equippedTactics[i] : -1);
+        tag["EquippedTacticsV1"] = savedTactics;
         if (UltimateChargeTicks > 0)
             tag["UltimateChargeTicks"] = Math.Clamp(UltimateChargeTicks, 0, UltimateChargeDuration);
         if (Vector2.DistanceSquared(UltimateGaugeAnchor, DefaultUltimateGaugeAnchor) > 0.000001f)
@@ -139,22 +145,35 @@ public sealed class FranPlayer : ModPlayer
 
     public override void LoadData(TagCompound tag)
     {
-        int value;
-        if (tag.ContainsKey("SelectedSkillV2"))
-            value = tag.GetInt("SelectedSkillV2");
+        ClearTacticArray();
+        if (tag.ContainsKey("EquippedTacticsV1"))
+        {
+            IList<int> saved = tag.GetList<int>("EquippedTacticsV1");
+            for (int i = 0; i < Math.Min(MaximumTacticSlots, saved.Count); i++)
+                equippedTactics[i] = saved[i] >= 0 && saved[i] < FranSkillInfo.Count
+                    ? (FranSkill)saved[i]
+                    : FranSkill.None;
+        }
         else
         {
-            int legacy = tag.ContainsKey("SelectedSkill") ? tag.GetInt("SelectedSkill") : -1;
-            value = legacy switch
+            int value;
+            if (tag.ContainsKey("SelectedSkillV2"))
+                value = tag.GetInt("SelectedSkillV2");
+            else
             {
-                5 => -1,
-                6 => (int)FranSkill.ThunderChain,
-                7 => (int)FranSkill.PressurizedQuickdraw,
-                8 => (int)FranSkill.ThorsHammer,
-                _ => legacy
-            };
+                int legacy = tag.ContainsKey("SelectedSkill") ? tag.GetInt("SelectedSkill") : -1;
+                value = legacy switch
+                {
+                    5 => -1,
+                    6 => (int)FranSkill.ThunderChain,
+                    7 => (int)FranSkill.PressurizedQuickdraw,
+                    8 => (int)FranSkill.ThorsHammer,
+                    _ => legacy
+                };
+            }
+            if (value >= 0 && value < FranSkillInfo.Count)
+                equippedTactics[0] = (FranSkill)value;
         }
-        SelectedSkill = value >= 0 && value < FranSkillInfo.Count ? (FranSkill)value : FranSkill.None;
         UltimateChargeTicks = Math.Clamp(tag.GetInt("UltimateChargeTicks"), 0, UltimateChargeDuration);
         float gaugeX = tag.ContainsKey("UltimateGaugeX") ? tag.GetFloat("UltimateGaugeX") : DefaultUltimateGaugeAnchor.X;
         float gaugeY = tag.ContainsKey("UltimateGaugeY") ? tag.GetFloat("UltimateGaugeY") : DefaultUltimateGaugeAnchor.Y;
@@ -265,19 +284,25 @@ public sealed class FranPlayer : ModPlayer
 
     public override void CopyClientState(ModPlayer targetCopy)
     {
-        ((FranPlayer)targetCopy).FranMode = FranMode;
+        FranPlayer copy = (FranPlayer)targetCopy;
+        copy.FranMode = FranMode;
+        Array.Copy(equippedTactics, copy.equippedTactics, MaximumTacticSlots);
     }
 
     public override void SendClientChanges(ModPlayer clientPlayer)
     {
-        if (((FranPlayer)clientPlayer).FranMode != FranMode)
+        FranPlayer copy = (FranPlayer)clientPlayer;
+        if (copy.FranMode != FranMode)
             FranModMain.SendFranMode(Player.whoAmI, FranMode);
+        if (!TacticLoadoutEquals(copy.equippedTactics))
+            FranModMain.SendTacticLoadout(Player.whoAmI, equippedTactics);
     }
 
     public override void SyncPlayer(int toWho, int fromWho, bool newPlayer)
     {
         FranModMain.SendFranMode(Player.whoAmI, FranMode, toWho, fromWho);
         FranModMain.SendCombatState(Player.whoAmI, DashTimer, DashVelocity, toWho, fromWho);
+        FranModMain.SendTacticLoadout(Player.whoAmI, equippedTactics, toWho, fromWho);
         if (Main.netMode == NetmodeID.Server)
             FranModMain.SendUltimateCharge(Player.whoAmI, UltimateChargeTicks, toWho, fromWho);
     }
@@ -296,6 +321,18 @@ public sealed class FranPlayer : ModPlayer
     {
         UltimateChargeTicks = Math.Clamp(chargeTicks, 0, UltimateChargeDuration);
         ultimateReadyAnnounced = UltimateReady;
+    }
+
+    internal void ReceiveTacticLoadout(ReadOnlySpan<FranSkill> tactics)
+    {
+        ClearTacticArray();
+        int count = Math.Min(MaximumTacticSlots, tactics.Length);
+        for (int i = 0; i < count; i++)
+        {
+            FranSkill skill = tactics[i];
+            if (FranSkillInfo.IsRealSkill(skill) && FranSkillInfo.IsUnlocked(skill))
+                equippedTactics[i] = skill;
+        }
     }
 
     public override void PostUpdate()
@@ -328,8 +365,7 @@ public sealed class FranPlayer : ModPlayer
                 EndDash(sync: Player.whoAmI == Main.myPlayer);
             if (HasTeacher)
             {
-                if (HasSelectedSkill && !FranSkillInfo.IsUnlocked(SelectedSkill))
-                    SelectedSkill = FranSkill.None;
+                RemoveLockedTactics();
                 UpdateTimers();
                 MaintainSelectedImprint();
                 EnsureFloatingTeacher();
@@ -343,8 +379,7 @@ public sealed class FranPlayer : ModPlayer
             ShowIntroduction();
         }
 
-        if (HasSelectedSkill && !FranSkillInfo.IsUnlocked(SelectedSkill))
-            SelectedSkill = FranSkill.None;
+        RemoveLockedTactics();
         UpdateTimers();
         MaintainSelectedImprint();
         UpdateUltimateCharge();
@@ -369,8 +404,14 @@ public sealed class FranPlayer : ModPlayer
 
     public override void SetControls()
     {
-        if (!UltimateActive)
+        if (!UltimateActive && !Content.UI.FranUISystem.IsWheelOpen)
             return;
+        if (Content.UI.FranUISystem.IsWheelOpen && !UltimateActive)
+        {
+            Player.controlUseItem = false;
+            Player.controlUseTile = false;
+            return;
+        }
         Player.controlLeft = false;
         Player.controlRight = false;
         Player.controlUp = false;
@@ -382,21 +423,25 @@ public sealed class FranPlayer : ModPlayer
         Player.controlMount = false;
     }
 
-    public override bool CanUseItem(Item item) => !UltimateActive;
+    public override bool CanUseItem(Item item) => !UltimateActive && !Content.UI.FranUISystem.IsWheelOpen;
 
     public override void ModifyHurt(ref Player.HurtModifiers modifiers)
     {
         if (!FranMode)
             return;
-        if (SelectedSkill == FranSkill.MagicBarrier && FranAutoBarrierProjectile.IsActive(Player))
-            modifiers.SourceDamage *= 0.72f;
-        modifiers.DisableSound();
-        SoundEngine.PlaySound(SoundID.PlayerHit with { Pitch = 0.28f, Volume = 0.72f }, Player.Center);
+        int barrierLayers = GetSkillStacks(FranSkill.MagicBarrier);
+        if (barrierLayers > 0 && FranAutoBarrierProjectile.IsActive(Player))
+            modifiers.SourceDamage *= 1f - 0.10f * Math.Min(MaximumTacticSlots, barrierLayers);
+        if (FranClientConfig.Instance?.EnableFranVoice ?? true)
+        {
+            modifiers.DisableSound();
+            SoundEngine.PlaySound(SoundID.PlayerHit with { Pitch = 0.28f, Volume = 0.72f }, Player.Center);
+        }
     }
 
     public override void OnHurt(Player.HurtInfo info)
     {
-        if (!FranMode || SelectedSkill != FranSkill.MagicBarrier)
+        if (!FranMode || GetSkillStacks(FranSkill.MagicBarrier) <= 0)
             return;
         FranAutoBarrierProjectile.HandlePlayerHit(Player, info.Damage);
     }
@@ -483,23 +528,138 @@ public sealed class FranPlayer : ModPlayer
         return current;
     }
 
+    public FranSkill GetEquippedTactic(int slot)
+    {
+        if (slot < 0 || slot >= Math.Min(AvailableTacticSlots, MaximumTacticSlots))
+            return FranSkill.None;
+        return FranSkillInfo.IsRealSkill(equippedTactics[slot]) ? equippedTactics[slot] : FranSkill.None;
+    }
+
+    public int GetActiveTacticCount()
+    {
+        int count = 0;
+        for (int i = 0; i < Math.Min(AvailableTacticSlots, MaximumTacticSlots); i++)
+            if (FranSkillInfo.IsRealSkill(equippedTactics[i]))
+                count++;
+        return count;
+    }
+
+    public int GetSkillStacks(FranSkill skill)
+    {
+        if (!FranSkillInfo.IsRealSkill(skill))
+            return 0;
+        int count = 0;
+        for (int i = 0; i < Math.Min(AvailableTacticSlots, MaximumTacticSlots); i++)
+            if (equippedTactics[i] == skill)
+                count++;
+        return count;
+    }
+
+    public FranSkill[] GetActiveTacticSnapshot()
+    {
+        FranSkill[] result = new FranSkill[MaximumTacticSlots];
+        Array.Fill(result, FranSkill.None);
+        for (int i = 0; i < Math.Min(AvailableTacticSlots, MaximumTacticSlots); i++)
+            result[i] = GetEquippedTactic(i);
+        return result;
+    }
+
+    internal FranSkill GetRawTactic(int slot) => slot >= 0 && slot < MaximumTacticSlots
+        ? equippedTactics[slot]
+        : FranSkill.None;
+
+    public bool TryEquipTactic(FranSkill skill)
+    {
+        if (!FranSkillInfo.IsRealSkill(skill) || !FranSkillInfo.IsUnlocked(skill))
+            return false;
+        for (int i = 0; i < Math.Min(AvailableTacticSlots, MaximumTacticSlots); i++)
+        {
+            if (FranSkillInfo.IsRealSkill(equippedTactics[i]))
+                continue;
+            equippedTactics[i] = skill;
+            AnnounceTacticChange(skill, equipped: true);
+            return true;
+        }
+        SoundEngine.PlaySound(SoundID.MenuClose with { Pitch = -0.22f, Volume = 0.45f });
+        return false;
+    }
+
+    public bool TryUnequipTactic(int slot)
+    {
+        if (slot < 0 || slot >= Math.Min(AvailableTacticSlots, MaximumTacticSlots) ||
+            !FranSkillInfo.IsRealSkill(equippedTactics[slot]))
+            return false;
+        FranSkill removed = equippedTactics[slot];
+        for (int i = slot; i < MaximumTacticSlots - 1; i++)
+            equippedTactics[i] = equippedTactics[i + 1];
+        equippedTactics[^1] = FranSkill.None;
+        if (removed == FranSkill.ThorsHammer && GetSkillStacks(FranSkill.ThorsHammer) == 0)
+            HammerComboRounds = 0;
+        AnnounceTacticChange(removed, equipped: false);
+        return true;
+    }
+
+    // Kept for old callers and old saves: selecting now means starting a one-tactic loadout.
     public void SelectSkill(FranSkill skill)
     {
-        if (skill != FranSkill.None && (!FranSkillInfo.IsRealSkill(skill) || !FranSkillInfo.IsUnlocked(skill)))
-            return;
-        FranSkill previous = SelectedSkill;
-        if (previous != skill)
-        {
-            if (previous == FranSkill.ThorsHammer)
-                HammerComboRounds = 0;
-        }
-        SelectedSkill = skill;
+        ClearTacticArray();
+        if (FranSkillInfo.IsRealSkill(skill) && FranSkillInfo.IsUnlocked(skill))
+            equippedTactics[0] = skill;
+        AnnounceTacticChange(skill, FranSkillInfo.IsRealSkill(skill));
+    }
+
+    private void AnnounceTacticChange(FranSkill skill, bool equipped)
+    {
         SoundEngine.PlaySound(SoundID.MenuTick with { Pitch = 0.2f, Volume = 0.65f }, Player.Center);
-        if (Main.myPlayer == Player.whoAmI && skill != FranSkill.None)
-            CombatText.NewText(Player.Hitbox, FranSkillInfo.Color(skill), FranSkillInfo.Name(skill));
-        else if (Main.myPlayer == Player.whoAmI)
-            CombatText.NewText(Player.Hitbox, new Color(190, 205, 215),
-                Language.GetTextValue("Mods.Fran.UI.PureSwordsmanship"));
+        if (Main.myPlayer != Player.whoAmI)
+            return;
+        Color color = FranSkillInfo.IsRealSkill(skill) ? FranSkillInfo.Color(skill) : new Color(190, 205, 215);
+        string text = FranSkillInfo.IsRealSkill(skill)
+            ? Language.GetTextValue(equipped ? "Mods.Fran.UI.TacticEquipped" : "Mods.Fran.UI.TacticUnequipped",
+                FranSkillInfo.Name(skill), GetSkillStacks(skill))
+            : Language.GetTextValue("Mods.Fran.UI.PureSwordsmanship");
+        CombatText.NewText(Player.Hitbox, color, text);
+    }
+
+    private void ClearTacticArray() => Array.Fill(equippedTactics, FranSkill.None);
+
+    private bool TacticLoadoutEquals(FranSkill[] other)
+    {
+        if (other is null || other.Length < MaximumTacticSlots)
+            return false;
+        for (int i = 0; i < MaximumTacticSlots; i++)
+            if (equippedTactics[i] != other[i])
+                return false;
+        return true;
+    }
+
+    private void RemoveLockedTactics()
+    {
+        bool removedHammer = false;
+        for (int i = 0; i < MaximumTacticSlots; i++)
+        {
+            FranSkill skill = equippedTactics[i];
+            if (!FranSkillInfo.IsRealSkill(skill) || FranSkillInfo.IsUnlocked(skill))
+                continue;
+            removedHammer |= skill == FranSkill.ThorsHammer;
+            equippedTactics[i] = FranSkill.None;
+        }
+        CompactTactics();
+        if (removedHammer && GetSkillStacks(FranSkill.ThorsHammer) == 0)
+            HammerComboRounds = 0;
+    }
+
+    private void CompactTactics()
+    {
+        int write = 0;
+        for (int read = 0; read < MaximumTacticSlots; read++)
+        {
+            if (!FranSkillInfo.IsRealSkill(equippedTactics[read]))
+                continue;
+            equippedTactics[write++] = equippedTactics[read];
+        }
+        while (write < MaximumTacticSlots)
+            equippedTactics[write++] = FranSkill.None;
     }
 
     public bool IsImprintReady(FranSkill skill) => FranSkillInfo.IsRealSkill(skill) &&
@@ -589,7 +749,7 @@ public sealed class FranPlayer : ModPlayer
 
     private void MaintainSelectedImprint()
     {
-        if (Player.whoAmI != Main.myPlayer || Player.dead || SelectedSkill != FranSkill.MagicBarrier ||
+        if (Player.whoAmI != Main.myPlayer || Player.dead || GetSkillStacks(FranSkill.MagicBarrier) <= 0 ||
             !IsImprintReady(FranSkill.MagicBarrier))
             return;
         int barrierType = ModContent.ProjectileType<FranAutoBarrierProjectile>();
@@ -619,7 +779,9 @@ public sealed class FranPlayer : ModPlayer
         if (Main.netMode == NetmodeID.MultiplayerClient || UltimateActive || UltimateReady)
             return;
 
-        UltimateChargeTicks++;
+        FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
+        int chargeGain = evolution.AcceleratedUltimateCharge && Main.GameUpdateCount % 5 == 0 ? 2 : 1;
+        UltimateChargeTicks += chargeGain;
         if (UltimateChargeTicks >= UltimateChargeDuration)
         {
             UltimateChargeTicks = UltimateChargeDuration;
@@ -727,11 +889,10 @@ public sealed class FranPlayer : ModPlayer
     private void StartDash(Vector2 direction)
     {
         direction = direction.SafeNormalize(Vector2.UnitX * (Player.direction == 0 ? 1 : Player.direction));
-        float dashSpeed = 16f;
+        FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
+        float dashSpeed = 16f * evolution.DashSpeedMultiplier;
         DashTimer = DashDuration;
-        DashCooldown = Player.GetModPlayer<FranEvolutionPlayer>().HasNode(FranEvolutionNode.CatStep)
-            ? 42
-            : DashCooldownNormal;
+        DashCooldown = evolution.DashCooldownTicks;
         DashVelocity = direction * dashSpeed;
         Player.velocity = DashVelocity;
         // Cancel a fallback framework dash that may have reacted to the same double tap earlier
@@ -742,7 +903,7 @@ public sealed class FranPlayer : ModPlayer
         dashStartedThisTick = true;
         dashHitNpcs.Clear();
         FranModMain.SendCombatState(Player.whoAmI, DashTimer, DashVelocity);
-        Player.GiveImmuneTimeForCollisionAttack(DashDuration + 2);
+        Player.GiveImmuneTimeForCollisionAttack(DashDuration + 2 + evolution.DashImmunityBonus);
         SoundEngine.PlaySound(SoundID.Item74 with { Pitch = 0.18f, Volume = 0.65f }, Player.Center);
         ShakeScreen(Player.Center, 2.4f);
         if (Player.whoAmI == Main.myPlayer)
@@ -787,7 +948,8 @@ public sealed class FranPlayer : ModPlayer
                         npc.position, npc.width, npc.height)))
                     continue;
                 dashHitNpcs.Add(npc.whoAmI);
-                int damage = (int)(FranSkillInfo.BaseDamage * 1.2f);
+                FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
+                int damage = (int)(FranSkillInfo.BaseDamage * evolution.DashImpactDamageMultiplier);
                 FranBurst.Spawn(Player.GetSource_Misc("FranDash"), npc.Center, Player.whoAmI,
                     FranBurstStyle.DashImpact, 1f, damage, 6f, Player.velocity.ToRotation());
                 Player.GetModPlayer<FranEvolutionPlayer>().ApplyDashHit(npc);
@@ -819,10 +981,13 @@ public sealed class FranPlayer : ModPlayer
 
     private void UpdateTelekineticFlightVisual()
     {
-        bool airborne = Math.Abs(Player.velocity.Y) > 0.01f;
-        if (!TelekineticFlightEnabled || Player.mount.Active || !airborne)
+        // Zero vertical speed is not proof of landing: horizontal flight and down-hover can both
+        // hold Y at zero. Vanilla restores wingTime only after actual ground contact, so require
+        // both a stationary vertical axis and a fully restored timer before ending the flight VFX.
+        bool landed = Math.Abs(Player.velocity.Y) <= 0.01f && Player.wingTime >= Player.wingTimeMax;
+        if (!TelekineticFlightEnabled || Player.mount.Active || landed)
             telekineticFlightSession = false;
-        else if (Player.controlJump)
+        else if (Player.controlJump && Player.wingTime > 0f)
             telekineticFlightSession = true;
 
         TelekineticFlightVisualActive = TelekineticFlightEnabled && telekineticFlightSession;
@@ -917,7 +1082,9 @@ public sealed class FranPlayer : ModPlayer
 
     private void EnsureFloatingTeacher()
     {
-        if (!HasTeacher || Player.dead || TelekineticFlightVisualActive)
+        int flightVisualType = ModContent.ProjectileType<FranTelekineticFlightVisual>();
+        if (!HasTeacher || Player.dead || TelekineticFlightVisualActive ||
+            Player.ownedProjectileCounts[flightVisualType] > 0)
             return;
 
         if (Player.HeldItem.type == ModContent.ItemType<Teacher>() ||
