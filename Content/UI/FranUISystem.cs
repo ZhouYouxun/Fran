@@ -21,6 +21,15 @@ namespace FranMod.Content.UI;
 public sealed class FranUISystem : ModSystem
 {
     private const float SkillIconDrawScale = 0.75f;
+    // Player-left shorthand: three independent pixel sigils, not a magazine or item-slot strip.
+    private const int TacticSigilWidth = 24;
+    private const int TacticSigilPadding = 5;
+    private const int TacticRuneDiameter = 11;
+    private const int TacticRuneGap = 4;
+    private const int TacticSigilLeftOffset = 92;
+    private const int TacticSigilScreenMargin = 12;
+    private const int EquippedTacticSlotSize = 58;
+    private const float EquippedTacticSlotOffsetY = 190f;
     private const string SkillIconRoot = "Fran/Textures/技能组图标/32/";
     private const string PureSwordsmanshipIcon = SkillIconRoot + "FranSkill_09_PureSwordsmanship";
     private const string UltimateIcon = SkillIconRoot + "FranSkill_10_Ultimate_BlackHeavenlyTiger";
@@ -42,8 +51,10 @@ public sealed class FranUISystem : ModSystem
     private static int hoveredEquippedSlot = -1;
     private static int previousHovered = -2;
     private static bool previousWheelHeld;
+    private static bool previousLeftMouseHeld;
     private static bool draggingUltimateGauge;
     private static Vector2 ultimateGaugeDragOffset;
+    private static float tacticSigilHoverFade;
 
     public static bool IsWheelOpen => wheelOpen;
 
@@ -51,7 +62,9 @@ public sealed class FranUISystem : ModSystem
     {
         bool wheelHeld = Main.mouseRight || FranModMain.SkillWheelKey.Current;
         bool wheelPressed = wheelHeld && !previousWheelHeld;
+        bool leftPressed = Main.mouseLeft && !previousLeftMouseHeld;
         previousWheelHeld = wheelHeld;
+        previousLeftMouseHeld = Main.mouseLeft;
 
         if (Main.gameMenu || Main.LocalPlayer is null)
         {
@@ -93,8 +106,6 @@ public sealed class FranUISystem : ModSystem
         if (wheelOpen)
         {
             PlayerInput.LockVanillaMouseScroll("FranSkillWheel");
-            Main.blockMouse = true;
-            player.mouseInterface = true;
             hoveredSkill = FindHoveredSkill(Main.MouseScreen);
             hoveredEquippedSlot = FindHoveredEquippedSlot(fran, Main.MouseScreen);
             int hoverToken = hoveredSkill >= 0 ? hoveredSkill : hoveredEquippedSlot >= 0
@@ -105,13 +116,16 @@ public sealed class FranUISystem : ModSystem
                 previousHovered = hoverToken;
             }
 
-            if (Main.mouseLeft && Main.mouseLeftRelease)
+            if (leftPressed)
             {
                 if (hoveredSkill >= 0)
                     fran.TryEquipTactic((FranSkill)hoveredSkill);
                 else if (hoveredEquippedSlot >= 0)
                     fran.TryUnequipTactic(hoveredEquippedSlot);
             }
+
+            Main.blockMouse = true;
+            player.mouseInterface = true;
         }
     }
 
@@ -129,7 +143,23 @@ public sealed class FranUISystem : ModSystem
         int index = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Mouse Text"));
         if (index < 0)
             index = layers.Count;
-        layers.Insert(index, new LegacyGameInterfaceLayer("Fran: Character HUD", DrawHud, InterfaceScaleType.UI));
+        layers.Insert(index, new LegacyGameInterfaceLayer("Fran: Tactic Sigils",
+            DrawTacticSigilHud, InterfaceScaleType.Game));
+        layers.Insert(index + 1, new LegacyGameInterfaceLayer("Fran: Character HUD", DrawHud,
+            InterfaceScaleType.UI));
+    }
+
+    private static bool DrawTacticSigilHud()
+    {
+        if (Main.gameMenu || Main.LocalPlayer is null)
+            return true;
+
+        Player player = Main.LocalPlayer;
+        FranPlayer fran = player.GetModPlayer<FranPlayer>();
+        bool holdingTeacher = player.HeldItem.type == ModContent.ItemType<Teacher>();
+        if (fran.FranMode || holdingTeacher)
+            DrawMatrix(fran);
+        return true;
     }
 
     private static bool DrawHud()
@@ -145,7 +175,6 @@ public sealed class FranUISystem : ModSystem
 
         if (fran.FranMode && !ModContent.GetInstance<FranClientConfig>().HideUltimateGauge)
             DrawUltimateGauge(fran);
-        DrawMatrix(fran);
         if (wheelOpen)
             DrawWheel(fran);
         return true;
@@ -246,29 +275,34 @@ public sealed class FranUISystem : ModSystem
 
     private static void DrawMatrix(FranPlayer fran)
     {
-        Vector2 anchor = Main.LocalPlayer.Center - Main.screenPosition + new Vector2(-76f, -30f);
-        anchor.X = MathHelper.Clamp(anchor.X, 24f, Main.screenWidth - 72f);
-        anchor.Y = MathHelper.Clamp(anchor.Y, 72f, Main.screenHeight - 72f);
         int activeCount = fran.GetActiveTacticCount();
-        if (activeCount == 0)
+        if (activeCount <= 0)
         {
-            DrawOutlinedSkillIcon(anchor + new Vector2(16f), 30f, PureSwordsmanshipIcon,
-                Color.White, new Color(128, 178, 202), 0.88f, 2);
+            tacticSigilHoverFade = 0f;
             return;
         }
 
-        for (int slot = 0; slot < fran.AvailableTacticSlots; slot++)
+        Rectangle panelArea = GetTacticSigilArea(Main.LocalPlayer, activeCount);
+        bool hovered = panelArea.Contains(Main.MouseScreen.ToPoint());
+        tacticSigilHoverFade += ((hovered ? 1f : 0f) - tacticSigilHoverFade) *
+            (hovered ? 0.18f : 0.10f);
+        float opacity = 1f - tacticSigilHoverFade * 0.90f;
+
+        FranSkill firstSkill = fran.GetEquippedTactic(0);
+        Color panelTheme = FranSkillInfo.IsRealSkill(firstSkill)
+            ? FranSkillInfo.Color(firstSkill) : new Color(82, 92, 108);
+        DrawTacticSigilSpine(panelArea, panelTheme, opacity);
+
+        int firstRuneCenterY = panelArea.Y + TacticSigilPadding + TacticRuneDiameter / 2;
+        for (int slot = 0; slot < activeCount; slot++)
         {
             FranSkill skill = fran.GetEquippedTactic(slot);
             if (!FranSkillInfo.IsRealSkill(skill))
                 continue;
-            Vector2 center = anchor + new Vector2(slot % 2 * 34f + 16f, slot / 2 * 34f + 16f);
-            int cooldown = fran.SkillCooldowns[(int)skill];
-            float cooldownRatio = cooldown > 0
-                ? cooldown / (float)Math.Max(1, fran.SkillCooldownMaximums[(int)skill])
-                : 0f;
-            DrawOutlinedSkillIcon(center, 30f, SkillIconPath(skill), Color.White,
-                FranSkillInfo.Color(skill), MathHelper.Lerp(0.92f, 0.38f, cooldownRatio), 2);
+
+            Point runeCenter = new(panelArea.Center.X,
+                firstRuneCenterY + slot * (TacticRuneDiameter + TacticRuneGap));
+            DrawTacticRune(skill, runeCenter, fran.SkillCooldowns[(int)skill] <= 0, opacity);
         }
     }
 
@@ -324,22 +358,7 @@ public sealed class FranUISystem : ModSystem
             new Rectangle((int)wheelCenter.X - 220, (int)wheelCenter.Y + 68, 440, 28),
             new Color(145, 176, 191), 0.56f);
 
-        for (int slot = 0; slot < fran.AvailableTacticSlots; slot++)
-        {
-            Vector2 center = EquippedSlotCenter(fran.AvailableTacticSlots, slot);
-            Rectangle slotRect = new((int)center.X - 29, (int)center.Y - 29, 58, 58);
-            FranSkill skill = fran.GetEquippedTactic(slot);
-            bool hovered = hoveredEquippedSlot == slot;
-            Color frame = FranSkillInfo.IsRealSkill(skill) ? FranSkillInfo.Color(skill) : new Color(73, 112, 130);
-            DrawRect(slotRect, new Color(4, 9, 15, hovered ? 230 : 188));
-            DrawBorder(slotRect, hovered ? Color.Lerp(frame, Color.White, 0.44f) : frame * 0.72f,
-                hovered ? 3 : 2);
-            if (FranSkillInfo.IsRealSkill(skill))
-                DrawOutlinedSkillIcon(center, hovered ? 52f : 48f, SkillIconPath(skill), Color.White,
-                    frame, 1f, hovered ? 3 : 2);
-            else
-                DrawCentered((slot + 1).ToString(), slotRect, new Color(90, 125, 141), 0.62f);
-        }
+        DrawEquippedTacticSlots(fran);
 
         FranSkill detailSkill = hoveredSkill >= 0 ? (FranSkill)hoveredSkill : hoveredEquippedSlot >= 0
             ? fran.GetEquippedTactic(hoveredEquippedSlot) : FranSkill.None;
@@ -388,16 +407,108 @@ public sealed class FranUISystem : ModSystem
 
     private static int FindHoveredEquippedSlot(FranPlayer fran, Vector2 mouse)
     {
-        for (int slot = 0; slot < fran.AvailableTacticSlots; slot++)
-            if (Vector2.DistanceSquared(mouse, EquippedSlotCenter(fran.AvailableTacticSlots, slot)) <= 31f * 31f)
+        int slotCount = Math.Min(fran.AvailableTacticSlots, FranBalance.TacticStorageCapacity);
+        for (int slot = 0; slot < slotCount; slot++)
+            if (GetEquippedTacticSlotArea(slotCount, slot).Contains(mouse.ToPoint()))
                 return slot;
         return -1;
     }
 
-    private static Vector2 EquippedSlotCenter(int slotCount, int slot)
+    private static Rectangle GetTacticSigilArea(Player owner, int runeCount)
     {
-        const float spacing = 70f;
-        return wheelCenter + new Vector2((slot - (slotCount - 1) * 0.5f) * spacing, 190f);
+        int panelHeight = TacticSigilPadding * 2 + runeCount * TacticRuneDiameter +
+            Math.Max(0, runeCount - 1) * TacticRuneGap;
+        Vector2 panelCenter = owner.Center - Main.screenPosition +
+            new Vector2(-TacticSigilLeftOffset, owner.gfxOffY - 8f);
+        int x = Utils.Clamp((int)(panelCenter.X - TacticSigilWidth * 0.5f),
+            TacticSigilScreenMargin, Main.screenWidth - TacticSigilWidth - TacticSigilScreenMargin);
+        int y = Utils.Clamp((int)(panelCenter.Y - panelHeight * 0.5f),
+            TacticSigilScreenMargin, Main.screenHeight - panelHeight - TacticSigilScreenMargin);
+        return new Rectangle(x, y, TacticSigilWidth, panelHeight);
+    }
+
+    private static void DrawTacticSigilSpine(Rectangle area, Color themeColor, float opacity)
+    {
+        int x = area.Center.X;
+        Color shadow = new Color(4, 8, 13) * (0.72f * opacity);
+        Color line = Color.Lerp(new Color(54, 69, 86), themeColor, 0.30f) * (0.62f * opacity);
+        DrawRect(new Rectangle(x - 1, area.Y + 2, 3, area.Height - 4), shadow);
+        DrawRect(new Rectangle(x, area.Y + 3, 1, area.Height - 6), line);
+        DrawRect(new Rectangle(x - 4, area.Y + 2, 9, 1), line * 0.78f);
+        DrawRect(new Rectangle(x - 4, area.Bottom - 3, 9, 1), line * 0.78f);
+    }
+
+    private static void DrawTacticRune(FranSkill skill, Point center, bool ready, float opacity)
+    {
+        Color themeColor = FranSkillInfo.Color(skill);
+        Color shadow = new Color(5, 9, 15) * (0.88f * opacity);
+        Color edge = Color.Lerp(themeColor, Color.White, ready ? 0.24f : 0.05f) * (0.78f * opacity);
+        Color fill = (ready ? Color.Lerp(themeColor, Color.White, 0.06f) : new Color(29, 36, 47)) *
+            (0.90f * opacity);
+
+        // Five stepped bars make a compact pixel diamond. Each tactic remains a pure color block,
+        // but the independent crest silhouette no longer reads as ammunition.
+        DrawRect(new Rectangle(center.X - 2, center.Y - 6, 5, 13), shadow);
+        DrawRect(new Rectangle(center.X - 4, center.Y - 4, 9, 9), shadow);
+        DrawRect(new Rectangle(center.X - 6, center.Y - 2, 13, 5), shadow);
+        DrawRect(new Rectangle(center.X - 1, center.Y - 5, 3, 11), edge);
+        DrawRect(new Rectangle(center.X - 3, center.Y - 3, 7, 7), edge);
+        DrawRect(new Rectangle(center.X - 5, center.Y - 1, 11, 3), edge);
+        DrawRect(new Rectangle(center.X - 1, center.Y - 3, 3, 7), fill);
+        DrawRect(new Rectangle(center.X - 3, center.Y - 1, 7, 3), fill);
+        if (ready)
+            DrawRect(new Rectangle(center.X, center.Y - 2, 1, 2), Color.White * (0.62f * opacity));
+    }
+
+    private static void DrawEquippedTacticSlots(FranPlayer fran)
+    {
+        int slotCount = Math.Min(fran.AvailableTacticSlots, FranBalance.TacticStorageCapacity);
+        if (slotCount <= 0)
+            return;
+
+        Rectangle first = GetEquippedTacticSlotArea(slotCount, 0);
+        Rectangle last = GetEquippedTacticSlotArea(slotCount, slotCount - 1);
+        Rectangle connectedGroup = new(first.X, first.Y, last.Right - first.X, first.Height);
+        DrawRect(connectedGroup, new Color(4, 9, 15, 188));
+        DrawBorder(connectedGroup, new Color(73, 112, 130) * 0.72f, 2);
+
+        for (int slot = 0; slot < slotCount; slot++)
+        {
+            Rectangle slotArea = GetEquippedTacticSlotArea(slotCount, slot);
+            Vector2 center = slotArea.Center.ToVector2();
+            FranSkill skill = fran.GetEquippedTactic(slot);
+            bool hovered = hoveredEquippedSlot == slot;
+            Color frame = FranSkillInfo.IsRealSkill(skill)
+                ? FranSkillInfo.Color(skill) : new Color(73, 112, 130);
+
+            if (slot > 0)
+                DrawRect(new Rectangle(slotArea.X - 1, slotArea.Y + 3, 2, slotArea.Height - 6),
+                    frame * (hovered ? 0.92f : 0.58f));
+            if (hovered)
+            {
+                DrawRect(slotArea, new Color(18, 25, 34, 224));
+                DrawBorder(slotArea, Color.Lerp(frame, Color.White, 0.44f), 3);
+            }
+
+            if (FranSkillInfo.IsRealSkill(skill))
+            {
+                int cooldown = fran.SkillCooldowns[(int)skill];
+                float cooldownRatio = cooldown > 0
+                    ? cooldown / (float)Math.Max(1, fran.SkillCooldownMaximums[(int)skill]) : 0f;
+                DrawOutlinedSkillIcon(center, hovered ? 52f : 48f, SkillIconPath(skill), Color.White,
+                    frame, MathHelper.Lerp(1f, 0.42f, cooldownRatio), hovered ? 3 : 2);
+            }
+            else
+                DrawCentered((slot + 1).ToString(), slotArea, new Color(90, 125, 141), 0.62f);
+        }
+    }
+
+    private static Rectangle GetEquippedTacticSlotArea(int slotCount, int slot)
+    {
+        float groupLeft = wheelCenter.X - slotCount * EquippedTacticSlotSize * 0.5f;
+        int x = (int)MathF.Round(groupLeft + slot * EquippedTacticSlotSize);
+        int y = (int)MathF.Round(wheelCenter.Y + EquippedTacticSlotOffsetY - EquippedTacticSlotSize * 0.5f);
+        return new Rectangle(x, y, EquippedTacticSlotSize, EquippedTacticSlotSize);
     }
 
     private static string SkillIconPath(FranSkill skill) =>

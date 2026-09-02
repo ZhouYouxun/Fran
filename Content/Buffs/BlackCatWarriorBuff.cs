@@ -1,12 +1,12 @@
 using Terraria;
-using Terraria.ID;
 using Terraria.ModLoader;
+using FranMod.Core;
 
 namespace FranMod.Content.Buffs;
 
 public sealed class BlackCatWarriorBuff : ModBuff
 {
-    public override string Texture => $"Terraria/Images/Item_{ItemID.CatEars}";
+    public override string Texture => "Fran/Textures/黑猫Buff";
 
     public override void SetStaticDefaults()
     {
@@ -18,7 +18,9 @@ public sealed class BlackCatWarriorBuff : ModBuff
     {
         player.noFallDmg = true;
         player.nightVision = true;
-        player.GetDamage(DamageClass.Melee) += 0.10f;
-        player.GetAttackSpeed(DamageClass.Melee) += 0.10f;
+        player.GetDamage(DamageClass.Melee) +=
+            FranBalance.GetFloat(nameof(FranBalance.FranMeleeDamageBonus), FranBalance.FranMeleeDamageBonus);
+        player.GetAttackSpeed(DamageClass.Melee) +=
+            FranBalance.GetFloat(nameof(FranBalance.FranMeleeAttackSpeedBonus), FranBalance.FranMeleeAttackSpeedBonus);
     }
 }

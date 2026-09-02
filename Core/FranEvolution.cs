@@ -184,23 +184,7 @@ public static class FranEvolutionInfo
         return normalized;
     }
 
-    public static int CurrentStagePointCap
-    {
-        get
-        {
-            if (NPC.downedMoonlord)
-                return 51;
-            if (NPC.downedGolemBoss)
-                return 47;
-            if (NPC.downedMechBoss1 && NPC.downedMechBoss2 && NPC.downedMechBoss3)
-                return 40;
-            if (Main.hardMode)
-                return 28;
-            if (NPC.downedBoss3)
-                return 18;
-            return 12;
-        }
-    }
+    public static int CurrentStagePointCap => FranBalance.GetEvolutionPointCap();
 
     public static Color BranchColor(FranEvolutionBranch branch) => branch switch
     {

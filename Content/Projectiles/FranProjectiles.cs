@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using FranMod.Content.Players;
+using FranMod.Core;
 using FranMod.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -396,7 +397,7 @@ internal static class FranMotion
 
 public sealed class FloatingTeacherVisual : ModProjectile
 {
-    public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
+    public override string Texture => FranTeacherVisuals.TexturePath;
 
     public override void SetDefaults()
     {
@@ -434,21 +435,23 @@ public sealed class FloatingTeacherVisual : ModProjectile
     public override bool PreDraw(ref Color lightColor)
     {
         Player owner = Main.player[Projectile.owner];
-        Texture2D texture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D texture = FranTeacherVisuals.Texture;
         Vector2 position = Projectile.Center - Main.screenPosition;
         Vector2 origin = texture.Size() * 0.5f;
         SpriteEffects effects = owner.direction == 1 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         for (int i = 0; i < 5; i++)
             Main.EntitySpriteDraw(texture, position + (MathHelper.TwoPi * i / 5f).ToRotationVector2() * 2f, null,
-                new Color(100, 205, 255) * 0.28f, Projectile.rotation, origin, 0.82f, effects, 0f);
-        Main.EntitySpriteDraw(texture, position, null, lightColor, Projectile.rotation, origin, 0.82f, effects, 0f);
+                new Color(100, 205, 255) * 0.28f, Projectile.rotation, origin,
+                0.82f * FranTeacherVisuals.TextureScale, effects, 0f);
+        Main.EntitySpriteDraw(texture, position, null, lightColor, Projectile.rotation, origin,
+            0.82f * FranTeacherVisuals.TextureScale, effects, 0f);
         return false;
     }
 }
 
 public sealed class TelekineticCannonProjectile : ModProjectile
 {
-    public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
+    public override string Texture => FranTeacherVisuals.TexturePath;
     public override void SetStaticDefaults()
     {
         ProjectileID.Sets.TrailCacheLength[Type] = 10;
@@ -542,10 +545,10 @@ public sealed class TelekineticCannonProjectile : ModProjectile
             -Projectile.rotation * 0.35f, 0.10f * pulse);
         FranVfx.EndAdditive();
 
-        Texture2D texture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D texture = FranTeacherVisuals.Texture;
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(lightColor, Color.White, 0.22f), Projectile.rotation, texture.Size() * 0.5f,
-            0.92f, SpriteEffects.None, 0f);
+            0.92f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 
@@ -1440,10 +1443,10 @@ public sealed class MagicBarrierProjectile : ModProjectile
         FranVfx.DrawBloom(Projectile.Center, new Color(95, 110, 255), 38f, 0.28f * deploy);
         FranVfx.EndAdditive();
 
-        Texture2D teacher = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D teacher = FranTeacherVisuals.Texture;
         Main.EntitySpriteDraw(teacher, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(lightColor, Color.White, 0.18f), Projectile.rotation + MathHelper.PiOver4,
-            teacher.Size() * 0.5f, 0.86f, SpriteEffects.None, 0f);
+            teacher.Size() * 0.5f, 0.86f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 }
@@ -1559,7 +1562,7 @@ public sealed class FloatingSwordArrayProjectile : ModProjectile
     private Vector2 formationAim;
     private bool initialized;
 
-    public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
+    public override string Texture => FranTeacherVisuals.TexturePath;
     public override void SetDefaults()
     {
         Projectile.width = 42; Projectile.height = 42; Projectile.friendly = true;
@@ -1681,7 +1684,7 @@ public sealed class FloatingSwordArrayProjectile : ModProjectile
     }
     public override bool PreDraw(ref Color lightColor)
     {
-        Texture2D texture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D texture = FranTeacherVisuals.Texture;
         int cycle = CurrentCycle;
         float dashIntensity = FranMotion.Pulse(cycle, 13f, 18f, 30f, 38f);
         Vector2 direction = (Projectile.rotation - MathHelper.PiOver4).ToRotationVector2();
@@ -1706,10 +1709,10 @@ public sealed class FloatingSwordArrayProjectile : ModProjectile
         for (int i = 4; i >= 1; i--)
             Main.EntitySpriteDraw(texture, Projectile.Center - direction * i * 9f - Main.screenPosition, null,
                 resonanceBlue * (dashIntensity * 0.11f * (5 - i)), Projectile.rotation,
-                texture.Size() * 0.5f, 0.72f, SpriteEffects.None, 0f);
+                texture.Size() * 0.5f, 0.72f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
         FranVfx.EndAdditive();
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null, lightColor, Projectile.rotation,
-            texture.Size() * 0.5f, 0.72f, SpriteEffects.None, 0f);
+            texture.Size() * 0.5f, 0.72f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 }
@@ -1881,13 +1884,13 @@ public sealed class AirDrawSlashProjectile : ModProjectile
         }
         FranVfx.EndAdditive();
 
-        Texture2D teacherTexture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D teacherTexture = FranTeacherVisuals.Texture;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         Vector2 origin = new(facing < 0 ? teacherTexture.Width : 0f, teacherTexture.Height);
         Vector2 bladeCenter = owner.MountedCenter + currentBladeAngle.ToRotationVector2() * 8f - Main.screenPosition;
         Color bladeColor = Color.Lerp(lightColor, Color.White, released ? 0.28f : 0.12f);
         Main.EntitySpriteDraw(teacherTexture, bladeCenter, null, bladeColor, Projectile.rotation,
-            origin, 1.05f, effects, 0f);
+            origin, 1.05f * FranTeacherVisuals.TextureScale, effects, 0f);
         return false;
     }
 }
@@ -1980,7 +1983,7 @@ public sealed class ShipCutterProjectile : ModProjectile
     private float slashIntensity;
     private bool released;
     private int facing;
-    public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
+    public override string Texture => FranTeacherVisuals.TexturePath;
     public override void SetDefaults()
     {
         Projectile.width = 210; Projectile.height = 210; Projectile.friendly = true;
@@ -2062,7 +2065,7 @@ public sealed class ShipCutterProjectile : ModProjectile
     }
     public override bool PreDraw(ref Color lightColor)
     {
-        Texture2D texture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D texture = FranTeacherVisuals.Texture;
         Player owner = Main.player[Projectile.owner];
         float releaseOpacity = slashIntensity;
         Vector2 direction = currentAngle.ToRotationVector2();
@@ -2116,7 +2119,8 @@ public sealed class ShipCutterProjectile : ModProjectile
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         Vector2 origin = new(facing < 0 ? texture.Width : 0f, texture.Height);
         Main.EntitySpriteDraw(texture, owner.MountedCenter + direction * 10f - Main.screenPosition, null,
-            new Color(255, 225, 175), Projectile.rotation, origin, 3.25f, effects, 0f);
+            new Color(255, 225, 175), Projectile.rotation, origin,
+            3.25f * FranTeacherVisuals.TextureScale, effects, 0f);
         return false;
     }
 }
@@ -2576,17 +2580,18 @@ public sealed class FranBurst : ModProjectile
                     Color.White * (0.76f * opacity), VisualRotation, new Vector2(radius * 1.22f, radius * 0.68f));
                 break;
             case FranBurstStyle.SkillTaker:
-                FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center, color * (0.62f * opacity),
-                    VisualRotation + progress, Vector2.One * radius * 1.72f);
-                FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
-                    Color.White * (0.66f * opacity), -VisualRotation, new Vector2(radius * 1.34f, radius * 0.72f));
-                for (int i = 0; i < 5; i++)
-                {
-                    float angle = VisualRotation + i * MathHelper.TwoPi / 5f + progress * 1.6f;
-                    Vector2 point = Projectile.Center + angle.ToRotationVector2() * radius * 0.78f;
-                    FranVfx.DrawShared("Cal_SimpleStar", point, Color.White * (0.48f * opacity),
-                        -angle, 0.045f * VisualScale);
-                }
+                float novaPulse = 0.90f + MathF.Sin(progress * MathHelper.Pi * 3f) * 0.10f;
+                FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,
+                    new Color(82, 12, 128, 0) * (0.34f * opacity),
+                    -VisualRotation - progress * 0.8f, radius * 2.15f / 200f);
+                FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,
+                    new Color(205, 100, 255, 0) * (0.64f * opacity),
+                    VisualRotation + progress, radius * 1.56f / 200f * novaPulse);
+                FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,
+                    new Color(244, 214, 255, 0) * (0.78f * opacity),
+                    -VisualRotation, radius * 0.72f / 200f);
+                FranVfx.DrawRing(Projectile.Center, new Color(225, 160, 255), radius * 1.12f,
+                    0.56f * opacity, VisualRotation + progress * 1.4f, "Cal_BloomRing");
                 break;
             case FranBurstStyle.Barrier:
                 FranVfx.DrawRing(Projectile.Center, color, radius, 0.46f * opacity,
@@ -2682,8 +2687,9 @@ public sealed class FranBurst : ModProjectile
                     -VisualRotation - progress * 1.4f, "RingStreak");
                 break;
         }
-        FranVfx.DrawBloom(Projectile.Center, color, radius * 0.72f, 0.28f * opacity,
-            Style is FranBurstStyle.ThorsHammer or FranBurstStyle.ShipCutter);
+        if (Style != FranBurstStyle.SkillTaker)
+            FranVfx.DrawBloom(Projectile.Center, color, radius * 0.72f, 0.28f * opacity,
+                Style is FranBurstStyle.ThorsHammer or FranBurstStyle.ShipCutter);
         FranVfx.EndAdditive();
         return false;
     }

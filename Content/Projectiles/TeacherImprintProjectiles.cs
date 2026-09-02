@@ -32,7 +32,7 @@ internal static class TeacherImprintCombat
             case FranSkill.TelekineticCatapult:
                 Vector2 telekineticTarget = ClampTarget(owner, Main.MouseWorld, 2400f);
                 if (combo == 3)
-                    SpawnTelekineticLaser(owner, swing, telekineticTarget, tacticLayers);
+                    SpawnTelekineticHalleyBolt(owner, swing, telekineticTarget, tacticLayers);
                 else
                     SpawnTelekineticShells(owner, swing, telekineticTarget, combo + 2 + tacticLayers - 1);
                 if (Main.hardMode)
@@ -40,8 +40,18 @@ internal static class TeacherImprintCombat
                 break;
 
             case FranSkill.MultipleBodyCreation:
+                int bodyBaseCount = combo == 3
+                    ? FranBalance.GetInt(nameof(FranBalance.MultipleBodyFinisherBaseCount),
+                        FranBalance.MultipleBodyFinisherBaseCount)
+                    : FranBalance.GetInt(nameof(FranBalance.MultipleBodyNormalBaseCount),
+                        FranBalance.MultipleBodyNormalBaseCount);
+                int bodyExtraCount = combo == 3
+                    ? FranBalance.GetInt(nameof(FranBalance.MultipleBodyFinisherExtraLayerCount),
+                        FranBalance.MultipleBodyFinisherExtraLayerCount)
+                    : FranBalance.GetInt(nameof(FranBalance.MultipleBodyNormalExtraLayerCount),
+                        FranBalance.MultipleBodyNormalExtraLayerCount);
                 SpawnMultipleBodies(owner, swing, direction,
-                    (combo == 3 ? 4 : 2) + (tacticLayers - 1) * (combo == 3 ? 2 : 1), combo,
+                    bodyBaseCount + (tacticLayers - 1) * bodyExtraCount, combo,
                     tacticLayers);
                 break;
 
@@ -56,8 +66,11 @@ internal static class TeacherImprintCombat
                 NPC hammerNpc = FindNearestTarget(hammerCursor, 720f);
                 Vector2 hammerTarget = hammerNpc?.Center ?? hammerCursor;
                 Projectile.NewProjectile(swing.GetSource_FromThis(), hammerTarget, Vector2.Zero,
-                    ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(swing.damage * 1.18f *
-                        (1f + 0.22f * (tacticLayers - 1)))),
+                    ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(swing.damage *
+                        FranBalance.GetFloat(nameof(FranBalance.ThorsHammerDropDamageMultiplier),
+                            FranBalance.ThorsHammerDropDamageMultiplier) *
+                        (1f + FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExtraLayerDamageMultiplier),
+                            FranBalance.ThorsHammerExtraLayerDamageMultiplier) * (tacticLayers - 1)))),
                     7f, owner.whoAmI, EncodeOptionalNpc(hammerNpc));
                 SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.58f, Pitch = -0.18f }, hammerTarget);
                 break;
@@ -86,23 +99,31 @@ internal static class TeacherImprintCombat
                     FranParticleSystem.Spawn(new FranSkillGlyphParticle(target.Center, velocity,
                         new Color(210, 95, 255), 0.72f + stacks * 0.08f, Main.rand.Next(18, 26)));
                 }
-                if (stacks == 4)
+                if (stacks == FranBalance.GetInt(nameof(FranBalance.SkillTakerMaximumSeals),
+                        FranBalance.SkillTakerMaximumSeals))
                     SoundEngine.PlaySound(SoundID.Item103 with { Volume = 0.36f, Pitch = 0.34f }, target.Center);
             }
             if (Main.myPlayer == owner.whoAmI)
             {
                 FranBurst.Spawn(swing.GetSource_OnHit(target), target.Center, owner.whoAmI,
-                    FranBurstStyle.SkillTaker, 0.72f + stacks * 0.08f);
-                float randomAngle = Main.rand.NextFloat(MathHelper.TwoPi);
-                int wispCount = 2 + tacticLayers - 1;
+                    FranBurstStyle.SkillTaker, 0.72f + stacks * 0.08f, rotation: direction.ToRotation());
+                float launchAngle = direction.SafeNormalize(Vector2.UnitX).ToRotation();
+                int wispCount = FranBalance.GetInt(nameof(FranBalance.SkillTakerBaseWispCount),
+                    FranBalance.SkillTakerBaseWispCount) + tacticLayers - 1;
                 for (int i = 0; i < wispCount; i++)
                 {
-                    float angle = randomAngle + i * MathHelper.TwoPi / wispCount +
-                        Main.rand.NextFloat(-0.38f, 0.38f);
-                    Vector2 velocity = angle.ToRotationVector2() * Main.rand.NextFloat(7.5f, 10.5f);
+                    // Positive rotation is clockwise in Terraria's screen coordinates. Every wisp
+                    // therefore leaves in one evenly spaced clockwise formation with no random
+                    // phase, jitter, speed, or alternating turn sign.
+                    float angle = launchAngle + i * MathHelper.TwoPi / wispCount;
+                    Vector2 velocity = angle.ToRotationVector2() * 12.5f;
                     Projectile.NewProjectile(swing.GetSource_OnHit(target), target.Center, velocity,
                         ModContent.ProjectileType<FranSkillTakerWisp>(),
-                        Math.Max(1, (int)(swing.damage * (0.24f + stacks * 0.015f))),
+                        Math.Max(1, (int)(swing.damage *
+                            (FranBalance.GetFloat(nameof(FranBalance.SkillTakerWispDamageMultiplier),
+                                FranBalance.SkillTakerWispDamageMultiplier) + stacks *
+                             FranBalance.GetFloat(nameof(FranBalance.SkillTakerWispDamagePerSeal),
+                                FranBalance.SkillTakerWispDamagePerSeal)))),
                         swing.knockBack * 0.18f, owner.whoAmI, target.whoAmI, stacks);
                 }
             }
@@ -114,13 +135,23 @@ internal static class TeacherImprintCombat
         switch (skill)
         {
             case FranSkill.BlueResonance:
-                int echoCount = (combo == 3 ? 3 : 1) + tacticLayers - 1;
+                int echoCount = (combo == 3
+                    ? FranBalance.GetInt(nameof(FranBalance.BlueResonanceFinisherBaseCount),
+                        FranBalance.BlueResonanceFinisherBaseCount)
+                    : FranBalance.GetInt(nameof(FranBalance.BlueResonanceNormalBaseCount),
+                        FranBalance.BlueResonanceNormalBaseCount)) +
+                    (tacticLayers - 1) * FranBalance.GetInt(nameof(FranBalance.BlueResonanceExtraLayerCount),
+                        FranBalance.BlueResonanceExtraLayerCount);
                 for (int i = 0; i < echoCount; i++)
                 {
                     float spread = (i - (echoCount - 1) * 0.5f) * 0.20f;
                     Projectile.NewProjectile(swing.GetSource_OnHit(target), target.Center,
                         direction.RotatedBy(spread), ModContent.ProjectileType<FranBlueResonanceEcho>(),
-                        Math.Max(1, (int)(swing.damage * (combo == 3 ? 0.30f : 0.38f))),
+                        Math.Max(1, (int)(swing.damage * (combo == 3
+                            ? FranBalance.GetFloat(nameof(FranBalance.BlueResonanceFinisherDamageMultiplier),
+                                FranBalance.BlueResonanceFinisherDamageMultiplier)
+                            : FranBalance.GetFloat(nameof(FranBalance.BlueResonanceNormalDamageMultiplier),
+                                FranBalance.BlueResonanceNormalDamageMultiplier)))),
                         swing.knockBack * 0.3f, owner.whoAmI, combo,
                         MathHelper.Clamp(target.width * 0.75f + 58f + i * 8f, 74f, 166f));
                 }
@@ -140,7 +171,15 @@ internal static class TeacherImprintCombat
             float releaseDelay = i * 3f;
             Projectile.NewProjectile(swing.GetSource_FromThis(), owner.MountedCenter + direction * 30f + side,
                 direction * 22f, ModContent.ProjectileType<FranTelekineticShell>(),
-                Math.Max(1, (int)(swing.damage * (count switch { 2 => 0.42f, 3 => 0.31f, _ => 0.24f }))),
+                Math.Max(1, (int)(swing.damage * (count switch
+                {
+                    2 => FranBalance.GetFloat(nameof(FranBalance.TelekineticTwoShellDamageMultiplier),
+                        FranBalance.TelekineticTwoShellDamageMultiplier),
+                    3 => FranBalance.GetFloat(nameof(FranBalance.TelekineticThreeShellDamageMultiplier),
+                        FranBalance.TelekineticThreeShellDamageMultiplier),
+                    _ => FranBalance.GetFloat(nameof(FranBalance.TelekineticManyShellDamageMultiplier),
+                        FranBalance.TelekineticManyShellDamageMultiplier)
+                }))),
                 swing.knockBack * 0.58f, owner.whoAmI, direction.X, direction.Y, releaseDelay);
         }
         FranSpectatorVfx.SpawnReleaseFan(swing.GetSource_FromThis(), owner.MountedCenter + direction * 28f,
@@ -148,36 +187,44 @@ internal static class TeacherImprintCombat
         owner.GetModPlayer<FranPlayer>().ShakeScreen(owner.Center, 0.8f + count * 0.13f);
     }
 
-    private static void SpawnTelekineticLaser(Player owner, Projectile swing, Vector2 target, int tacticLayers)
+    private static void SpawnTelekineticHalleyBolt(Player owner, Projectile swing, Vector2 target,
+        int tacticLayers)
     {
         Vector2 direction = (target - owner.MountedCenter).SafeNormalize(Vector2.UnitX * owner.direction);
-        Projectile.NewProjectile(swing.GetSource_FromThis(), owner.MountedCenter + direction * 20f, direction,
-            ModContent.ProjectileType<FranTelekineticLineStrike>(),
-            Math.Max(1, (int)(swing.damage * 0.88f * (1f + 0.25f * (tacticLayers - 1)))),
-            swing.knockBack * 0.72f,
-            owner.whoAmI, 2200f, direction.ToRotation());
-        FranSpectatorVfx.SpawnReleaseFan(swing.GetSource_FromThis(), owner.MountedCenter + direction * 32f,
-            direction, owner.whoAmI, FranSpectatorPalette.Gold, 5, 1.12f);
+        Projectile.NewProjectile(swing.GetSource_FromThis(), owner.MountedCenter + direction * 20f, direction * 12f,
+            ModContent.ProjectileType<FranTelekineticHalleyBolt>(),
+            Math.Max(1, (int)(swing.damage *
+                FranBalance.GetFloat(nameof(FranBalance.TelekineticLaserDamageMultiplier),
+                    FranBalance.TelekineticLaserDamageMultiplier) *
+                (1f + FranBalance.GetFloat(nameof(FranBalance.TelekineticLaserExtraLayerMultiplier),
+                    FranBalance.TelekineticLaserExtraLayerMultiplier) * (tacticLayers - 1)))),
+            swing.knockBack * 0.72f, owner.whoAmI);
         owner.GetModPlayer<FranPlayer>().ShakeScreen(owner.Center, 2.4f);
     }
 
     private static void SpawnTelekineticPlanets(Player owner, Projectile swing, Vector2 target, int combo,
         int bonusCount)
     {
-        int count = Main.rand.Next(2, 4) + bonusCount;
+        int count = Math.Clamp((combo == 3 ? 3 : 2) + bonusCount, 2, 6);
         float centerIndex = (count - 1) * 0.5f;
         float focusX = MathHelper.Lerp(owner.Center.X, target.X, 0.58f);
         for (int i = 0; i < count; i++)
         {
             float lane = i - centerIndex;
             Vector2 origin = new(
-                focusX + lane * Main.rand.NextFloat(86f, 112f) + Main.rand.NextFloat(-38f, 38f),
-                owner.Center.Y - Main.rand.NextFloat(430f, 570f) - i * 46f);
-            Vector2 velocity = (target - origin).SafeNormalize(Vector2.UnitY) * Main.rand.NextFloat(14.5f, 18.5f);
-            int variant = Main.rand.Next(10);
+                focusX + lane * 102f + MathF.Sin((swing.identity + i) * 1.37f) * 18f,
+                owner.Center.Y - 462f - i % 2 * 72f - MathF.Abs(lane) * 24f);
+            // The projectile runs three updates per tick, so this 8-10 px substep becomes a deliberate
+            // 24-30 px/tick formation rather than an uncontrolled random speed roll.
+            Vector2 velocity = (target - origin).SafeNormalize(Vector2.UnitY) * (8f + i % 4 * 0.72f);
+            int variant = Math.Abs(swing.identity * 3 + combo * 5 + i * 7) % 10;
             Projectile.NewProjectile(swing.GetSource_FromThis(), origin, velocity,
                 ModContent.ProjectileType<FranTelekineticPlanet>(),
-                Math.Max(1, (int)(swing.damage * (combo == 3 ? 0.17f : 0.15f))),
+                Math.Max(1, (int)(swing.damage * (combo == 3
+                    ? FranBalance.GetFloat(nameof(FranBalance.TelekineticFinisherPlanetDamageMultiplier),
+                        FranBalance.TelekineticFinisherPlanetDamageMultiplier)
+                    : FranBalance.GetFloat(nameof(FranBalance.TelekineticPlanetDamageMultiplier),
+                        FranBalance.TelekineticPlanetDamageMultiplier)))),
                 swing.knockBack * 0.46f, owner.whoAmI, variant);
         }
 
@@ -204,8 +251,13 @@ internal static class TeacherImprintCombat
             float delay = 6f + i * 3f;
             Projectile.NewProjectile(swing.GetSource_FromThis(), origin, Vector2.Zero,
                 ModContent.ProjectileType<FranTeacherPhantomBlade>(),
-                Math.Max(1, (int)(swing.damage * ((combo == 3 ? 1.24f : 0.86f) / count) *
-                    (1f + 0.18f * (tacticLayers - 1)))),
+                Math.Max(1, (int)(swing.damage * ((combo == 3
+                    ? FranBalance.GetFloat(nameof(FranBalance.MultipleBodyFinisherDamageMultiplier),
+                        FranBalance.MultipleBodyFinisherDamageMultiplier)
+                    : FranBalance.GetFloat(nameof(FranBalance.MultipleBodyNormalDamageMultiplier),
+                        FranBalance.MultipleBodyNormalDamageMultiplier)) / Math.Max(1, count)) *
+                    (1f + FranBalance.GetFloat(nameof(FranBalance.MultipleBodyExtraLayerDamageMultiplier),
+                        FranBalance.MultipleBodyExtraLayerDamageMultiplier) * (tacticLayers - 1)))),
                 swing.knockBack * 0.48f, owner.whoAmI, hasEnemy ? delay : -delay,
                 lockedTarget.X, lockedTarget.Y);
         }
@@ -218,10 +270,18 @@ internal static class TeacherImprintCombat
 
         // Every volley has one unmistakable focal strike. Supporting bolts land first and frame it,
         // instead of presenting several equally important thin bolts around the cursor.
-        float layerDamage = 1f + 0.12f * (tacticLayers - 1);
-        SpawnThunderDrop(swing, owner, mouseTarget, 0.31f * layerDamage, mainStrike: true, finisher: finisher);
+        float layerDamage = 1f +
+            FranBalance.GetFloat(nameof(FranBalance.ThunderChainExtraLayerDamageMultiplier),
+                FranBalance.ThunderChainExtraLayerDamageMultiplier) * (tacticLayers - 1);
+        float mainDamage = FranBalance.GetFloat(nameof(FranBalance.ThunderChainMainDamageMultiplier),
+            FranBalance.ThunderChainMainDamageMultiplier);
+        SpawnThunderDrop(swing, owner, mouseTarget, mainDamage * layerDamage, mainStrike: true, finisher: finisher);
 
-        int supportingBoltCount = (finisher ? 2 : 1) + tacticLayers - 1;
+        int supportingBoltCount = (finisher
+            ? FranBalance.GetInt(nameof(FranBalance.ThunderChainFinisherSupportingBoltCount),
+                FranBalance.ThunderChainFinisherSupportingBoltCount)
+            : FranBalance.GetInt(nameof(FranBalance.ThunderChainNormalSupportingBoltCount),
+                FranBalance.ThunderChainNormalSupportingBoltCount)) + tacticLayers - 1;
         for (int i = 0; i < supportingBoltCount; i++)
         {
             float horizontalOffset = supportingBoltCount == 1
@@ -229,7 +289,7 @@ internal static class TeacherImprintCombat
                 : MathHelper.Lerp(-96f, 96f, i / (supportingBoltCount - 1f));
             Vector2 impact = mouseTarget + new Vector2(horizontalOffset,
                 Main.rand.NextFloat(-14f, 28f));
-            SpawnThunderDrop(swing, owner, impact, 0.31f * layerDamage, mainStrike: false, finisher: false);
+            SpawnThunderDrop(swing, owner, impact, mainDamage * layerDamage, mainStrike: false, finisher: false);
         }
 
         List<NPC> candidates = new();
@@ -239,9 +299,15 @@ internal static class TeacherImprintCombat
                 candidates.Add(npc);
         candidates.Sort((left, right) =>
             Vector2.DistanceSquared(left.Center, mouseTarget).CompareTo(Vector2.DistanceSquared(right.Center, mouseTarget)));
-        int trackedCount = Math.Min((combo == 3 ? 4 : 3) + tacticLayers - 1, candidates.Count);
+        int trackedCount = Math.Min((combo == 3
+            ? FranBalance.GetInt(nameof(FranBalance.ThunderChainFinisherTrackedTargetCount),
+                FranBalance.ThunderChainFinisherTrackedTargetCount)
+            : FranBalance.GetInt(nameof(FranBalance.ThunderChainNormalTrackedTargetCount),
+                FranBalance.ThunderChainNormalTrackedTargetCount)) + tacticLayers - 1, candidates.Count);
+        float trackedDamage = FranBalance.GetFloat(nameof(FranBalance.ThunderChainTrackedDamageMultiplier),
+            FranBalance.ThunderChainTrackedDamageMultiplier);
         for (int i = 0; i < trackedCount; i++)
-            SpawnThunderDrop(swing, owner, candidates[i].Center, 0.37f * layerDamage,
+            SpawnThunderDrop(swing, owner, candidates[i].Center, trackedDamage * layerDamage,
                 mainStrike: false, finisher: false);
     }
 
@@ -316,7 +382,8 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
         if (skillSealOwner != owner || skillSealTimer <= 0)
             skillSeals = 0;
         skillSealOwner = owner;
-        skillSeals = Math.Min(4, skillSeals + 1);
+        skillSeals = Math.Min(FranBalance.GetInt(nameof(FranBalance.SkillTakerMaximumSeals),
+            FranBalance.SkillTakerMaximumSeals), skillSeals + 1);
         skillSealTimer = 300;
         return skillSeals;
     }
@@ -325,8 +392,11 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
     {
         if (skillSealOwner != owner || skillSealTimer <= 0)
             return 1f;
-        float damagePerSeal = 0.10f + 0.03f * (Math.Clamp(tacticLayers, 1,
-            FranPlayer.MaximumTacticSlots) - 1);
+        float damagePerSeal = FranBalance.GetFloat(nameof(FranBalance.SkillTakerDamagePerSeal),
+            FranBalance.SkillTakerDamagePerSeal) +
+            FranBalance.GetFloat(nameof(FranBalance.SkillTakerExtraLayerDamagePerSeal),
+                FranBalance.SkillTakerExtraLayerDamagePerSeal) *
+            (Math.Clamp(tacticLayers, 1, FranPlayer.MaximumTacticSlots) - 1);
         return 1f + skillSeals * damagePerSeal;
     }
 
@@ -455,126 +525,87 @@ public sealed class FranTelekineticShell : ModProjectile
             Color.White * 0.68f, bodyRotation, new Vector2(30f, 18f) * pulse);
         FranVfx.DrawOriginalPixels("FranSmearForward", Projectile.Center - direction * 29f,
             new Color(80, 205, 255) * 0.34f, bodyRotation, new Vector2(88f, 24f));
-        FranVfx.DrawBloom(Projectile.Center + direction * 11f, new Color(95, 205, 255), 34f, 0.46f);
         FranVfx.EndAdditive();
         return false;
     }
 
 }
 
-public sealed class FranTelekineticLineStrike : ModProjectile
+// Fourth-swing telekinetic finisher. Its flight cadence and visual construction deliberately
+// reproduce Halley's Inferno's HalleysComet: 12 px substeps, 15 updates, paired stretched sparks,
+// two directional launch rings, and the original blue/white color hierarchy.
+public sealed class FranTelekineticHalleyBolt : ModProjectile
 {
-    private const int Lifetime = 22;
-    private float Age => Lifetime - Projectile.timeLeft;
-    private float BeamLength => MathHelper.Clamp(Projectile.ai[0], 480f, 2400f);
+    private ref float Time => ref Projectile.ai[0];
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
-    public override void SetStaticDefaults() => ProjectileID.Sets.DrawScreenCheckFluff[Type] = 2500;
-
     public override void SetDefaults()
     {
-        Projectile.width = 2;
-        Projectile.height = 2;
+        Projectile.width = 32;
+        Projectile.height = 32;
         Projectile.friendly = true;
         Projectile.hostile = false;
         Projectile.DamageType = DamageClass.Melee;
         Projectile.penetrate = -1;
-        Projectile.timeLeft = Lifetime;
+        Projectile.MaxUpdates = 15;
+        Projectile.timeLeft = 20 * Projectile.MaxUpdates;
         Projectile.tileCollide = false;
         Projectile.ignoreWater = true;
         Projectile.usesLocalNPCImmunity = true;
         Projectile.localNPCHitCooldown = -1;
     }
 
-    public override bool ShouldUpdatePosition() => false;
-    public override bool? CanDamage() => Age is >= 5f and <= 11f ? null : false;
-
-    public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
-    {
-        Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitX);
-        float collisionPoint = 0f;
-        return Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(),
-            Projectile.Center + direction * 12f, Projectile.Center + direction * BeamLength,
-            22f, ref collisionPoint);
-    }
-
     public override void AI()
     {
-        Player owner = Main.player[Projectile.owner];
-        if (!owner.active || owner.dead)
+        Projectile.rotation = Projectile.velocity.ToRotation();
+        Time++;
+
+        bool drawingUpdate = Projectile.numUpdates % 3 == 0;
+        if (Time > 6f && drawingUpdate && !Main.dedServ)
         {
-            Projectile.Kill();
-            return;
+            float scaleBoost = MathHelper.Clamp(Time * 0.005f, 0f, 2f);
+            FranParticleSystem.Spawn(new FranHalleySparkParticle(Projectile.Center, Projectile.velocity,
+                new Color(8, 35, 156), 3.2f + scaleBoost, 7));
+            FranParticleSystem.Spawn(new FranHalleySparkParticle(Projectile.Center, Projectile.velocity,
+                new Color(184, 215, 245), 1.6f + scaleBoost, 7));
+        }
+        else if (Time == 5f && !Main.dedServ)
+        {
+            FranParticleSystem.Spawn(new FranHalleyPulseRingParticle(Projectile.Center,
+                Projectile.velocity * 0.75f, Color.Aqua, new Vector2(1f, 2.5f), Projectile.rotation,
+                0.20f, 0.03f, 20));
+            FranParticleSystem.Spawn(new FranHalleyPulseRingParticle(Projectile.Center,
+                Projectile.velocity * 0.40f, Color.DodgerBlue, new Vector2(1f, 2.5f), Projectile.rotation,
+                0.10f, 0.025f, 35));
+            for (int i = 0; i <= 25; i++)
+            {
+                Dust wide = Dust.NewDustPerfect(Projectile.Center, Main.rand.NextBool(3) ? 172 : 206,
+                    Projectile.velocity.RotatedByRandom(0.4f) * Main.rand.NextFloat(0.3f, 1.6f));
+                wide.scale = Main.rand.NextFloat(1.6f, 2.5f);
+                wide.noGravity = true;
+                Dust needle = Dust.NewDustPerfect(Projectile.Center, Main.rand.NextBool(3) ? 172 : 206,
+                    Projectile.velocity.RotatedByRandom(0.06f) * Main.rand.NextFloat(0.8f, 3.1f));
+                needle.scale = Main.rand.NextFloat(1.35f, 2.1f);
+                needle.noGravity = true;
+            }
+            SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.62f, Pitch = 0.26f }, Projectile.Center);
         }
 
-        Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitX * owner.direction);
-        Projectile.velocity = direction;
-        Projectile.Center = owner.MountedCenter + direction * 20f;
-        Projectile.rotation = direction.ToRotation();
-        Projectile.Opacity = FranMotion.Pulse(Age, 0f, 4f, 11f, Lifetime);
-
-        if (Age == 0f)
-        {
-            SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.64f, Pitch = 0.26f }, Projectile.Center);
-            FranParticleEffects.Implosion(Projectile.Center + direction * 18f, new Color(125, 225, 255), 0.82f);
-            FranParticleEffects.BloomPulse(Projectile.Center + direction * 18f, new Color(95, 210, 255),
-                18f, 118f, 18, 0.92f, true);
-            FranParticleEffects.RingPulse(Projectile.Center + direction * 18f, new Color(155, 238, 255),
-                new Vector2(18f, 28f), new Vector2(128f, 176f), 17,
-                direction.ToRotation(), 0.022f, 0.92f);
-            FranParticleEffects.MysticGlyphs(Projectile.Center + direction * 24f,
-                new Color(135, 225, 255), 4, 42f, 0.92f, -direction * 0.32f);
-            FranParticleEffects.LineRelease(Projectile.Center, Projectile.Center + direction * 170f,
-                new Color(155, 235, 255), 14, 1.08f);
-            FranVanillaDustEffects.SkillRelease(Projectile.Center + direction * 18f, direction,
-                FranSkill.TelekineticCatapult, new Color(135, 225, 255), 14, 1.08f);
-        }
-
-        Lighting.AddLight(Projectile.Center + direction * 60f, 0.22f, 0.62f, 0.82f);
+        if (Projectile.numUpdates == 0)
+            Lighting.AddLight(Projectile.Center, Color.MediumBlue.ToVector3() * 0.4f);
     }
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
-        Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitX);
-        FranParticleEffects.SpawnImpact(target.Center, direction, new Color(120, 225, 255),
-            7, 7.2f, 0.86f);
-        FranSpectatorVfx.SpawnImpactPetals(Projectile.GetSource_OnHit(target), target.Center, direction,
-            Projectile.owner, FranSpectatorPalette.Gold, 3, 0.82f);
-    }
-
-    public override bool PreDraw(ref Color lightColor)
-    {
-        Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitX);
-        Vector2 start = Projectile.Center + direction * 10f;
-        Vector2 end = Projectile.Center + direction * BeamLength;
-        float telegraph = 1f - FranMotion.Smooth(FranMotion.Segment(Age, 0f, 4f));
-        float release = FranMotion.Pulse(Age, 3f, 5f, 10f, Lifetime);
-        float width = 3f + release * 17f;
-
-        FranVfx.BeginAdditive();
-        int segments = Math.Max(1, (int)MathF.Ceiling(BeamLength / 760f));
-        for (int i = 0; i < segments; i++)
+        SoundEngine.PlaySound(SoundID.DD2_CrystalCartImpact with { Volume = 0.64f }, Projectile.Center);
+        for (int i = 0; i < 14; i++)
         {
-            Vector2 segmentStart = Vector2.Lerp(start, end, i / (float)segments);
-            Vector2 segmentEnd = Vector2.Lerp(start, end, (i + 1f) / segments);
-            FranVfx.DrawVertical("Cal_BloomLineSoftEdge", segmentStart, segmentEnd,
-                new Color(65, 185, 255) * (0.42f * release + 0.12f * telegraph), width * 2.6f);
-            FranVfx.DrawVertical("Cal_ThinEndedLine", segmentStart, segmentEnd,
-                new Color(155, 235, 255) * (0.66f * release + 0.32f * telegraph), width * 0.72f);
-            FranVfx.DrawVertical("Cal_ThinEndedLine", segmentStart, segmentEnd,
-                Color.White * (0.88f * release + 0.36f * telegraph), Math.Max(1.3f, width * 0.20f));
+            Dust dust = Dust.NewDustPerfect(Projectile.Center, Main.rand.NextBool(3) ? 172 : 206,
+                Projectile.velocity.RotatedByRandom(0.5f) * Main.rand.NextFloat(0.2f, 2.1f));
+            dust.scale = Main.rand.NextFloat(1.1f, 1.9f);
+            dust.noGravity = true;
         }
-        FranVfx.DrawOriginalPixels("FranSmearForward", start - direction * 16f,
-            new Color(120, 225, 255) * (0.56f * release), direction.ToRotation(),
-            new Vector2(172f, 62f));
-        FranVfx.DrawOriginalPixels("FranFlashFourPoint", start, Color.White * (0.92f * release),
-            direction.ToRotation(), new Vector2(104f, 54f));
-        FranVfx.DrawOriginalPixels("FranPressureNeedle", end - direction * 42f,
-            new Color(145, 235, 255) * (0.58f * release), direction.ToRotation(),
-            new Vector2(118f, 34f));
-        FranVfx.EndAdditive();
-        return false;
     }
 }
 
@@ -753,7 +784,7 @@ public sealed class FranCompressionNode : ModProjectile
 
 public sealed class FranTelekineticReturnBlade : ModProjectile
 {
-    public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
+    public override string Texture => FranTeacherVisuals.TexturePath;
     public override void SetStaticDefaults()
     {
         ProjectileID.Sets.TrailCacheLength[Type] = 12;
@@ -800,10 +831,10 @@ public sealed class FranTelekineticReturnBlade : ModProjectile
         FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center + direction * 14f,
             Color.White * 0.74f, direction.ToRotation(), new Vector2(48f, 28f));
         FranVfx.EndAdditive();
-        Texture2D texture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D texture = FranTeacherVisuals.Texture;
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(lightColor, Color.White, 0.26f), Projectile.rotation, texture.Size() * 0.5f,
-            0.82f, SpriteEffects.None, 0f);
+            0.82f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 }
@@ -862,7 +893,8 @@ public sealed class FranSkillSealDetonation : ModProjectile
 
 public sealed class FranAutoBarrierProjectile : ModProjectile
 {
-    private const float MaxIntegrity = 5f;
+    private static float MaxIntegrity => Math.Max(1, FranBalance.GetInt(
+        nameof(FranBalance.MagicBarrierMaximumIntegrity), FranBalance.MagicBarrierMaximumIntegrity));
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
     public override void SetDefaults()
     {
@@ -970,7 +1002,9 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
             projectile.netUpdate = true;
             FranBurst.Spawn(projectile.GetSource_FromThis(), owner.Center, owner.whoAmI,
                 FranBurstStyle.Barrier, 0.82f + Math.Min(0.34f, damageTaken / 180f),
-                Math.Max(1, (int)(projectile.damage * 0.86f)), 5f);
+                Math.Max(1, (int)(projectile.damage *
+                    FranBalance.GetFloat(nameof(FranBalance.MagicBarrierCounterDamageMultiplier),
+                        FranBalance.MagicBarrierCounterDamageMultiplier))), 5f);
             EmitShards(owner.Center, new Color(105, 205, 255), 10, false);
             FranParticleEffects.BloomPulse(owner.Center, new Color(105, 205, 255), 24f, 104f,
                 16, 0.72f, true);
@@ -981,9 +1015,11 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
             SoundEngine.PlaySound(SoundID.NPCHit53 with { Volume = 0.50f, Pitch = 0.24f }, owner.Center);
 
             owner.immune = true;
-            owner.immuneTime = Math.Max(owner.immuneTime, 18);
+            int immunityFrames = FranBalance.GetInt(nameof(FranBalance.MagicBarrierHitImmunityFrames),
+                FranBalance.MagicBarrierHitImmunityFrames);
+            owner.immuneTime = Math.Max(owner.immuneTime, immunityFrames);
             for (int i = 0; i < owner.hurtCooldowns.Length; i++)
-                owner.hurtCooldowns[i] = Math.Max(owner.hurtCooldowns[i], 18);
+                owner.hurtCooldowns[i] = Math.Max(owner.hurtCooldowns[i], immunityFrames);
 
             if (projectile.ai[1] <= 0f)
             {
@@ -1038,7 +1074,7 @@ public sealed class FranBarrierCounterCut : ModProjectile
 
 public sealed class FranReplaySlash : ModProjectile
 {
-    public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
+    public override string Texture => FranTeacherVisuals.TexturePath;
     public override void SetStaticDefaults()
     {
         ProjectileID.Sets.TrailCacheLength[Type] = 10;
@@ -1096,10 +1132,11 @@ public sealed class FranReplaySlash : ModProjectile
             FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center + direction * 18f,
                 Color.White * (0.74f * Projectile.Opacity), direction.ToRotation(), new Vector2(58f, 32f));
         FranVfx.EndAdditive();
-        Texture2D texture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D texture = FranTeacherVisuals.Texture;
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(new Color(80, 115, 145), Color.White, 0.52f) * Projectile.Opacity,
-            Projectile.rotation, texture.Size() * 0.5f, 0.68f, SpriteEffects.None, 0f);
+            Projectile.rotation, texture.Size() * 0.5f,
+            0.68f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 }
@@ -1157,7 +1194,14 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         if ((int)Projectile.ai[0] == 3 && Main.myPlayer == Projectile.owner)
         {
             Player owner = Main.player[Projectile.owner];
-            owner.GetModPlayer<FranPlayer>().TryApplyResonanceHealing(Math.Clamp(owner.statLifeMax2 / 50, 2, 10));
+            int divisor = Math.Max(1, FranBalance.GetInt(nameof(FranBalance.BlueResonanceHealingLifeDivisor),
+                FranBalance.BlueResonanceHealingLifeDivisor));
+            int minimum = FranBalance.GetInt(nameof(FranBalance.BlueResonanceHealingMinimum),
+                FranBalance.BlueResonanceHealingMinimum);
+            int maximum = Math.Max(minimum, FranBalance.GetInt(nameof(FranBalance.BlueResonanceHealingMaximum),
+                FranBalance.BlueResonanceHealingMaximum));
+            owner.GetModPlayer<FranPlayer>().TryApplyResonanceHealing(
+                Math.Clamp(owner.statLifeMax2 / divisor, minimum, maximum));
         }
     }
     public override bool PreDraw(ref Color lightColor)

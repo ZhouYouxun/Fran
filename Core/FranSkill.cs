@@ -22,29 +22,11 @@ public static class FranSkillInfo
 {
     public static int Count => (int)FranSkill.Count;
 
-    public static int RequiredStage(FranSkill skill) => skill switch
-    {
-        <= FranSkill.MagicBarrier => 1,
-        <= FranSkill.BlueResonance => 2,
-        <= FranSkill.ThunderChain => 3,
-        _ => 4
-    };
+    public static int RequiredStage(FranSkill skill) => FranBalance.GetTacticDisplayStage(skill);
 
-    public static int CurrentStage
-    {
-        get
-        {
-            if (NPC.downedMechBoss1 && NPC.downedMechBoss2 && NPC.downedMechBoss3)
-                return 4;
-            if (Main.hardMode)
-                return 3;
-            if (NPC.downedBoss3)
-                return 2;
-            return 1;
-        }
-    }
+    public static int CurrentStage => FranBalance.GetCurrentTacticStage();
 
-    public static bool IsUnlocked(FranSkill skill) => CurrentStage >= RequiredStage(skill);
+    public static bool IsUnlocked(FranSkill skill) => FranBalance.IsTacticUnlocked(skill);
 
     public static Color Color(FranSkill skill) => skill switch
     {
@@ -74,36 +56,9 @@ public static class FranSkillInfo
     public static string UnlockText(FranSkill skill) =>
         Language.GetTextValue($"Mods.Fran.Stages.Stage{RequiredStage(skill)}.Unlock");
 
-    public static int Cooldown(FranSkill skill) => skill switch
-    {
-        FranSkill.TelekineticCatapult => 0,
-        FranSkill.SkillTaker => 0,
-        FranSkill.MagicBarrier => 150,
-        FranSkill.MultipleBodyCreation => 0,
-        FranSkill.BlueResonance => 0,
-        FranSkill.ThunderChain => 0,
-        FranSkill.PressurizedQuickdraw => 0,
-        FranSkill.ThorsHammer => 0,
-        _ => 0
-    };
+    public static int Cooldown(FranSkill skill) => FranBalance.GetTacticCooldown(skill);
 
     public static bool IsRealSkill(FranSkill skill) => (int)skill >= 0 && (int)skill < Count;
 
-    public static int BaseDamage
-    {
-        get
-        {
-            if (NPC.downedMoonlord)
-                return 180;
-            if (NPC.downedPlantBoss)
-                return 115;
-            if (NPC.downedMechBossAny)
-                return 82;
-            if (Main.hardMode)
-                return 56;
-            if (NPC.downedBoss3)
-                return 34;
-            return 20;
-        }
-    }
+    public static int BaseDamage => FranBalance.GetBaseDamage();
 }

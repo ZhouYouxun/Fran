@@ -22,8 +22,8 @@ namespace FranMod.Content.UI;
 public sealed class FranEvolutionUISystem : ModSystem
 {
     private const float NodeRadius = 20f;
-    private const string StellarBloomTexture = "Fran/Assets/OriginalVFX/FranBloomCore";
-    private const string StellarSparkleTexture = "Fran/Assets/OriginalVFX/FranFlashFourPoint";
+    private const string StellarBackdropTexture = "Fran/Textures/Particles/SoftBloom";
+    private const string StellarSparkleTexture = "Fran/Textures/Particles/Sparkle";
     private const string StellarLineTexture = "Fran/Textures/Particles/BloomLine";
     private const string StellarRingTexture = "Fran/Textures/Particles/BloomRing";
 
@@ -239,10 +239,10 @@ public sealed class FranEvolutionUISystem : ModSystem
 
     private static Rectangle GetEntryButton()
     {
-        Vector2 anchor = Main.LocalPlayer.Center - Main.screenPosition + new Vector2(-78f, 30f);
-        anchor.X = MathHelper.Clamp(anchor.X, 18f, Main.screenWidth - 50f);
-        anchor.Y = MathHelper.Clamp(anchor.Y, 118f, Main.screenHeight - 50f);
-        return new Rectangle((int)anchor.X, (int)anchor.Y, 30, 30);
+        Vector2 center = Main.LocalPlayer.Center - Main.screenPosition + new Vector2(78f, -8f);
+        center.X = MathHelper.Clamp(center.X, 33f, Main.screenWidth - 33f);
+        center.Y = MathHelper.Clamp(center.Y, 33f, Main.screenHeight - 33f);
+        return Utils.CenteredRectangle(center, new Vector2(30f));
     }
 
     private static Rectangle GetResetButton(Rectangle canvas) =>
@@ -365,7 +365,7 @@ public sealed class FranEvolutionUISystem : ModSystem
 
     private static void DrawCelestialField(SpriteBatch spriteBatch, Rectangle canvas, Vector2 center)
     {
-        Texture2D bloom = ModContent.Request<Texture2D>(StellarBloomTexture).Value;
+        Texture2D bloom = ModContent.Request<Texture2D>(StellarBackdropTexture).Value;
         float breath = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 0.72f);
 
         // These are transparent light emissions, not a panel or backdrop rectangle.
@@ -398,9 +398,9 @@ public sealed class FranEvolutionUISystem : ModSystem
             evolution.HasNode(definition.Prerequisite);
         Color branch = FranEvolutionInfo.BranchColor(definition.Branch);
         Color color = purchased ? Color.Lerp(branch, StellarLit, 0.22f)
-            : prerequisiteMet ? branch * 0.55f : StellarDormant * 0.72f;
-        DrawStellarLine(spriteBatch, start, end, color, purchased ? 3.2f : 1.7f,
-            purchased ? 0.72f : prerequisiteMet ? 0.28f : 0.13f);
+            : prerequisiteMet ? Color.Lerp(StellarDormant, branch, 0.48f) : StellarDormant;
+        DrawStellarLine(spriteBatch, start, end, color, purchased ? 3.2f : 2.0f,
+            purchased ? 0.72f : prerequisiteMet ? 0.38f : 0.30f);
         if (purchased)
             DrawTravelingLight(spriteBatch, start, end, branch, index);
     }
@@ -412,8 +412,8 @@ public sealed class FranEvolutionUISystem : ModSystem
         FranEvolutionBranch branch = FranEvolutionInfo.Get(a).Branch;
         Color color = bright ? Color.Lerp(FranEvolutionInfo.BranchColor(branch), StellarLit, 0.16f)
             : StellarDormant;
-        DrawStellarLine(spriteBatch, start, end, color, bright ? 2.5f : 1.25f,
-            bright ? 0.50f : 0.10f);
+        DrawStellarLine(spriteBatch, start, end, color, bright ? 2.5f : 1.8f,
+            bright ? 0.50f : 0.26f);
         if (bright)
             DrawTravelingLight(spriteBatch, start, end, FranEvolutionInfo.BranchColor(branch), index);
     }
@@ -514,12 +514,9 @@ public sealed class FranEvolutionUISystem : ModSystem
         Color bloomColor, float size, int index)
     {
         Texture2D star = ModContent.Request<Texture2D>(StellarSparkleTexture).Value;
-        Texture2D bloom = ModContent.Request<Texture2D>(StellarBloomTexture).Value;
         float opacity = 0.80f + 0.20f * MathF.Sin(Main.GlobalTimeWrappedHourly * 3.1f + index * 0.83f);
         float rotation = Main.GlobalTimeWrappedHourly * (0.72f + index % 7 * 0.035f) + index * 0.71f;
-        DrawTexturePixels(spriteBatch, bloom, position, bloomColor * opacity * 0.48f, 0f,
-            new Vector2(size * 3.15f));
-        DrawTexturePixels(spriteBatch, star, position, color * opacity * 0.46f,
+        DrawTexturePixels(spriteBatch, star, position, bloomColor * opacity * 0.34f,
             rotation + MathHelper.PiOver4, new Vector2(size * 0.78f));
         DrawTexturePixels(spriteBatch, star, position, color * opacity, rotation, new Vector2(size));
     }
@@ -531,15 +528,20 @@ public sealed class FranEvolutionUISystem : ModSystem
         if (edge.LengthSquared() <= 0.01f)
             return;
         Texture2D line = ModContent.Request<Texture2D>(StellarLineTexture).Value;
+        Vector2 origin = new(0f, line.Height * 0.5f);
+        Vector2 scale = new(edge.Length() / Math.Max(1f, line.Width),
+            thickness / Math.Max(1f, line.Height));
+        // Match LP's hierarchy: every edge owns a dormant underglow, while purchased paths add a crisp core.
+        // This wider base remains legible against the live world without turning the chart into a solid panel.
+        spriteBatch.Draw(line, start, null, color * (opacity * 0.30f), edge.ToRotation(), origin,
+            new Vector2(scale.X, scale.Y * 2.8f), SpriteEffects.None, 0f);
         spriteBatch.Draw(line, start, null, color * opacity, edge.ToRotation(),
-            new Vector2(0f, line.Height * 0.5f),
-            new Vector2(edge.Length() / Math.Max(1f, line.Width), thickness / Math.Max(1f, line.Height)),
-            SpriteEffects.None, 0f);
+            origin, scale, SpriteEffects.None, 0f);
 
-        Texture2D bloom = ModContent.Request<Texture2D>(StellarBloomTexture).Value;
-        Vector2 capSize = Vector2.One * Math.Max(8f, thickness * 4f);
-        DrawTexturePixels(spriteBatch, bloom, start, color * opacity * 0.48f, 0f, capSize);
-        DrawTexturePixels(spriteBatch, bloom, end, color * opacity * 0.48f, 0f, capSize);
+        Texture2D star = ModContent.Request<Texture2D>(StellarSparkleTexture).Value;
+        Vector2 capSize = Vector2.One * Math.Max(4f, thickness * 2.2f);
+        DrawTexturePixels(spriteBatch, star, start, color * opacity * 0.56f, 0f, capSize);
+        DrawTexturePixels(spriteBatch, star, end, color * opacity * 0.56f, 0f, capSize);
     }
 
     private static void DrawTexturePixels(SpriteBatch spriteBatch, Texture2D texture, Vector2 position,

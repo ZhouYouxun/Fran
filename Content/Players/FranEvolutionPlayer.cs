@@ -30,8 +30,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
     private int unityTimer;
 
     public uint NodeMask => nodeMask;
-    public int EarnedPoints => Math.Max(FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses),
-        syncedEarnedPoints);
+    public int EarnedPoints => syncedEarnedPoints;
     public int UsablePoints => Math.Min(EarnedPoints, FranEvolutionInfo.CurrentStagePointCap);
     public int SpentPoints => FranEvolutionInfo.SpentPoints(nodeMask);
     public int AvailablePoints => Math.Max(0, UsablePoints - SpentPoints);
@@ -50,8 +49,6 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     public override void SaveData(TagCompound tag)
     {
-        if (claimedBosses.Count > 0)
-            tag["EvolutionBosses"] = claimedBosses.OrderBy(key => key, StringComparer.Ordinal).ToList();
         if (nodeMask != 0)
             tag["EvolutionNodeMaskV2"] = (long)nodeMask;
     }
@@ -59,22 +56,13 @@ public sealed class FranEvolutionPlayer : ModPlayer
     public override void LoadData(TagCompound tag)
     {
         claimedBosses.Clear();
-        if (tag.ContainsKey("EvolutionBosses"))
-        {
-            foreach (string key in tag.GetList<string>("EvolutionBosses"))
-            {
-                if (claimedBosses.Count >= FranEvolutionInfo.MaximumClaimedBosses)
-                    break;
-                if (FranEvolutionBossSystem.IsValidBossKey(key))
-                    claimedBosses.Add(key);
-            }
-        }
-
-        syncedEarnedPoints = FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses);
+        syncedEarnedPoints = 0;
         uint loadedMask = tag.ContainsKey("EvolutionNodeMaskV2")
             ? (uint)Math.Clamp(tag.GetLong("EvolutionNodeMaskV2"), 0L, uint.MaxValue)
             : (uint)Math.Clamp(tag.GetInt("EvolutionNodeMask"), 0, ushort.MaxValue);
-        nodeMask = FranEvolutionInfo.NormalizeMask(loadedMask, syncedEarnedPoints);
+        // Keep the requested allocation until this character enters a world. OnEnterWorld then
+        // constrains it against that world's points, so a fresh world immediately clears an old maxed build.
+        nodeMask = FranEvolutionInfo.NormalizeMask(loadedMask, FranEvolutionInfo.MaximumSpendablePoints);
         ResetTransientState();
     }
 
@@ -82,6 +70,8 @@ public sealed class FranEvolutionPlayer : ModPlayer
     {
         if (Main.netMode == NetmodeID.MultiplayerClient && Player.whoAmI == Main.myPlayer)
             FranModMain.SendEvolutionProfile(this);
+        else if (Main.netMode != NetmodeID.MultiplayerClient)
+            FranEvolutionBossSystem.RefreshPlayerFromCurrentWorld(this);
     }
 
     public override void SyncPlayer(int toWho, int fromWho, bool newPlayer)
@@ -100,23 +90,35 @@ public sealed class FranEvolutionPlayer : ModPlayer
             return;
 
         if (HasNode(FranEvolutionNode.ArcaneCirculation))
-            Player.manaCost = Math.Max(0.1f, Player.manaCost - 0.08f);
+            Player.manaCost = Math.Max(0.1f, Player.manaCost -
+                FranBalance.GetFloat(nameof(FranBalance.EvolutionArcaneManaCostReduction),
+                    FranBalance.EvolutionArcaneManaCostReduction));
         if (HasNode(FranEvolutionNode.FelineReflex))
-            Player.moveSpeed += 0.05f;
+            Player.moveSpeed += FranBalance.GetFloat(nameof(FranBalance.EvolutionFelineMoveSpeedBonus),
+                FranBalance.EvolutionFelineMoveSpeedBonus);
         if (HasNode(FranEvolutionNode.SharedMana))
-            Player.statManaMax2 += 20;
+            Player.statManaMax2 += FranBalance.GetInt(nameof(FranBalance.EvolutionSharedManaBonus),
+                FranBalance.EvolutionSharedManaBonus);
         if (HasNode(FranEvolutionNode.HarmonicGuard))
         {
-            Player.statDefense += 3;
-            Player.endurance += 0.02f;
+            Player.statDefense += FranBalance.GetInt(nameof(FranBalance.EvolutionHarmonicGuardDefense),
+                FranBalance.EvolutionHarmonicGuardDefense);
+            Player.endurance += FranBalance.GetFloat(nameof(FranBalance.EvolutionHarmonicGuardEndurance),
+                FranBalance.EvolutionHarmonicGuardEndurance);
         }
         if (HasNode(FranEvolutionNode.SynchronizedVolley))
-            Player.GetDamage<MagicDamageClass>() += 0.06f;
+            Player.GetDamage<MagicDamageClass>() +=
+                FranBalance.GetFloat(nameof(FranBalance.EvolutionSynchronizedMagicDamageBonus),
+                    FranBalance.EvolutionSynchronizedMagicDamageBonus);
         if (HasNode(FranEvolutionNode.EternalContract))
         {
-            Player.GetDamage<GenericDamageClass>() += 0.05f;
-            Player.statManaMax2 += 20;
-            Player.statDefense += 3;
+            Player.GetDamage<GenericDamageClass>() +=
+                FranBalance.GetFloat(nameof(FranBalance.EvolutionEternalGenericDamageBonus),
+                    FranBalance.EvolutionEternalGenericDamageBonus);
+            Player.statManaMax2 += FranBalance.GetInt(nameof(FranBalance.EvolutionEternalManaBonus),
+                FranBalance.EvolutionEternalManaBonus);
+            Player.statDefense += FranBalance.GetInt(nameof(FranBalance.EvolutionEternalDefense),
+                FranBalance.EvolutionEternalDefense);
         }
     }
 
@@ -205,29 +207,41 @@ public sealed class FranEvolutionPlayer : ModPlayer
         return true;
     }
 
-    internal bool TryClaimBoss(string bossKey)
-    {
-        if (!FranEvolutionBossSystem.IsValidBossKey(bossKey) ||
-            claimedBosses.Count >= FranEvolutionInfo.MaximumClaimedBosses || !claimedBosses.Add(bossKey))
-            return false;
-        syncedEarnedPoints = FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses);
-        return true;
-    }
-
     internal IReadOnlyCollection<string> GetClaimedBosses() => claimedBosses;
 
     internal void MergeClientProfile(IEnumerable<string> bossKeys, uint requestedMask)
     {
-        foreach (string key in bossKeys)
-        {
-            if (claimedBosses.Count >= FranEvolutionInfo.MaximumClaimedBosses)
-                break;
-            if (FranEvolutionBossSystem.IsValidBossKey(key))
-                claimedBosses.Add(key);
-        }
-        syncedEarnedPoints = FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses);
-        nodeMask = FranEvolutionInfo.NormalizeMask(requestedMask, syncedEarnedPoints);
+        // Boss claims sent by a character are deliberately ignored. The server's current world is authoritative.
+        FranEvolutionBossSystem.RefreshPlayerFromCurrentWorld(this);
+        nodeMask = FranEvolutionInfo.NormalizeMask(requestedMask,
+            Math.Min(syncedEarnedPoints, FranEvolutionInfo.CurrentStagePointCap));
         ResetTransientState();
+    }
+
+    internal bool ApplyWorldProgress(IEnumerable<string> worldBosses)
+    {
+        uint oldMask = nodeMask;
+        int oldEarnedPoints = syncedEarnedPoints;
+        bool claimsChanged = !claimedBosses.SetEquals(worldBosses);
+
+        if (claimsChanged)
+        {
+            claimedBosses.Clear();
+            foreach (string key in worldBosses)
+            {
+                if (claimedBosses.Count >= FranEvolutionInfo.MaximumClaimedBosses)
+                    break;
+                if (FranEvolutionBossSystem.IsValidBossKey(key))
+                    claimedBosses.Add(key);
+            }
+        }
+
+        syncedEarnedPoints = FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses);
+        nodeMask = FranEvolutionInfo.NormalizeMask(nodeMask,
+            Math.Min(syncedEarnedPoints, FranEvolutionInfo.CurrentStagePointCap));
+        if (nodeMask == 0 && oldMask != 0)
+            ResetTransientState();
+        return claimsChanged || syncedEarnedPoints != oldEarnedPoints || nodeMask != oldMask;
     }
 
     internal void ReceiveEvolutionState(uint receivedMask, int receivedEarnedPoints,
@@ -244,7 +258,8 @@ public sealed class FranEvolutionPlayer : ModPlayer
                     claimedBosses.Add(key);
             syncedEarnedPoints = FranEvolutionBossSystem.CalculateEarnedPoints(claimedBosses);
         }
-        nodeMask = FranEvolutionInfo.NormalizeMask(receivedMask, syncedEarnedPoints);
+        nodeMask = FranEvolutionInfo.NormalizeMask(receivedMask,
+            Math.Min(syncedEarnedPoints, FranEvolutionInfo.CurrentStagePointCap));
         uint newBits = nodeMask & ~oldMask;
         if (newBits != 0)
             AnnounceNewNodes(newBits);
@@ -252,25 +267,58 @@ public sealed class FranEvolutionPlayer : ModPlayer
             ResetTransientState();
     }
 
-    public int ComboResetDuration => HasNode(FranEvolutionNode.SharedVision) ? 125 :
-        HasNode(FranEvolutionNode.MindSync) ? 105 : 70;
+    public int ComboResetDuration => HasNode(FranEvolutionNode.SharedVision)
+        ? FranBalance.GetInt(nameof(FranBalance.EvolutionComboResetSharedVisionFrames),
+            FranBalance.EvolutionComboResetSharedVisionFrames)
+        : HasNode(FranEvolutionNode.MindSync)
+            ? FranBalance.GetInt(nameof(FranBalance.EvolutionComboResetMindSyncFrames),
+                FranBalance.EvolutionComboResetMindSyncFrames)
+            : FranBalance.GetInt(nameof(FranBalance.EvolutionComboResetBaseFrames),
+                FranBalance.EvolutionComboResetBaseFrames);
 
-    public int AnalysisArmorPenetration => HasNode(FranEvolutionNode.DeeperAnalysis) ? 18 : 12;
+    public int AnalysisArmorPenetration => HasNode(FranEvolutionNode.DeeperAnalysis)
+        ? FranBalance.GetInt(nameof(FranBalance.EvolutionDeeperAnalysisArmorPenetration),
+            FranBalance.EvolutionDeeperAnalysisArmorPenetration)
+        : FranBalance.GetInt(nameof(FranBalance.EvolutionAnalysisArmorPenetration),
+            FranBalance.EvolutionAnalysisArmorPenetration);
 
-    public float EvolutionEchoDamageMultiplier => HasNode(FranEvolutionNode.DeeperAnalysis) ? 0.70f : 0.50f;
+    public float EvolutionEchoDamageMultiplier => HasNode(FranEvolutionNode.DeeperAnalysis)
+        ? FranBalance.GetFloat(nameof(FranBalance.EvolutionDeeperEchoDamageMultiplier),
+            FranBalance.EvolutionDeeperEchoDamageMultiplier)
+        : FranBalance.GetFloat(nameof(FranBalance.EvolutionEchoDamageMultiplier),
+            FranBalance.EvolutionEchoDamageMultiplier);
 
-    public int DashCooldownTicks => !HasNode(FranEvolutionNode.CatStep) ? 50 :
-        HasNode(FranEvolutionNode.BlackCatAwakening) ? 34 :
-        HasNode(FranEvolutionNode.FelineReflex) ? 38 : 42;
+    public int DashCooldownTicks => !HasNode(FranEvolutionNode.CatStep)
+        ? FranBalance.GetInt(nameof(FranBalance.DashBaseCooldownFrames), FranBalance.DashBaseCooldownFrames)
+        : HasNode(FranEvolutionNode.BlackCatAwakening)
+            ? FranBalance.GetInt(nameof(FranBalance.EvolutionAwakeningDashCooldownFrames),
+                FranBalance.EvolutionAwakeningDashCooldownFrames)
+            : HasNode(FranEvolutionNode.FelineReflex)
+                ? FranBalance.GetInt(nameof(FranBalance.EvolutionFelineReflexDashCooldownFrames),
+                    FranBalance.EvolutionFelineReflexDashCooldownFrames)
+                : FranBalance.GetInt(nameof(FranBalance.EvolutionCatStepDashCooldownFrames),
+                    FranBalance.EvolutionCatStepDashCooldownFrames);
 
-    public float DashSpeedMultiplier => 1f + (HasNode(FranEvolutionNode.SkyHunter) ? 0.10f : 0f) +
-        (HasNode(FranEvolutionNode.BlackCatAwakening) ? 0.05f : 0f);
+    public float DashSpeedMultiplier => 1f + (HasNode(FranEvolutionNode.SkyHunter)
+        ? FranBalance.GetFloat(nameof(FranBalance.EvolutionSkyHunterDashSpeedBonus),
+            FranBalance.EvolutionSkyHunterDashSpeedBonus) : 0f) +
+        (HasNode(FranEvolutionNode.BlackCatAwakening)
+            ? FranBalance.GetFloat(nameof(FranBalance.EvolutionAwakeningDashSpeedBonus),
+                FranBalance.EvolutionAwakeningDashSpeedBonus) : 0f);
 
-    public float DashImpactDamageMultiplier => 1.20f +
-        (HasNode(FranEvolutionNode.PredatorSight) ? 0.20f : 0f) +
-        (HasNode(FranEvolutionNode.BlackCatAwakening) ? 0.10f : 0f);
+    public float DashImpactDamageMultiplier =>
+        FranBalance.GetFloat(nameof(FranBalance.DashBaseImpactDamageMultiplier),
+            FranBalance.DashBaseImpactDamageMultiplier) +
+        (HasNode(FranEvolutionNode.PredatorSight)
+            ? FranBalance.GetFloat(nameof(FranBalance.EvolutionPredatorDashDamageBonus),
+                FranBalance.EvolutionPredatorDashDamageBonus) : 0f) +
+        (HasNode(FranEvolutionNode.BlackCatAwakening)
+            ? FranBalance.GetFloat(nameof(FranBalance.EvolutionAwakeningDashDamageBonus),
+                FranBalance.EvolutionAwakeningDashDamageBonus) : 0f);
 
-    public int DashImmunityBonus => HasNode(FranEvolutionNode.PhantomStep) ? 4 : 0;
+    public int DashImmunityBonus => HasNode(FranEvolutionNode.PhantomStep)
+        ? FranBalance.GetInt(nameof(FranBalance.EvolutionPhantomStepImmunityFrames),
+            FranBalance.EvolutionPhantomStepImmunityFrames) : 0;
 
     public bool AcceleratedUltimateCharge => HasNode(FranEvolutionNode.LimitResonance);
 
@@ -278,11 +326,18 @@ public sealed class FranEvolutionPlayer : ModPlayer
     {
         get
         {
-            float multiplier = HasNode(FranEvolutionNode.EdgeCalibration) ? 1.06f : 1f;
+            float multiplier = HasNode(FranEvolutionNode.EdgeCalibration)
+                ? FranBalance.GetFloat(nameof(FranBalance.EvolutionEdgeReachMultiplier),
+                    FranBalance.EvolutionEdgeReachMultiplier) : 1f;
             if (HasNode(FranEvolutionNode.ArcaneCirculation))
-                multiplier *= 1.04f;
+                multiplier *= FranBalance.GetFloat(nameof(FranBalance.EvolutionArcaneReachMultiplier),
+                    FranBalance.EvolutionArcaneReachMultiplier);
             if (UnityActive)
-                multiplier *= HasNode(FranEvolutionNode.MutualGrowth) ? 1.12f : 1.10f;
+                multiplier *= HasNode(FranEvolutionNode.MutualGrowth)
+                    ? FranBalance.GetFloat(nameof(FranBalance.EvolutionMutualUnityReachMultiplier),
+                        FranBalance.EvolutionMutualUnityReachMultiplier)
+                    : FranBalance.GetFloat(nameof(FranBalance.EvolutionUnityReachMultiplier),
+                        FranBalance.EvolutionUnityReachMultiplier);
             return multiplier;
         }
     }
@@ -291,25 +346,42 @@ public sealed class FranEvolutionPlayer : ModPlayer
     {
         float multiplier = 1f;
         if (combo == 3 && HasNode(FranEvolutionNode.SharedRhythm))
-            multiplier *= 0.88f;
+            multiplier *= FranBalance.GetFloat(nameof(FranBalance.EvolutionSharedRhythmFinisherDuration),
+                FranBalance.EvolutionSharedRhythmFinisherDuration);
         if (UnityActive)
-            multiplier /= HasNode(FranEvolutionNode.MutualGrowth) ? 1.12f : 1.10f;
+            multiplier /= HasNode(FranEvolutionNode.MutualGrowth)
+                ? FranBalance.GetFloat(nameof(FranBalance.EvolutionMutualUnityReachMultiplier),
+                    FranBalance.EvolutionMutualUnityReachMultiplier)
+                : FranBalance.GetFloat(nameof(FranBalance.EvolutionUnityReachMultiplier),
+                    FranBalance.EvolutionUnityReachMultiplier);
         if (HunterTempoReady)
         {
             hunterTempoReady = false;
-            multiplier *= HasNode(FranEvolutionNode.BlackCatAwakening) ? 0.82f : 0.88f;
+            multiplier *= HasNode(FranEvolutionNode.BlackCatAwakening)
+                ? FranBalance.GetFloat(nameof(FranBalance.EvolutionAwakeningHunterTempoDuration),
+                    FranBalance.EvolutionAwakeningHunterTempoDuration)
+                : FranBalance.GetFloat(nameof(FranBalance.EvolutionHunterTempoDuration),
+                    FranBalance.EvolutionHunterTempoDuration);
         }
         return multiplier;
     }
 
     public float DirectSwordDamageMultiplier(int combo)
     {
-        float multiplier = HasNode(FranEvolutionNode.SwordSaintReasoning) ? 1.06f : 1f;
+        float multiplier = HasNode(FranEvolutionNode.SwordSaintReasoning)
+            ? FranBalance.GetFloat(nameof(FranBalance.EvolutionSwordSaintDamageMultiplier),
+                FranBalance.EvolutionSwordSaintDamageMultiplier) : 1f;
         if (!HasNode(FranEvolutionNode.ComboCalculation) || combo != directSequenceExpected ||
             directSequenceTimer <= 0 || directSequenceHits <= 0)
             return multiplier;
-        float stepBonus = HasNode(FranEvolutionNode.SwordSaintReasoning) ? 0.04f : 0.03f;
-        return multiplier * (1f + Math.Min(3, directSequenceHits) * stepBonus);
+        float stepBonus = HasNode(FranEvolutionNode.SwordSaintReasoning)
+            ? FranBalance.GetFloat(nameof(FranBalance.EvolutionSwordSaintSequenceDamagePerHit),
+                FranBalance.EvolutionSwordSaintSequenceDamagePerHit)
+            : FranBalance.GetFloat(nameof(FranBalance.EvolutionSequenceDamagePerHit),
+                FranBalance.EvolutionSequenceDamagePerHit);
+        int maximumHits = FranBalance.GetInt(nameof(FranBalance.EvolutionMaximumSequenceDamageHits),
+            FranBalance.EvolutionMaximumSequenceDamageHits);
+        return multiplier * (1f + Math.Min(maximumHits, directSequenceHits) * stepBonus);
     }
 
     public void RegisterDirectSwordHit(int combo)
@@ -341,7 +413,11 @@ public sealed class FranEvolutionPlayer : ModPlayer
         if (HasNode(FranEvolutionNode.SelfEvolution))
             evolutionEchoReady = true;
         if (HasNode(FranEvolutionNode.OneAsSword) && directSequenceUnhurt)
-            unityTimer = (HasNode(FranEvolutionNode.MutualGrowth) ? 7 : 5) * 60;
+            unityTimer = (HasNode(FranEvolutionNode.MutualGrowth)
+                ? FranBalance.GetInt(nameof(FranBalance.EvolutionMutualUnityDurationSeconds),
+                    FranBalance.EvolutionMutualUnityDurationSeconds)
+                : FranBalance.GetInt(nameof(FranBalance.EvolutionUnityDurationSeconds),
+                    FranBalance.EvolutionUnityDurationSeconds)) * 60;
         ResetDirectSequence(keepUnhurtFlag: true);
     }
 
@@ -363,10 +439,16 @@ public sealed class FranEvolutionPlayer : ModPlayer
         ulong now = Main.GameUpdateCount;
         if (dashRefundLocks.TryGetValue(target.whoAmI, out ulong lockedUntil) && lockedUntil > now)
             return;
-        dashRefundLocks[target.whoAmI] = now + 180;
+        dashRefundLocks[target.whoAmI] = now + (ulong)Math.Max(0,
+            FranBalance.GetInt(nameof(FranBalance.EvolutionDashRefundTargetLockFrames),
+                FranBalance.EvolutionDashRefundTargetLockFrames));
 
         FranPlayer fran = Player.GetModPlayer<FranPlayer>();
-        float remainingMultiplier = HasNode(FranEvolutionNode.BlackCatAwakening) ? 0.25f : 0.40f;
+        float remainingMultiplier = HasNode(FranEvolutionNode.BlackCatAwakening)
+            ? FranBalance.GetFloat(nameof(FranBalance.EvolutionAwakeningDashRefundRemainingMultiplier),
+                FranBalance.EvolutionAwakeningDashRefundRemainingMultiplier)
+            : FranBalance.GetFloat(nameof(FranBalance.EvolutionDashRefundRemainingMultiplier),
+                FranBalance.EvolutionDashRefundRemainingMultiplier);
         fran.DashCooldown = Math.Max(0, (int)MathF.Ceiling(fran.DashCooldown * remainingMultiplier));
     }
 
@@ -380,12 +462,20 @@ public sealed class FranEvolutionPlayer : ModPlayer
         float distance = offset.Length();
         if (distance < 12f)
             return;
-        float resonanceStrength = HasNode(FranEvolutionNode.SoulBridge) ? 1.40f : 1f;
-        float speed = Math.Min(5f * resonanceStrength, distance * 0.08f * resonanceStrength) *
+        float resonanceStrength = HasNode(FranEvolutionNode.SoulBridge)
+            ? FranBalance.GetFloat(nameof(FranBalance.EvolutionSoulBridgePullMultiplier),
+                FranBalance.EvolutionSoulBridgePullMultiplier) : 1f;
+        float speed = Math.Min(
+                FranBalance.GetFloat(nameof(FranBalance.EvolutionResonantPullSpeed),
+                    FranBalance.EvolutionResonantPullSpeed) * resonanceStrength,
+                distance * FranBalance.GetFloat(nameof(FranBalance.EvolutionResonantPullDistanceRatio),
+                    FranBalance.EvolutionResonantPullDistanceRatio) * resonanceStrength) *
             MathHelper.Clamp(target.knockBackResist, 0.25f, 1f);
         target.velocity += offset.SafeNormalize(Vector2.Zero) * speed;
-        if (target.velocity.LengthSquared() > 12f * 12f)
-            target.velocity = target.velocity.SafeNormalize(Vector2.UnitY) * 12f;
+        float speedCap = FranBalance.GetFloat(nameof(FranBalance.EvolutionResonantPullSpeedCap),
+            FranBalance.EvolutionResonantPullSpeedCap);
+        if (target.velocity.LengthSquared() > speedCap * speedCap)
+            target.velocity = target.velocity.SafeNormalize(Vector2.UnitY) * speedCap;
         target.netUpdate = true;
     }
 

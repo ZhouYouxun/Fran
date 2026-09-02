@@ -15,7 +15,9 @@ namespace FranMod.Content.Projectiles;
 
 public sealed class FranSkillTakerWisp : ModProjectile
 {
-    private const float OutwardTime = 13f;
+    private const float DeploymentTime = 18f;
+    private const float TrackingRampTime = 36f;
+    private const float ReturnSpeed = 27f;
     private float Age => Projectile.localAI[0];
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
@@ -40,16 +42,17 @@ public sealed class FranSkillTakerWisp : ModProjectile
         Projectile.localNPCHitCooldown = -1;
     }
 
-    public override bool? CanDamage() => Age >= OutwardTime ? null : false;
+    public override bool? CanDamage() => Age >= DeploymentTime ? null : false;
 
     public override void AI()
     {
         float age = Projectile.localAI[0]++;
-        if (age < OutwardTime)
+        if (age < DeploymentTime)
         {
-            float outwardCurve = (Projectile.identity % 2 == 0 ? 1f : -1f) *
-                MathHelper.Lerp(0.045f, 0.012f, age / OutwardTime);
-            Projectile.velocity = Projectile.velocity.RotatedBy(outwardCurve) * 0.94f;
+            // Positive angles turn clockwise in screen space. Never alternate the sign by
+            // identity: every extra projectile belongs to the same clockwise deployment.
+            float clockwiseCurve = MathHelper.Lerp(0.070f, 0.022f, age / DeploymentTime);
+            Projectile.velocity = Projectile.velocity.RotatedBy(clockwiseCurve) * 1.010f;
         }
         else
         {
@@ -57,91 +60,87 @@ public sealed class FranSkillTakerWisp : ModProjectile
             if (target is not null)
             {
                 Vector2 fallback = Projectile.velocity.SafeNormalize(Vector2.UnitX);
-                Vector2 intercept = target.Center + target.velocity * 4f;
-                float weave = MathF.Sin(age * 0.23f + Projectile.identity * 0.91f) * 0.10f;
-                Vector2 desired = (intercept - Projectile.Center).SafeNormalize(fallback).RotatedBy(weave) * 18.5f;
-                Projectile.velocity = Vector2.Lerp(Projectile.velocity, desired, 0.105f);
+                Vector2 intercept = target.Center + target.velocity * 2.5f;
+                float trackingPower = MathHelper.Clamp((age - DeploymentTime) / TrackingRampTime, 0f, 1f);
+                float speed = MathHelper.Lerp(18f, ReturnSpeed, trackingPower);
+                float steering = MathHelper.Lerp(0.08f, 0.30f, trackingPower);
+                Vector2 desired = (intercept - Projectile.Center).SafeNormalize(fallback) * speed;
+                Projectile.velocity = Vector2.Lerp(Projectile.velocity, desired, steering);
             }
             else
-                Projectile.velocity = Projectile.velocity.RotatedBy(
-                    MathF.Sin(age * 0.19f + Projectile.identity) * 0.012f) * 1.012f;
+                Projectile.velocity *= 0.992f;
 
-            if (age == OutwardTime)
+            if (age == DeploymentTime)
             {
                 SoundEngine.PlaySound(SoundID.Item103 with { Volume = 0.20f, Pitch = 0.52f }, Projectile.Center);
                 FranParticleEffects.Implosion(Projectile.Center, new Color(205, 95, 255), 0.42f);
             }
         }
 
-        Projectile.rotation += 0.24f;
+        Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitX);
+        Projectile.rotation = direction.ToRotation();
         Lighting.AddLight(Projectile.Center, 0.34f, 0.07f, 0.48f);
-        FranVanillaDustEffects.ProjectileTrail(Projectile.Center, Projectile.velocity,
-            FranSkill.SkillTaker, new Color(210, 95, 255), 0.12f, 0.86f);
-        if (!Main.dedServ && Projectile.timeLeft % 3 == 0)
-            FranParticleSystem.Spawn(new FranSkillGlyphParticle(Projectile.Center,
-                -Projectile.velocity * 0.045f + Main.rand.NextVector2Circular(0.8f, 0.8f),
-                new Color(215, 105, 255), 0.48f, 14));
+        if (!Main.dedServ)
+            SpawnNovaTrail(direction);
+    }
+
+    private void SpawnNovaTrail(Vector2 direction)
+    {
+        Vector2 side = direction.RotatedBy(MathHelper.PiOver2);
+        Color trailColor = ((int)Age & 1) == 0 ? new Color(224, 150, 255) : new Color(174, 62, 245);
+        FranParticleSystem.Spawn(new FranBloomCirclePulseParticle(Projectile.Center,
+            -direction * 0.8f, trailColor, 16f, 32f, 10, 0.72f, 0.91f));
+
+        Dust dust = Dust.NewDustPerfect(
+            Projectile.Center - direction * Main.rand.NextFloat(3f, 12f) + side * Main.rand.NextFloat(-6f, 6f),
+            DustID.PurpleTorch,
+            -direction * Main.rand.NextFloat(0.6f, 2f) + side * Main.rand.NextFloat(-0.3f, 0.3f),
+            0,
+            new Color(220, 130, 255),
+            Main.rand.NextFloat(0.75f, 1.2f));
+        dust.noGravity = true;
     }
 
     private NPC FindTarget()
     {
-        NPC fallback = null;
-        NPC best = null;
-        float fallbackDistance = 720f * 720f;
-        float bestDistance = fallbackDistance;
         int originalTarget = (int)Projectile.ai[0];
+        if (originalTarget >= 0 && originalTarget < Main.maxNPCs)
+        {
+            NPC original = Main.npc[originalTarget];
+            if (original.active && !original.friendly && original.life > 0 &&
+                Vector2.DistanceSquared(Projectile.Center, original.Center) <= 900f * 900f)
+                return original;
+        }
+
+        NPC best = null;
+        float bestDistance = 720f * 720f;
         foreach (NPC npc in Main.ActiveNPCs)
         {
             if (!npc.CanBeChasedBy())
                 continue;
             float distance = Vector2.DistanceSquared(Projectile.Center, npc.Center);
-            if (npc.whoAmI == originalTarget)
-            {
-                if (distance < fallbackDistance)
-                {
-                    fallbackDistance = distance;
-                    fallback = npc;
-                }
-                continue;
-            }
             if (distance >= bestDistance)
                 continue;
             bestDistance = distance;
             best = npc;
         }
-        return best ?? fallback;
+        return best;
     }
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
         FranBurst.SpawnForOwner(Projectile.GetSource_OnHit(target), target.Center, Projectile.owner,
-            FranBurstStyle.SkillTaker, 0.48f + Projectile.ai[1] * 0.025f);
-        FranParticleEffects.SpawnImpact(target.Center, Projectile.velocity, new Color(215, 95, 255),
-            7, 5.5f, 0.72f);
-        FranParticleEffects.BlackLight(target.Center, new Color(195, 70, 255),
-            0.46f + Projectile.ai[1] * 0.025f, 18);
-        FranParticleEffects.MysticGlyphs(target.Center, new Color(225, 125, 255), 2, 27f,
-            0.68f, -Projectile.velocity * 0.018f);
+            FranBurstStyle.SkillTaker, 0.48f + Projectile.ai[1] * 0.025f,
+            rotation: Projectile.velocity.ToRotation());
     }
 
     public override bool PreDraw(ref Color lightColor)
     {
         float opacity = MathHelper.Clamp(Projectile.timeLeft / 16f, 0f, 1f);
-        if (!FranProjectileTrailRenderer.TryDraw(Projectile, FranProjectileTrailProfile.ArcaneWisp,
-                new Color(58, 16, 84), new Color(205, 72, 255), Color.White, 14f, opacity * 0.92f))
-            FranProjectileTrailRenderer.DrawFallback(Projectile, FranProjectileTrailProfile.ArcaneWisp,
-                new Color(190, 65, 255), 18f, opacity);
-        FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-            new Color(190, 75, 235) * (0.72f * opacity), Projectile.rotation * 0.45f,
-            new Vector2(46f, 46f));
         FranVfx.BeginAdditive();
-        float pulse = 0.92f + MathF.Sin(Main.GlobalTimeWrappedHourly * 13f + Projectile.identity) * 0.08f;
-        FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-            new Color(215, 100, 255) * (0.42f * opacity), -Projectile.rotation * 0.7f,
-            new Vector2(56f, 56f) * pulse);
-        FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
-            Color.White * (0.70f * opacity), Projectile.velocity.ToRotation(), new Vector2(34f, 22f) * pulse);
-        FranVfx.DrawBloom(Projectile.Center, new Color(200, 75, 255), 28f, 0.62f * opacity);
+        float pulse = 0.9f + MathF.Sin(Age * 0.24f) * 0.1f;
+        FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,
+            new Color(205, 100, 255, 0) * (0.42f * opacity), Projectile.rotation, 0.44f * pulse);
         FranVfx.EndAdditive();
         return false;
     }
@@ -149,12 +148,23 @@ public sealed class FranSkillTakerWisp : ModProjectile
 
 public sealed class FranTeacherPhantomBlade : ModProjectile
 {
-    private bool HasInitialEnemy => Projectile.ai[0] > 0f;
+    // Calamity Seraphim reference: 64 initial speed, 0.4 velocity retention on contact, then
+    // exponential slowdown from 64 to 7 over 50 frames while the blade copies spread and fade.
+    private const float SeraphimInitialSpeed = 64f;
+    private const float SeraphimOnHitSpeedFactor = 0.4f;
+    private const float SeraphimSlowdownSpeed = 7f;
+    private const int SeraphimSlowdownTime = 50;
+    private const float DissipationMarker = 1000f;
+    private static readonly float SeraphimSlowdownFactor = MathF.Pow(
+        SeraphimSlowdownSpeed / SeraphimInitialSpeed, 1f / SeraphimSlowdownTime);
+    private bool Dissipating => Projectile.ai[0] >= DissipationMarker;
+    private float DissipationAge => Projectile.ai[0] - DissipationMarker;
+    private bool HasInitialEnemy => !Dissipating && Projectile.ai[0] > 0f;
     private float StoredDelay => Math.Max(1f, MathF.Abs(Projectile.ai[0]));
     private float LaunchDelay => HasInitialEnemy ? StoredDelay : 1f;
     private float Age => Projectile.localAI[0];
 
-    public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
+    public override string Texture => FranTeacherVisuals.TexturePath;
 
     public override void SetStaticDefaults()
     {
@@ -176,66 +186,56 @@ public sealed class FranTeacherPhantomBlade : ModProjectile
         Projectile.localNPCHitCooldown = 18;
     }
 
-    public override bool? CanDamage() => Age >= LaunchDelay ? null : false;
+    public override bool? CanDamage() => !Dissipating && Age >= LaunchDelay ? null : false;
 
     public override void AI()
     {
+        if (Dissipating)
+        {
+            UpdateDissipation();
+            return;
+        }
+
         float age = Projectile.localAI[0]++;
         Vector2 target = new(Projectile.ai[1], Projectile.ai[2]);
         if (age == 0f)
         {
             Projectile.localAI[1] = Projectile.Center.X;
             Projectile.localAI[2] = Projectile.Center.Y;
-            Projectile.Opacity = 0.12f;
+            Projectile.Opacity = 0f;
         }
 
         Vector2 formationOrigin = new(Projectile.localAI[1], Projectile.localAI[2]);
         Vector2 forward = (target - formationOrigin).SafeNormalize(Vector2.UnitX);
         if (age < LaunchDelay)
         {
-            Vector2 normal = forward.RotatedBy(MathHelper.PiOver2);
-            Vector2 hover = formationOrigin - forward * (10f + age * 1.4f) +
-                normal * MathF.Sin(age * 0.65f + Projectile.identity) * 5f;
-            Projectile.Center = Vector2.Lerp(Projectile.Center, hover, 0.38f);
+            float reveal = FranMotion.Smooth(FranMotion.Segment(age, 1f, Math.Max(2f, LaunchDelay - 1f)));
+            Projectile.Center = formationOrigin;
             Projectile.velocity = Vector2.Zero;
-            Projectile.Opacity = MathHelper.Lerp(Projectile.Opacity, 0.76f, 0.28f);
+            Projectile.Opacity = reveal * 0.92f;
         }
         else
         {
             if (age == LaunchDelay)
             {
-                float side = Projectile.identity % 2 == 0 ? 1f : -1f;
-                float launchCurve = HasInitialEnemy ? side * 0.24f : 0f;
-                Projectile.velocity = (target - Projectile.Center).SafeNormalize(forward).RotatedBy(launchCurve) *
-                    (HasInitialEnemy ? 23f : 28f);
-                Projectile.Opacity = 0.92f;
+                Projectile.velocity = (target - Projectile.Center).SafeNormalize(forward) *
+                    SeraphimInitialSpeed;
+                Projectile.Opacity = 1f;
                 SoundEngine.PlaySound(SoundID.Item71 with { Volume = 0.28f, Pitch = 0.24f }, Projectile.Center);
                 FranParticleEffects.LineRelease(Projectile.Center - forward * 26f,
                     Projectile.Center + forward * 48f, new Color(225, 245, 255), 8, 0.64f);
             }
 
             float flightAge = age - LaunchDelay;
-            NPC flightTarget = HasInitialEnemy ? FindFlightTarget(target, 620f) : null;
-            Vector2 aimPoint = flightTarget?.Center + flightTarget.velocity * 3.5f ?? target;
-            Vector2 fallback = Projectile.velocity.SafeNormalize(forward);
-            float speed = MathHelper.Lerp(HasInitialEnemy ? 23f : 28f, HasInitialEnemy ? 38f : 43f,
-                FranMotion.Smooth(FranMotion.Segment(flightAge, 0f, 24f)));
-            float sideCurve = HasInitialEnemy ? (Projectile.identity % 2 == 0 ? 1f : -1f) *
-                MathHelper.Lerp(0.20f, 0.015f, FranMotion.Smooth(FranMotion.Segment(flightAge, 0f, 30f))) : 0f;
-            float weave = HasInitialEnemy ?
-                MathF.Sin(flightAge * 0.24f + Projectile.identity * 0.77f) * 0.055f : 0f;
-            Vector2 desired = (aimPoint - Projectile.Center).SafeNormalize(fallback)
-                .RotatedBy(sideCurve + weave) * speed;
-            Projectile.velocity = Vector2.Lerp(Projectile.velocity, desired, HasInitialEnemy ? 0.135f : 0.28f);
-            Projectile.Opacity = Math.Min(0.92f, MathHelper.Clamp(Projectile.timeLeft / 12f, 0f, 1f));
+            Projectile.Opacity = MathHelper.Clamp(Projectile.timeLeft / 12f, 0f, 1f);
 
-            if (!HasInitialEnemy && flightAge >= 4f && Vector2.DistanceSquared(Projectile.Center, target) <= 32f * 32f)
+            Vector2 remaining = target - Projectile.Center;
+            bool passedAimPoint = flightAge >= 1f && Vector2.Dot(remaining, Projectile.velocity) <= 0f;
+            bool reachedAimPoint = passedAimPoint ||
+                (!HasInitialEnemy && remaining.LengthSquared() <= 40f * 40f);
+            if (flightAge >= 1f && reachedAimPoint)
             {
-                FranBurst.SpawnForOwner(Projectile.GetSource_FromThis(), target, Projectile.owner,
-                    FranBurstStyle.SwordArray, 0.42f);
-                FranSpectatorVfx.SpawnImpactPetals(Projectile.GetSource_FromThis(), target,
-                    Projectile.velocity, Projectile.owner, FranSpectatorPalette.Mint, 3, 0.72f);
-                Projectile.Kill();
+                BeginDissipation(false);
                 return;
             }
         }
@@ -250,67 +250,123 @@ public sealed class FranTeacherPhantomBlade : ModProjectile
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
-        FranBurst.SpawnForOwner(Projectile.GetSource_OnHit(target), target.Center, Projectile.owner,
-            FranBurstStyle.SwordArray, 0.48f);
-        FranParticleEffects.SpawnImpact(target.Center, Projectile.velocity, new Color(225, 245, 255),
-            7, 5.6f, 0.72f);
+        if (Dissipating)
+            return;
+
+        Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitX);
+        FranParticleEffects.MeleeImpact(target.Center, direction, new Color(185, 230, 255), 0);
+        FranVanillaDustEffects.Impact(target.Center, direction, FranSkill.MultipleBodyCreation,
+            new Color(225, 248, 255), 5, 0.82f);
+        BeginDissipation(true);
+    }
+
+    private void BeginDissipation(bool contactedEnemy)
+    {
+        if (Dissipating)
+            return;
+
+        Projectile.velocity *= SeraphimOnHitSpeedFactor;
+        Projectile.ai[0] = DissipationMarker;
+        Projectile.friendly = false;
+        Projectile.penetrate = -1;
+        Projectile.tileCollide = false;
+        Projectile.timeLeft = SeraphimSlowdownTime + 2;
+        Projectile.netUpdate = true;
+        if (contactedEnemy)
+            SoundEngine.PlaySound(SoundID.Item71 with { Volume = 0.22f, Pitch = 0.38f }, Projectile.Center);
+    }
+
+    private void UpdateDissipation()
+    {
+        float progress = MathHelper.Clamp(DissipationAge / SeraphimSlowdownTime, 0f, 1f);
+        Projectile.velocity *= SeraphimSlowdownFactor;
+        Projectile.rotation = Projectile.velocity.SafeNormalize(Vector2.UnitX).ToRotation() + MathHelper.PiOver4;
+        Projectile.Opacity = MathF.Pow(1f - progress, 2f);
+
+        // The physical blade fades like Seraphim while the additive halo becomes brighter and
+        // wider. This keeps the "slow, gather light, then burst" sequence readable.
+        float gatheredLight = 0.32f + progress * 0.96f;
+        Lighting.AddLight(Projectile.Center, new Vector3(0.18f, 0.42f, 0.62f) * gatheredLight);
+        if (!Main.dedServ && ((int)DissipationAge % 4 == 0))
+            FranParticleSystem.Spawn(new FranSmallBloomParticle(Projectile.Center,
+                -Projectile.velocity * 0.025f, new Color(185, 230, 255),
+                10f + progress * 10f, 3f, 9));
+        FranVanillaDustEffects.ProjectileTrail(Projectile.Center, Projectile.velocity,
+            FranSkill.MultipleBodyCreation, new Color(225, 248, 255), 0.12f + progress * 0.16f, 0.88f);
+
+        Projectile.ai[0]++;
+        if (DissipationAge >= SeraphimSlowdownTime)
+            Projectile.Kill();
+    }
+
+    public override void OnKill(int timeLeft)
+    {
+        if (!Dissipating || Main.dedServ)
+            return;
+
+        Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitX);
+        FranParticleEffects.PhantomBladeExplosion(Projectile.Center, direction, 0.92f);
+        SoundEngine.PlaySound(SoundID.Item14 with { Volume = 0.34f, Pitch = 0.38f }, Projectile.Center);
+        if (Projectile.owner >= 0 && Projectile.owner < Main.maxPlayers)
+            Main.player[Projectile.owner].GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, 1.8f);
     }
 
     public override bool PreDraw(ref Color lightColor)
     {
-        Texture2D texture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D texture = FranTeacherVisuals.Texture;
         Vector2 origin = texture.Size() * 0.5f;
-        if (Age >= LaunchDelay && !FranProjectileTrailRenderer.TryDraw(Projectile,
+        if (!Dissipating && Age >= LaunchDelay && !FranProjectileTrailRenderer.TryDraw(Projectile,
                 FranProjectileTrailProfile.SpectralBlade, new Color(18, 40, 62),
                 new Color(145, 215, 255), Color.White, 21f, Projectile.Opacity * 0.82f))
             FranProjectileTrailRenderer.DrawFallback(Projectile, FranProjectileTrailProfile.SpectralBlade,
                 new Color(145, 215, 255), 24f, Projectile.Opacity);
 
         FranVfx.BeginAdditive();
-        Vector2 direction = (Age < LaunchDelay ? new Vector2(Projectile.ai[1], Projectile.ai[2]) - Projectile.Center :
+        Vector2 direction = (!Dissipating && Age < LaunchDelay ?
+            new Vector2(Projectile.ai[1], Projectile.ai[2]) - Projectile.Center :
             Projectile.velocity).SafeNormalize(Vector2.UnitX);
-        if (Age < LaunchDelay)
+        if (!Dissipating && Age < LaunchDelay)
         {
-            float deploy = FranMotion.Smooth(FranMotion.Segment(Age, 0f, LaunchDelay));
+            float reveal = FranMotion.Smooth(FranMotion.Segment(Age, 1f, Math.Max(2f, LaunchDelay * 0.72f)));
+            float charge = FranMotion.Smooth(FranMotion.Segment(Age, LaunchDelay * 0.42f, LaunchDelay));
             FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-                new Color(175, 225, 255) * (0.52f * deploy), -Projectile.rotation,
-                Vector2.One * (58f - deploy * 18f));
+                new Color(175, 225, 255) * (0.24f * reveal + 0.38f * charge), -Projectile.rotation,
+                Vector2.One * MathHelper.Lerp(52f, 38f, charge));
             FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
-                Color.White * (0.58f * deploy), direction.ToRotation(), new Vector2(56f, 30f));
+                Color.White * (0.16f * reveal + 0.68f * charge), direction.ToRotation(),
+                new Vector2(42f + charge * 20f, 22f + charge * 10f));
         }
-        else
+        else if (!Dissipating)
         {
             FranVfx.DrawOriginalPixels("FranSmearForward", Projectile.Center - direction * 28f,
                 new Color(220, 245, 255) * 0.58f, direction.ToRotation(), new Vector2(144f, 48f));
         }
-        FranVfx.DrawBloom(Projectile.Center, new Color(180, 225, 255), 30f, 0.34f * Projectile.Opacity);
+        else
+        {
+            float progress = MathHelper.Clamp(DissipationAge / SeraphimSlowdownTime, 0f, 1f);
+            float spread = FranMotion.Smooth(progress) * 16f;
+            float copyOpacity = (0.10f + progress * 0.34f) * MathF.Sqrt(Math.Max(0f, Projectile.Opacity));
+            for (int i = 0; i < 6; i++)
+            {
+                float angle = MathHelper.TwoPi * i / 6f + Projectile.identity * 0.17f;
+                Vector2 offset = angle.ToRotationVector2() * spread;
+                Main.EntitySpriteDraw(texture, Projectile.Center + offset - Main.screenPosition, null,
+                    new Color(150, 220, 255) * copyOpacity, Projectile.rotation, origin,
+                    0.68f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
+            }
+            FranVfx.DrawBloom(Projectile.Center, new Color(180, 225, 255),
+                28f + progress * 36f, 0.30f + progress * 0.58f);
+        }
+        if (!Dissipating)
+            FranVfx.DrawBloom(Projectile.Center, new Color(180, 225, 255), 30f, 0.34f * Projectile.Opacity);
         FranVfx.EndAdditive();
 
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(new Color(90, 135, 175), Color.White, 0.66f) * Projectile.Opacity,
-            Projectile.rotation, origin, 0.68f, SpriteEffects.None, 0f);
+            Projectile.rotation, origin, 0.68f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 
-    private NPC FindFlightTarget(Vector2 intendedTarget, float distance)
-    {
-        NPC best = null;
-        float bestScore = distance * distance;
-        foreach (NPC npc in Main.ActiveNPCs)
-        {
-            if (!npc.CanBeChasedBy())
-                continue;
-            float projectileDistance = Vector2.DistanceSquared(Projectile.Center, npc.Center);
-            if (projectileDistance > distance * distance)
-                continue;
-            float score = projectileDistance + Vector2.DistanceSquared(intendedTarget, npc.Center) * 0.42f;
-            if (score >= bestScore)
-                continue;
-            bestScore = score;
-            best = npc;
-        }
-        return best;
-    }
 }
 
 public sealed class FranThunderDropVisual : ModProjectile
@@ -1081,7 +1137,9 @@ public sealed class FranThorsHammerDrop : ModProjectile
         Projectile.Center = center;
         if (Main.myPlayer == Projectile.owner)
             Projectile.NewProjectile(Projectile.GetSource_FromThis(), center, Vector2.Zero,
-                ModContent.ProjectileType<ThorsHammerBolt>(), Math.Max(1, (int)(Projectile.damage * 0.88f)),
+                ModContent.ProjectileType<ThorsHammerBolt>(), Math.Max(1, (int)(Projectile.damage *
+                    FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExplosionDamageMultiplier),
+                        FranBalance.ThorsHammerExplosionDamageMultiplier))),
                 Projectile.knockBack, Projectile.owner);
         Projectile.netUpdate = true;
         Projectile.Kill();

@@ -152,7 +152,7 @@ public sealed class FranTelekineticFlightVisual : ModProjectile
         Texture2D fin = ModContent.Request<Texture2D>("Fran/Assets/Flight/TelekineticFlightFin").Value;
         Texture2D halo = ModContent.Request<Texture2D>("Fran/Assets/Flight/TelekineticFlightHalo").Value;
         Texture2D ribbon = ModContent.Request<Texture2D>("Fran/Assets/Flight/TelekineticFlightRibbon").Value;
-        Texture2D teacher = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D teacher = FranTeacherVisuals.Texture;
 
         Vector2 teacherCenter = effectCenterInitialized ? effectCenter : GetTeacherCenter(owner);
         float bladeRotation = GetTeacherRotation();
@@ -231,14 +231,16 @@ public sealed class FranTelekineticFlightVisual : ModProjectile
                 continue;
             float trailOpacity = (1f - i / (float)HistoryLength) * 0.18f * opacity;
             Main.EntitySpriteDraw(teacher, positionHistory[i] - Main.screenPosition, null,
-                afterimageColor * trailOpacity, rotationHistory[i], teacher.Size() * 0.5f, 0.88f,
+                afterimageColor * trailOpacity, rotationHistory[i], teacher.Size() * 0.5f,
+                0.88f * FranTeacherVisuals.TextureScale,
                 SpriteEffects.None, 0f);
         }
 
         Color environmentLight = Lighting.GetColor((int)(teacherCenter.X / 16f), (int)(teacherCenter.Y / 16f));
         Color bladeColor = Color.Lerp(environmentLight, Color.White, 0.34f);
         Main.EntitySpriteDraw(teacher, teacherCenter - Main.screenPosition, null, bladeColor * opacity,
-            bladeRotation, teacher.Size() * 0.5f, 0.92f, SpriteEffects.None, 0f);
+            bladeRotation, teacher.Size() * 0.5f,
+            0.92f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 

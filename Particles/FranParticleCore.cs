@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FranMod.Content.Projectiles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -43,12 +44,16 @@ internal abstract class FranParticle
 
 internal static class FranParticleAssets
 {
-    private const string Root = "Fran/Textures/Particles/";
-    private const string OriginalVfxRoot = "Fran/Assets/OriginalVFX/";
+    // Fran/Particles is the canonical VIP asset room for the particle runtime. Shared source
+    // materials may still have a copy in Textures/Particles for projectile/PreDraw consumers,
+    // but particle classes never cross that boundary when requesting their own textures.
+    private const string Root = "Fran/Particles/";
+    private const string ParticleRoot = Root;
     private const float MaximumRenderedDimension = 256f;
 
     public static Texture2D Get(string name) => ModContent.Request<Texture2D>(Root + name).Value;
-    public static Texture2D GetOriginal(string name) => ModContent.Request<Texture2D>(OriginalVfxRoot + name).Value;
+    public static Texture2D GetParticle(string className) =>
+        ModContent.Request<Texture2D>(ParticleRoot + className).Value;
 
     public static void Draw(SpriteBatch spriteBatch, string textureName, Vector2 worldPosition, Color color,
         float rotation, Vector2 scale, Rectangle? frame = null, SpriteEffects effects = SpriteEffects.None)
@@ -81,20 +86,36 @@ internal static class FranParticleAssets
             frame, effects);
     }
 
-    public static void DrawOriginalPixels(SpriteBatch spriteBatch, string textureName, Vector2 worldPosition,
-        Color color, float rotation, Vector2 desiredSize, SpriteEffects effects = SpriteEffects.None)
+    public static void DrawParticle(SpriteBatch spriteBatch, string className, Vector2 worldPosition, Color color,
+        float rotation, Vector2 scale, Rectangle? frame = null, SpriteEffects effects = SpriteEffects.None)
     {
         if (!float.IsFinite(worldPosition.X) || !float.IsFinite(worldPosition.Y) ||
-            !float.IsFinite(rotation) || !float.IsFinite(desiredSize.X) || !float.IsFinite(desiredSize.Y))
+            !float.IsFinite(rotation) || !float.IsFinite(scale.X) || !float.IsFinite(scale.Y) ||
+            MathF.Abs(scale.X) > 96f || MathF.Abs(scale.Y) > 96f)
             return;
 
-        Texture2D texture = GetOriginal(textureName);
+        Texture2D texture = GetParticle(className);
+        Rectangle source = frame ?? texture.Bounds;
+        float renderedWidth = source.Width * MathF.Abs(scale.X);
+        float renderedHeight = source.Height * MathF.Abs(scale.Y);
+        if (!float.IsFinite(renderedWidth) || !float.IsFinite(renderedHeight) ||
+            renderedWidth > MaximumRenderedDimension || renderedHeight > MaximumRenderedDimension)
+            return;
+        spriteBatch.Draw(texture, worldPosition - Main.screenPosition, source, color, rotation,
+            source.Size() * 0.5f, scale, effects, 0f);
+    }
+
+    public static void DrawParticlePixels(SpriteBatch spriteBatch, string className, Vector2 worldPosition,
+        Color color, float rotation, Vector2 desiredSize, Rectangle? frame = null,
+        SpriteEffects effects = SpriteEffects.None)
+    {
+        Texture2D texture = GetParticle(className);
+        Rectangle source = frame ?? texture.Bounds;
         desiredSize = new Vector2(MathHelper.Clamp(MathF.Abs(desiredSize.X), 0.5f, MaximumRenderedDimension),
             MathHelper.Clamp(MathF.Abs(desiredSize.Y), 0.5f, MaximumRenderedDimension));
-        spriteBatch.Draw(texture, worldPosition - Main.screenPosition, null, color, rotation,
-            texture.Size() * 0.5f,
-            new Vector2(desiredSize.X / Math.Max(1f, texture.Width), desiredSize.Y / Math.Max(1f, texture.Height)),
-            effects, 0f);
+        DrawParticle(spriteBatch, className, worldPosition, color, rotation,
+            new Vector2(desiredSize.X / Math.Max(1f, source.Width),
+                desiredSize.Y / Math.Max(1f, source.Height)), frame, effects);
     }
 
     public static void DrawLine(SpriteBatch spriteBatch, string textureName, Vector2 start, Vector2 end,
@@ -130,12 +151,14 @@ internal sealed class FranParticleSystem : ModSystem
         On_Main.DrawProjectiles -= DrawProjectiles;
         Active.Clear();
         Pending.Clear();
+        FranVanillaDustEffects.ResetBudget();
     }
 
     public override void OnWorldUnload()
     {
         Active.Clear();
         Pending.Clear();
+        FranVanillaDustEffects.ResetBudget();
     }
 
     public override void PostUpdateEverything()
@@ -166,6 +189,7 @@ internal sealed class FranParticleSystem : ModSystem
             return;
 
         Pending.Add(particle);
+        FranVanillaDustEffects.RegisterCustomParticle(particle);
     }
 
     internal static int FreeSlots => Math.Max(0, ParticleLimit - Active.Count - Pending.Count);

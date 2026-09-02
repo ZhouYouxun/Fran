@@ -4,8 +4,7 @@ using Terraria;
 
 namespace FranMod.Particles;
 
-// Fran's private local counterpart to Calamity's BoltParticle. It uses the migrated
-// Bolt2 sheet, keeps a colored halo and a tighter white core, and can be recolored per skill.
+// The paired texture lives beside this class as Particles/FranBoltParticle.png.
 internal sealed class FranBoltParticle : FranParticle
 {
     private readonly Vector2 stretch;
@@ -33,13 +32,15 @@ internal sealed class FranBoltParticle : FranParticle
 
     public override void Draw(SpriteBatch spriteBatch)
     {
-        Texture2D texture = FranParticleAssets.Get("Bolt2");
+        Texture2D texture = FranParticleAssets.GetParticle(nameof(FranBoltParticle));
         Rectangle frame = texture.Frame(1, 3, 0, variant);
         float fade = System.MathF.Pow(1f - Completion, 2.4f);
         Vector2 size = stretch * Scale;
         SpriteEffects effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
-        FranParticleAssets.Draw(spriteBatch, "Bolt2", Position, Color * (0.72f * fade), Rotation, size, frame, effects);
-        FranParticleAssets.Draw(spriteBatch, "Bolt2", Position, Color.White * (0.68f * fade), Rotation,
+        FranParticleAssets.DrawParticle(spriteBatch, nameof(FranBoltParticle), Position,
+            Color * (0.72f * fade), Rotation, size, frame, effects);
+        FranParticleAssets.DrawParticle(spriteBatch, nameof(FranBoltParticle), Position,
+            Color.White * (0.68f * fade), Rotation,
             size * 0.52f, frame, effects);
     }
 }

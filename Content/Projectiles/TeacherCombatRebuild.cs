@@ -22,6 +22,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
 {
     private const int TrailSamples = 72;
     private const int SamplesPerTick = 4;
+    private const int GhostAuraDraws = 20;
+    private const int ExtendedBladeDraws = 45;
     private readonly Vector2[] tipHistory = new Vector2[TrailSamples];
     private readonly Vector2[] midHistory = new Vector2[TrailSamples];
     private readonly float[] trailStrength = new float[TrailSamples];
@@ -61,7 +63,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
     private float evolutionDamageMultiplier = 1f;
     private int quickdrawBurstStep = -1;
 
-    public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
+    public override string Texture => FranTeacherVisuals.TexturePath;
 
     public override void SetStaticDefaults()
     {
@@ -137,7 +139,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
         previousAngle = currentAngle;
         previousReach = currentReach;
         ComputePose(Progress, out currentAngle, out currentReach, out visualStrength);
-        currentReach *= Owner.GetModPlayer<FranEvolutionPlayer>().BladeReachMultiplier;
+        currentReach *= Owner.GetModPlayer<FranEvolutionPlayer>().BladeReachMultiplier *
+            FranTeacherVisuals.WorldSizeMultiplier;
         UpdateTrail();
 
         Vector2 direction = currentAngle.ToRotationVector2();
@@ -175,7 +178,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
         previousAngle = currentAngle;
         FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
         currentReach = previousReach = (Combo == 3 ? 58f : Combo == 2 ? 126f : 112f) *
-            evolution.BladeReachMultiplier;
+            evolution.BladeReachMultiplier * FranTeacherVisuals.WorldSizeMultiplier;
         evolutionDamageMultiplier = evolution.DirectSwordDamageMultiplier(Combo);
         for (int i = 0; i < TrailSamples; i++)
         {
@@ -409,7 +412,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
         float activeStart = Combo switch { 0 => 0.16f, 1 => 0.11f, 2 => 0.23f, _ => 0.23f };
         float activeEnd = Combo switch { 0 => 0.63f, 1 => 0.84f, 2 => 0.62f, _ => 0.61f };
-        int burstCount = Combo switch { 0 => 5, 1 => 6, 2 => 8, _ => 7 };
+        int burstCount = Math.Max(1, FranBalance.GetQuickdrawAirburstCount(Combo));
         float phase = FranMotion.Segment(Progress, activeStart, activeEnd);
         int targetStep = Math.Min(burstCount - 1, (int)(phase * burstCount));
 
@@ -428,10 +431,12 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 2 => 0.62f + 0.14f * MathF.Sin(completion * MathHelper.Pi),
                 3 => 0.70f + 0.12f * completion,
                 _ => 0.66f + 0.16f * MathF.Sin(completion * MathHelper.Pi)
-            }) * (1f + 0.10f * (quickdrawLayers - 1));
-            float damageScale = Combo switch { 0 => 0.18f, 1 => 0.16f, 2 => 0.13f, _ => 0.15f };
+            }) * (1f + FranBalance.GetFloat(nameof(FranBalance.QuickdrawExtraLayerSizeMultiplier),
+                FranBalance.QuickdrawExtraLayerSizeMultiplier) * (quickdrawLayers - 1));
+            float damageScale = FranBalance.GetQuickdrawAirburstDamageMultiplier(Combo);
             int burstDamage = Math.Max(1, (int)(Projectile.damage * damageScale *
-                (1f + 0.15f * (quickdrawLayers - 1))));
+                (1f + FranBalance.GetFloat(nameof(FranBalance.QuickdrawExtraLayerDamageMultiplier),
+                    FranBalance.QuickdrawExtraLayerDamageMultiplier) * (quickdrawLayers - 1))));
             float delay = 2f + step % 3;
             Projectile.NewProjectile(Projectile.GetSource_FromThis(), position, blade,
                 ModContent.ProjectileType<FranCompressionAirburst>(), burstDamage,
@@ -599,35 +604,23 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
         Color color = ElementColor();
         Vector2 incoming = currentAngle.ToRotationVector2();
-        // 主武器真实命中才会触发这一束战术液滴。无附着时保持白色；有附着时使用技能自己的颜色，
-        // 颜色与飞行、拖尾、消散粒子一起由 FranTacticalEjecta 负责，调用方不需要再补绘制代码。
-        Color ejectaColor = ImprintSkill == FranSkill.None ? Color.White : FranSkillInfo.Color(ImprintSkill);
-        int ejectaCount = Combo switch { 2 => 5, 3 => 4, 1 => 4, _ => 3 };
-        int ejectaDamage = Math.Max(1, (int)(damageDone * (Combo == 2 ? 0.12f : 0.16f)));
-        FranTacticalEjecta.SpawnCone(Projectile.GetSource_OnHit(target),
-            target.Center + incoming * 8f, incoming, ejectaCount,
-            MathHelper.ToRadians(Combo == 2 ? 30f : 24f), Combo == 2 ? 7.2f : 6.4f,
-            Combo == 3 ? 11.8f : 10.4f, ejectaDamage, Projectile.knockBack * 0.22f,
-            Owner.whoAmI, ejectaColor);
-        FranParticleEffects.MeleeImpact(target.Center, incoming, color, Combo);
-        float impactIntensity = Combo switch { 2 => 1.32f, 3 => 1.10f, 1 => 1.02f, _ => 0.92f };
-        FranParticleSystem.Spawn(new FranBladeImpactCrossParticle(target.Center, incoming,
-            Color.Lerp(color, Color.White, 0.18f), impactIntensity, Combo == 2 ? 17 : 14));
-        int edgeCount = Combo == 2 ? 5 : Combo == 3 ? 4 : 3;
-        for (int i = 0; i < edgeCount; i++)
+        int blueResonanceLayers = GetTacticStackCount(FranSkill.BlueResonance);
+        if (blueResonanceLayers > 0)
         {
-            Vector2 velocity = incoming.RotatedByRandom(Combo == 3 ? 0.38f : 0.72f) *
-                Main.rand.NextFloat(3.2f, Combo == 2 ? 8.2f : 6.8f);
-            FranParticleSystem.Spawn(new FranBladeEdgeMoteParticle(target.Center, velocity, velocity, color,
-                Main.rand.NextFloat(18f, Combo == 2 ? 36f : 30f), Main.rand.NextFloat(1.2f, 2f), Main.rand.Next(8, 12)));
+            // Blue Resonance exclusively owns the former generic hit needles. They erupt from the
+            // marked enemy in an upward fan; the delayed resonance cuts and healing remain unchanged.
+            Color ejectaColor = FranSkillInfo.Color(FranSkill.BlueResonance);
+            int ejectaCount = Combo switch { 2 => 5, 3 => 4, 1 => 4, _ => 3 };
+            int ejectaDamage = Math.Max(1, (int)(damageDone * (Combo == 2 ? 0.12f : 0.16f)));
+            FranTacticalEjecta.SpawnCone(Projectile.GetSource_OnHit(target),
+                target.Center - Vector2.UnitY * Math.Min(14f, target.height * 0.18f), -Vector2.UnitY, ejectaCount,
+                MathHelper.ToRadians(Combo == 2 ? 68f : 58f), Combo == 2 ? 9.2f : 8.2f,
+                Combo == 3 ? 15.3f : 13.6f, ejectaDamage, Projectile.knockBack * 0.22f,
+                Owner.whoAmI, ejectaColor);
         }
+        FranParticleEffects.MeleeImpact(target.Center, incoming, color, Combo);
         FranVanillaDustEffects.Impact(target.Center, incoming, ImprintSkill, color,
-            8 + edgeCount + (Combo == 2 ? 10 : 0), Combo == 2 ? 1.12f : 0.94f);
-        if (Combo == 2)
-            FranParticleEffects.BladeConstellation(target.Center, color, 0.72f, 10);
-        if (Combo == 3)
-            FranParticleEffects.LineRelease(target.Center - incoming * 34f, target.Center + incoming * 42f,
-                color, 10, 0.8f);
+            Combo == 2 ? 6 : 5, Combo == 2 ? 1.12f : 0.94f);
         if (Combo is 2 or 3)
             FranSpectatorVfx.SpawnImpactPetals(Projectile.GetSource_OnHit(target), target.Center, incoming,
                 Owner.whoAmI, FranSpectatorVfx.ForSkill(ImprintSkill), Combo == 2 ? 5 : 3,
@@ -742,25 +735,50 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 break;
         }
 
-        // A restrained energy body ties every stage back to the physical sword. The trail changes by stage;
-        // the blade itself retains the same colored body and white cutting spine throughout the chain.
-        int slices = Combo switch { 2 => 16, 1 => 12, 3 => 10, _ => 10 };
-        for (int i = 1; i <= slices; i++)
-        {
-            float completion = i / (float)slices;
-            float taper = MathF.Sin(completion * MathHelper.Pi) * (Combo == 2 ? 1.05f : 0.72f) + 0.16f;
-            Vector2 point = Owner.MountedCenter + blade * MathHelper.Lerp(24f, currentReach, completion);
-            FranVfx.DrawShared("BloomCircle", point,
-                color * (visualStrength * 0.105f * taper), currentAngle + MathHelper.PiOver2,
-                new Vector2(0.048f + taper * 0.021f, 0.085f + taper * 0.042f));
-            if (i % 4 == 0)
-                FranVfx.DrawShared("BloomCircle", point, Color.White * (visualStrength * 0.16f * taper),
-                    currentAngle + MathHelper.PiOver2, new Vector2(0.015f, 0.044f));
-        }
+        DrawExtendedBloomBlade(blade, color);
         FranVfx.EndAdditive();
 
         float tangentRotation() => (tipHistory[0] - tipHistory[Math.Min(4, TrailSamples - 1)])
             .SafeNormalize(blade.RotatedBy(MathHelper.PiOver2)).ToRotation();
+    }
+
+    // Build the long blade from 45 overlapping soft circles, following Earth's construction rather
+    // than stretching one sprite. The chain grows outward during the active swing and contracts/fades
+    // in recovery; taper at both ends keeps Teacher's own blade silhouette.
+    private void DrawExtendedBloomBlade(Vector2 blade, Color color)
+    {
+        float strength = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(visualStrength, 0f, 1f));
+        if (strength <= 0.012f)
+            return;
+
+        float startDistance = 22f;
+        float endDistance = currentReach * (1.03f + 0.88f * strength);
+        Vector2 perpendicular = blade.RotatedBy(MathHelper.PiOver2);
+        float time = Main.GlobalTimeWrappedHourly * 9f;
+
+        for (int i = 0; i < ExtendedBladeDraws; i++)
+        {
+            float completion = i / (float)(ExtendedBladeDraws - 1);
+            float tipTaper = completion > 0.73f
+                ? MathHelper.Lerp(0.90f, 0.32f,
+                    FranMotion.Smooth(FranMotion.Segment(completion, 0.73f, 1f)))
+                : 1f;
+            float hiltTaper = MathHelper.Lerp(0.68f, 1f,
+                FranMotion.Smooth(FranMotion.Segment(completion, 0f, 0.16f)));
+            float body = 0.62f + MathF.Sin(completion * MathHelper.Pi) * 0.38f;
+            float shimmer = 0.94f + MathF.Sin(time - completion * 8f) * 0.06f;
+            float taper = tipTaper * hiltTaper * body * shimmer;
+
+            Vector2 point = Owner.MountedCenter + blade * MathHelper.Lerp(startDistance, endDistance, completion);
+            point += perpendicular * MathF.Sin(time * 1.7f + i * 1.91f) * 1.35f * strength;
+
+            Color stampColor = Color.Lerp(color, Color.White, 0.12f + completion * 0.20f);
+            Vector2 stampScale = new(
+                (0.044f + taper * 0.024f) * strength,
+                (0.082f + taper * 0.050f) * strength);
+            FranVfx.DrawShared("CL_BloomCircle", point,
+                stampColor * (0.28f * strength), currentAngle + MathHelper.PiOver2, stampScale);
+        }
     }
 
     private static void DrawSafeVertical(string textureName, Vector2 start, Vector2 end, Color color, float width)
@@ -777,9 +795,11 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     private void DrawWeapon(Color lightColor, Color energyColor)
     {
-        Texture2D texture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D texture = FranTeacherVisuals.Texture;
+        Texture2D ghostTexture = FranTeacherVisuals.GhostTexture;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         Vector2 origin = new(facing < 0 ? texture.Width : 0f, texture.Height);
+        Vector2 ghostOrigin = new(facing < 0 ? ghostTexture.Width : 0f, ghostTexture.Height);
         float extra = facing < 0 ? MathHelper.PiOver2 : 0f;
 
         for (int i = 20; i >= 2; i -= 4)
@@ -788,20 +808,22 @@ public sealed class TeacherSwingRebuild : ModProjectile
             Vector2 center = Owner.MountedCenter + (tipHistory[i] - Owner.MountedCenter).SafeNormalize(Vector2.UnitX) * 8f - Main.screenPosition;
             float angle = (tipHistory[i] - Owner.MountedCenter).ToRotation();
             Main.EntitySpriteDraw(texture, center, null, energyColor * (0.10f * fade * trailStrength[i]),
-                angle + MathHelper.PiOver4 + extra, origin, 1.05f + (Combo == 2 ? 0.05f : 0f), effects, 0f);
+                angle + MathHelper.PiOver4 + extra, origin,
+                (1.05f + (Combo == 2 ? 0.05f : 0f)) * FranTeacherVisuals.TextureScale, effects, 0f);
         }
 
         Vector2 drawPosition = Owner.MountedCenter + currentAngle.ToRotationVector2() * 8f - Main.screenPosition;
-        for (int i = 0; i < (Combo == 2 ? 12 : 7); i++)
+        float auraRadius = (Combo == 2 ? 6.5f : 5.5f) * visualStrength;
+        Color ghostColor = new(energyColor.R, energyColor.G, energyColor.B, 0);
+        for (int i = 0; i < GhostAuraDraws; i++)
         {
-            Vector2 offset = (MathHelper.TwoPi * i / (Combo == 2 ? 12f : 7f)).ToRotationVector2() *
-                (Combo == 2 ? 4.5f : 2.6f) * visualStrength;
-            Main.EntitySpriteDraw(texture, drawPosition + offset, null,
-                energyColor * (0.16f * visualStrength), Projectile.rotation, origin,
-                1.05f + (Combo == 2 ? 0.07f : 0f), effects, 0f);
+            Vector2 offset = (MathHelper.TwoPi * i / GhostAuraDraws).ToRotationVector2() * auraRadius;
+            Main.EntitySpriteDraw(ghostTexture, drawPosition + offset, null,
+                ghostColor * (0.15f * visualStrength), Projectile.rotation, ghostOrigin,
+                (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranTeacherVisuals.TextureScale, effects, 0f);
         }
         Main.EntitySpriteDraw(texture, drawPosition, null, lightColor, Projectile.rotation, origin,
-            1.05f + (Combo == 2 ? 0.07f : 0f), effects, 0f);
+            (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranTeacherVisuals.TextureScale, effects, 0f);
     }
 }
 
@@ -826,7 +848,7 @@ internal sealed class TeacherBackDrawPlayer : ModPlayer
         if (deployed)
             return;
 
-        Texture2D texture = TextureAssets.Item[ItemID.BreakerBlade].Value;
+        Texture2D texture = FranTeacherVisuals.Texture;
         int facing = player.direction;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         // The sword is mounted through its mass centre. Using a bottom corner here pins the blade's
@@ -839,7 +861,8 @@ internal sealed class TeacherBackDrawPlayer : ModPlayer
 
         // Insert the normally lit sword first, then place the outline draws before it in the cache.
         // This keeps the gold strictly behind the sprite instead of tinting the whole blade like the old cyan ghost copies.
-        DrawData sword = new(texture, position, null, drawInfo.colorArmorBody, rotation, origin, 1.02f, effects, 0f)
+        float textureScale = 1.02f * FranTeacherVisuals.TextureScale;
+        DrawData sword = new(texture, position, null, drawInfo.colorArmorBody, rotation, origin, textureScale, effects, 0f)
         {
             shader = 0
         };
@@ -850,7 +873,7 @@ internal sealed class TeacherBackDrawPlayer : ModPlayer
         {
             Vector2 offset = (MathHelper.TwoPi * i / 8f).ToRotationVector2() * 1.35f;
             DrawData outline = new(texture, position + offset, null, goldOutline,
-                rotation, origin, 1.02f, effects, 0f) { shader = 0 };
+                rotation, origin, textureScale, effects, 0f) { shader = 0 };
             drawInfo.DrawDataCache.Insert(0, outline);
         }
     }

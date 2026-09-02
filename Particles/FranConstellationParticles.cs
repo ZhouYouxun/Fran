@@ -120,7 +120,7 @@ internal sealed class FranConstellationMoteParticle : FranParticle
         for (int i = trail.Length - 1; i >= 1; i--)
         {
             float trailFade = 1f - i / (float)trail.Length;
-            FranParticleAssets.DrawOriginalPixels(spriteBatch, "FranFlashFourPoint", trail[i],
+            FranParticleAssets.DrawPixels(spriteBatch, "FranFlashFourPoint", trail[i],
                 Color * (opacity * trailFade * trailFade * 0.24f), Rotation - i * 0.12f,
                 new Vector2(baseSize * trailFade, baseSize * 0.56f * trailFade));
         }
@@ -134,12 +134,12 @@ internal sealed class FranConstellationMoteParticle : FranParticle
 
         float kindleFlash = Time <= KindleEnd ? 1f - Time / (float)KindleEnd : 0f;
         float headSize = baseSize * (0.74f + kindleFlash * 0.9f);
-        FranParticleAssets.DrawOriginalPixels(spriteBatch, "FranResonanceOrb", Position,
+        FranParticleAssets.DrawPixels(spriteBatch, "FranResonanceOrb", Position,
             Color * (opacity * 0.34f), -Rotation * 0.7f, Vector2.One * headSize * 2.5f);
-        FranParticleAssets.DrawOriginalPixels(spriteBatch, "FranFlashFourPoint", Position,
+        FranParticleAssets.DrawPixels(spriteBatch, "FranFlashFourPoint", Position,
             Color.Lerp(Color, Microsoft.Xna.Framework.Color.White, 0.68f) * (opacity * 0.86f), Rotation,
             new Vector2(headSize * 1.35f, headSize * 0.72f));
-        FranParticleAssets.DrawOriginalPixels(spriteBatch, "FranFlashFourPoint", Position,
+        FranParticleAssets.DrawPixels(spriteBatch, "FranFlashFourPoint", Position,
             Microsoft.Xna.Framework.Color.White * (opacity * 0.66f), Rotation + MathHelper.PiOver2,
             new Vector2(headSize * 0.74f, headSize * 0.38f));
     }

@@ -100,7 +100,7 @@ Mods: {
 			PureSwordsmanship: Pure Swordsmanship Core
 			PureSwordsmanshipDescription: Empty every lower slot to use pure swordsmanship. Teacher's four-part combo always remains; tactics are layered onto it rather than replacing it
 			TacticSlots: Tactic slots: {0}/{1}
-			TacticControls: Left-click an upper icon to equip | left-click a lower slot to remove | right-click again or open inventory to close
+			TacticControls: Left-click a wheel icon to equip | left-click an equipped icon below the wheel to remove | right-click again or open inventory to close
 			TacticLayerDetails: Equipped: {0} layer(s) | First layer: {1} | Each later layer: {2}
 			TacticEquipped: Equipped: {0} x{1}
 			TacticUnequipped: Removed: {0} (x{1} remaining)
@@ -207,7 +207,7 @@ Mods: {
 			OpenHint: Open the Magic-Stone Corridor (default J)
 			Tooltip: Magic-Stone Corridor: {0} available / {1} total; press J to unfold three constellations
 			PointSummary: Available {0}   Invested {1}   Total {2}   Current stage cap {3}
-			Overview: First-time participation in each boss victory grants 2–5 points. Three constellations extend upward, down-left, and down-right from the central core; hover a star to inspect it.
+			Overview: Points are derived automatically from the current world's boss progress. Three constellations extend upward, down-left, and down-right from the central core; hover a star to inspect it.
 			MagicStoneAcquired: Magic-stone imprint acquired — Self Evolution Points +{0}
 			NodeUnlocked: Self Evolution: {0}
 			ResetFree: ✦ Click to respec for free ✦
@@ -476,8 +476,8 @@ Mods: {
 
 			BlueResonance: {
 				DisplayName: Blue Resonance
-				Description: Every sword hit leaves a delayed blue repeat-cut; the fourth cut forms a three-note chord whose hits can periodically restore life
-				FirstLayer: Normal sword hits create 1 delayed resonance and the fourth creates 3; resonance can periodically restore life
+				Description: Every sword hit leaves a delayed blue repeat-cut and scatters starlight needles upward from the target; the fourth cut forms a three-note chord whose hits can periodically restore life
+				FirstLayer: Normal sword hits create 1 delayed resonance and the fourth creates 3; hits scatter starlight needles upward and resonance can periodically restore life
 				AdditionalLayer: Adds 1 resonance cut to every hit
 			}
 
@@ -570,6 +570,7 @@ Mods: {
 			FranTelekineticPlanetExplosion.DisplayName: Fran Telekinetic Planet Explosion
 			FranTelekineticFlightVisual.DisplayName: Telekinetic Flight Visual
 			FranTacticalEjecta.DisplayName: Fran Tactical Ejecta
+			FranTelekineticHalleyBolt.DisplayName: Fran Telekinetic Halley Bolt
 		}
 	}
 }

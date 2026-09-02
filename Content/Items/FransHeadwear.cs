@@ -6,7 +6,7 @@ namespace FranMod.Content.Items;
 
 public sealed class FransHeadwear : ModItem
 {
-    public override string Texture => $"Terraria/Images/Item_{ItemID.CatEars}";
+    public override string Texture => "Fran/Textures/弗兰头饰";
 
     public override void SetDefaults()
     {

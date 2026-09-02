@@ -7,13 +7,17 @@ using FranMod.Core;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.GameContent.Events;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 
 namespace FranMod.Content.Systems;
 
 public sealed class FranEvolutionBossSystem : ModSystem
 {
+    private const string WorldBossClaimsSaveKey = "FranEvolutionWorldBossesV1";
+
     private sealed class AnalysisProgress
     {
         public int ExpectedCombo;
@@ -28,15 +32,53 @@ public sealed class FranEvolutionBossSystem : ModSystem
         public readonly Dictionary<int, AnalysisProgress> AnalysisByPlayer = new();
         public ulong LastSeenTick;
         public Vector2 LastPosition;
+        public bool CompletionQueuedAsNew;
     }
 
     private static readonly Dictionary<string, EncounterState> Encounters = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, Vector2> PendingAwards = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> StoredModBosses = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> CurrentWorldBosses = new(StringComparer.Ordinal);
+
+    public static int CurrentWorldEarnedPoints => CalculateEarnedPoints(CurrentWorldBosses);
+
+    public override void OnWorldLoad()
+    {
+        Encounters.Clear();
+        PendingAwards.Clear();
+        StoredModBosses.Clear();
+        CurrentWorldBosses.Clear();
+        RefreshCurrentWorldProgress();
+    }
+
+    public override void SaveWorldData(TagCompound tag)
+    {
+        if (StoredModBosses.Count > 0)
+            tag[WorldBossClaimsSaveKey] = StoredModBosses.OrderBy(key => key, StringComparer.Ordinal).ToList();
+    }
+
+    public override void LoadWorldData(TagCompound tag)
+    {
+        StoredModBosses.Clear();
+        if (tag.ContainsKey(WorldBossClaimsSaveKey))
+        {
+            foreach (string key in tag.GetList<string>(WorldBossClaimsSaveKey))
+            {
+                if (StoredModBosses.Count >= FranEvolutionInfo.MaximumClaimedBosses)
+                    break;
+                if (IsValidBossKey(key) && !IsVanillaProgressKey(key))
+                    StoredModBosses.Add(key);
+            }
+        }
+        RefreshCurrentWorldProgress();
+    }
 
     public override void OnWorldUnload()
     {
         Encounters.Clear();
         PendingAwards.Clear();
+        StoredModBosses.Clear();
+        CurrentWorldBosses.Clear();
     }
 
     public override void PostUpdateNPCs()
@@ -45,6 +87,9 @@ public sealed class FranEvolutionBossSystem : ModSystem
             return;
 
         ulong now = Main.GameUpdateCount;
+        if (now % 30 == 0 && RefreshCurrentWorldProgress())
+            SynchronizePlayersWithWorldProgress();
+
         if (now % 30 == 0)
             RecordNearbyParticipants(now);
 
@@ -89,6 +134,7 @@ public sealed class FranEvolutionBossSystem : ModSystem
         EncounterState state = GetOrCreate(key);
         state.LastSeenTick = Main.GameUpdateCount;
         state.LastPosition = npc.Center;
+        state.CompletionQueuedAsNew |= !CurrentWorldBosses.Contains(key);
         PendingAwards[key] = npc.Center;
     }
 
@@ -176,6 +222,82 @@ public sealed class FranEvolutionBossSystem : ModSystem
                 points += GetPointReward(key);
         return Math.Clamp(points, 0, ushort.MaxValue);
     }
+
+    internal static void RefreshPlayerFromCurrentWorld(FranEvolutionPlayer evolution)
+    {
+        if (evolution is null || Main.netMode == NetmodeID.MultiplayerClient)
+            return;
+        RefreshCurrentWorldProgress();
+        evolution.ApplyWorldProgress(CurrentWorldBosses);
+    }
+
+    private static bool RefreshCurrentWorldProgress()
+    {
+        HashSet<string> refreshed = new(StoredModBosses, StringComparer.Ordinal);
+        AddVanillaBossProgress(refreshed);
+        if (CurrentWorldBosses.SetEquals(refreshed))
+            return false;
+
+        CurrentWorldBosses.Clear();
+        CurrentWorldBosses.UnionWith(refreshed);
+        return true;
+    }
+
+    private static bool TryRegisterWorldBossCompletion(string key)
+    {
+        if (!IsValidBossKey(key))
+            return false;
+
+        bool wasCompleted = CurrentWorldBosses.Contains(key);
+        if (!IsVanillaProgressKey(key) && StoredModBosses.Count < FranEvolutionInfo.MaximumClaimedBosses)
+            StoredModBosses.Add(key);
+
+        bool changed = RefreshCurrentWorldProgress();
+        if (changed)
+            SynchronizePlayersWithWorldProgress();
+        return !wasCompleted && CurrentWorldBosses.Contains(key);
+    }
+
+    private static void SynchronizePlayersWithWorldProgress()
+    {
+        foreach (Player player in Main.ActivePlayers)
+        {
+            FranEvolutionPlayer evolution = player.GetModPlayer<FranEvolutionPlayer>();
+            if (!evolution.ApplyWorldProgress(CurrentWorldBosses) || Main.netMode != NetmodeID.Server)
+                continue;
+            FranModMain.BroadcastEvolutionState(player);
+        }
+    }
+
+    private static void AddVanillaBossProgress(HashSet<string> bosses)
+    {
+        AddIfDowned(bosses, "Terraria/KingSlime", NPC.downedSlimeKing);
+        AddIfDowned(bosses, "Terraria/EyeOfCthulhu", NPC.downedBoss1);
+        AddIfDowned(bosses, "Terraria/WorldEvil", NPC.downedBoss2);
+        AddIfDowned(bosses, "Terraria/QueenBee", NPC.downedQueenBee);
+        AddIfDowned(bosses, "Terraria/Deerclops", NPC.downedDeerclops);
+        AddIfDowned(bosses, "Terraria/Skeletron", NPC.downedBoss3);
+        AddIfDowned(bosses, "Terraria/WallOfFlesh", Main.hardMode);
+        AddIfDowned(bosses, "Terraria/QueenSlime", NPC.downedQueenSlime);
+        AddIfDowned(bosses, "Terraria/Destroyer", NPC.downedMechBoss1);
+        AddIfDowned(bosses, "Terraria/Twins", NPC.downedMechBoss2);
+        AddIfDowned(bosses, "Terraria/SkeletronPrime", NPC.downedMechBoss3);
+        AddIfDowned(bosses, "Terraria/Plantera", NPC.downedPlantBoss);
+        AddIfDowned(bosses, "Terraria/Golem", NPC.downedGolemBoss);
+        AddIfDowned(bosses, "Terraria/DukeFishron", NPC.downedFishron);
+        AddIfDowned(bosses, "Terraria/EmpressOfLight", NPC.downedEmpressOfLight);
+        AddIfDowned(bosses, "Terraria/LunaticCultist", NPC.downedAncientCultist);
+        AddIfDowned(bosses, "Terraria/Betsy", DD2Event.DownedInvasionT3);
+        AddIfDowned(bosses, "Terraria/MoonLord", NPC.downedMoonlord);
+    }
+
+    private static void AddIfDowned(HashSet<string> bosses, string key, bool downed)
+    {
+        if (downed)
+            bosses.Add(key);
+    }
+
+    private static bool IsVanillaProgressKey(string key) => key.StartsWith("Terraria/", StringComparison.Ordinal);
 
     internal static bool TryGetBossKey(NPC npc, out string key)
     {
@@ -275,6 +397,14 @@ public sealed class FranEvolutionBossSystem : ModSystem
         if (!Encounters.TryGetValue(key, out EncounterState state))
             return;
 
+        bool showFirstCompletionVfx = state.CompletionQueuedAsNew;
+        bool newlyCompleted = TryRegisterWorldBossCompletion(key);
+        if (!showFirstCompletionVfx && !newlyCompleted)
+        {
+            Encounters.Remove(key);
+            return;
+        }
+
         int pointReward = GetPointReward(key);
 
         foreach (int playerIndex in state.Participants)
@@ -286,12 +416,6 @@ public sealed class FranEvolutionBossSystem : ModSystem
             if (!player.active || (!fran.FranMode && !fran.HasTeacher))
                 continue;
 
-            FranEvolutionPlayer evolution = player.GetModPlayer<FranEvolutionPlayer>();
-            if (!evolution.TryClaimBoss(key))
-                continue;
-
-            if (Main.netMode == NetmodeID.Server)
-                FranModMain.BroadcastEvolutionState(player);
             int projectileIndex = Projectile.NewProjectile(new EntitySource_Misc("FranBossMagicStone"),
                 deathPosition, Vector2.Zero, ModContent.ProjectileType<FranMagicStoneAbsorptionVfx>(),
                 0, 0f, playerIndex, playerIndex, pointReward);

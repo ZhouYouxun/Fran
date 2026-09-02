@@ -1,11 +1,9 @@
 using System;
-using FranMod.Content.Projectiles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.Audio;
 using Terraria.DataStructures;
-using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -15,8 +13,7 @@ namespace FranMod.Particles;
 /// 主武器命中后向斩击前方甩出的“战术液滴/撕裂碎屑”。
 /// <para>
 /// 这个类是可复用的完整弹幕：它自己负责飞行、短暂无伤害期、拖尾绘制、落地/命中后的消散粒子，
-/// 不依赖其他模组。弹幕主题贴图使用原版 Terraria 的 Extra 98（SharpTears），
-/// 液滴轮廓和消散碎屑则复用 Fran 自己的粒子贴图。
+/// 不依赖其他模组。弹幕本体直接使用 Fran 的 BOLT，命中后的消散碎屑复用 Fran 自己的粒子贴图。
 /// </para>
 /// <para>
 /// 【给后续维护者的最简单用法】调用 <see cref="SpawnCone"/>：
@@ -26,7 +23,7 @@ namespace FranMod.Particles;
 /// </code>
 /// 不传最后一个 color 参数时默认为白色；需要跟随战术附着时，传入
 /// <c>FranSkillInfo.Color(skill)</c>。颜色会写进 Projectile.ai[0..2]，因此联机同步时不依赖客户端自行猜测。
-/// direction 是喷射方向，也是 SharpTears 的视觉长轴方向；不要为了“看起来横着”再手动旋转 90 度。
+/// direction 是喷射方向；BOLT 的原生长轴为竖直方向，绘制时由本类统一对齐飞行方向。
 /// </para>
 /// </summary>
 public sealed class FranTacticalEjecta : ModProjectile
@@ -50,7 +47,7 @@ public sealed class FranTacticalEjecta : ModProjectile
         }
     }
 
-    public override string Texture => "Terraria/Images/Extra_98";
+    public override string Texture => "Fran/Textures/BOLT";
 
     public override void SetStaticDefaults()
     {
@@ -183,71 +180,29 @@ public sealed class FranTacticalEjecta : ModProjectile
         float fadeIn = MathHelper.Clamp(Age / 4f, 0f, 1f);
         float fadeOut = MathHelper.Clamp(Projectile.timeLeft / 10f, 0f, 1f);
         float fade = Math.Min(fadeIn, fadeOut);
-        float pulse = 0.92f + MathF.Sin(Age * 0.62f) * 0.08f;
+        Texture2D texture = ModContent.Request<Texture2D>(Texture).Value;
+        Color drawColor = Color.Lerp(Color.White, tint, 0.58f);
 
-        DrawStableLiquidBody(tint, fade, pulse);
-        FranVfx.BeginAdditive();
-        DrawEmissiveTears(tint, fade, pulse);
-        FranVfx.EndAdditive();
+        // Only a few faint BOLT impressions remain behind the projectile. This keeps the silhouette clean
+        // and removes the old WaterGlob + NoiseSharp + SharpTears + bloom stack.
+        for (int i = Math.Min(8, Projectile.oldPos.Length - 1); i >= 2; i -= 2)
+        {
+            if (Projectile.oldPos[i] == Vector2.Zero)
+                continue;
+            float strength = 1f - i / 10f;
+            DrawBolt(texture, Projectile.oldPos[i] + Projectile.Size * 0.5f, Projectile.oldRot[i],
+                drawColor * (fade * strength * 0.20f), Projectile.scale * (0.72f + strength * 0.12f));
+        }
+
+        DrawBolt(texture, Projectile.Center, Projectile.rotation, drawColor * fade, Projectile.scale);
         return false;
     }
 
-    private void DrawStableLiquidBody(Color tint, float fade, float pulse)
+    private static void DrawBolt(Texture2D texture, Vector2 worldPosition, float rotation, Color color, float scale)
     {
-        // 这里不用 MagicPixel 手拉长条，而是用有轮廓的 WaterGlob 逐层重叠，避免廉价矩形感。
-        Color shadow = Color.Lerp(tint, new Color(12, 13, 20), 0.68f);
-        for (int i = Projectile.oldPos.Length - 1; i >= 1; i--)
-        {
-            if (Projectile.oldPos[i] == Vector2.Zero)
-                continue;
-            float strength = 1f - i / (float)Projectile.oldPos.Length;
-            Vector2 center = Projectile.oldPos[i] + Projectile.Size * 0.5f;
-            float length = MathHelper.Lerp(5f, 19f, strength) * Projectile.scale;
-            float width = MathHelper.Lerp(2f, 8f, strength * strength) * Projectile.scale;
-            FranParticleAssets.DrawPixels(Main.spriteBatch, "WaterGlob", center,
-                shadow * (fade * strength * 0.78f), Projectile.oldRot[i], new Vector2(length, width));
-        }
-
-        FranParticleAssets.DrawPixels(Main.spriteBatch, "WaterGlob", Projectile.Center,
-            shadow * (0.92f * fade), Projectile.rotation,
-            new Vector2(27f, 13f) * Projectile.scale * pulse);
-        FranParticleAssets.DrawPixels(Main.spriteBatch, "NoiseSharp", Projectile.Center,
-            Color.Lerp(tint, Color.White, 0.12f) * (0.52f * fade), Projectile.rotation,
-            new Vector2(21f, 5f) * Projectile.scale * pulse);
-    }
-
-    private void DrawEmissiveTears(Color tint, float fade, float pulse)
-    {
-        for (int i = Projectile.oldPos.Length - 1; i >= 1; i--)
-        {
-            if (Projectile.oldPos[i] == Vector2.Zero)
-                continue;
-            float strength = 1f - i / (float)Projectile.oldPos.Length;
-            Vector2 center = Projectile.oldPos[i] + Projectile.Size * 0.5f;
-            DrawSharpTear(center, Projectile.oldRot[i], tint,
-                22f * Projectile.scale, 6f * Projectile.scale, fade * strength * 0.22f);
-        }
-
-        DrawSharpTear(Projectile.Center, Projectile.rotation, tint,
-            38f * Projectile.scale * pulse, 13f * Projectile.scale, 0.78f * fade);
-        DrawSharpTear(Projectile.Center, Projectile.rotation, Color.Lerp(tint, Color.White, 0.76f),
-            24f * Projectile.scale * pulse, 4f * Projectile.scale, 0.82f * fade);
-        FranParticleAssets.DrawPixels(Main.spriteBatch, "BloomCircle", Projectile.Center,
-            tint * (0.32f * fade), 0f, Vector2.One * 25f * Projectile.scale);
-    }
-
-    private static void DrawSharpTear(Vector2 worldPosition, float rotation, Color color,
-        float length, float width, float opacity)
-    {
-        if (length <= 0f || width <= 0f || opacity <= 0f)
-            return;
-
-        Texture2D texture = TextureAssets.Extra[ExtrasID.SharpTears].Value;
-        Vector2 scale = new(width / Math.Max(1f, texture.Width), length / Math.Max(1f, texture.Height));
-        // SharpTears 的原生长轴是竖直方向，因此这里统一补 90 度；调用方只需传正常运动朝向。
-        Main.spriteBatch.Draw(texture, worldPosition - Main.screenPosition, null,
-            color * MathHelper.Clamp(opacity, 0f, 1f), rotation + MathHelper.PiOver2,
-            texture.Size() * 0.5f, scale, SpriteEffects.None, 0f);
+        Main.spriteBatch.Draw(texture, worldPosition - Main.screenPosition, null, color,
+            rotation + MathHelper.PiOver2, texture.Size() * 0.5f,
+            new Vector2(0.82f, 0.94f) * scale, SpriteEffects.None, 0f);
     }
 
     /// <summary>
@@ -291,8 +246,8 @@ public sealed class FranTacticalEjecta : ModProjectile
 }
 
 /// <summary>
-/// 战术液滴消散时飞出的非发光实体碎屑。它与弹幕的 SharpTears 绘制是两层不同的视觉：
-/// 弹幕负责“看见一滴东西在飞”，本粒子负责“它撞碎之后还留下有重量的液体残片”。
+/// 战术液滴消散时飞出的非发光实体碎屑。它与弹幕的 BOLT 本体是两层不同的视觉：
+/// BOLT 负责“看见一滴东西在飞”，本粒子负责“它撞碎之后还留下有重量的液体残片”。
 /// </summary>
 internal sealed class FranTacticalDropletParticle : FranParticle
 {

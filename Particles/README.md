@@ -1,16 +1,29 @@
 # Fran 粒子与武器特效库
 
-本目录是 Fran 私人本地版本的正式运行特效库。所有运行路径均使用 `Fran/Particles/Textures/`，不再依赖素材总览目录。
+本目录是 Fran 私人本地版本的粒子“VIP 房间”。拥有专属位图的单贴图粒子必须把
+`类名.cs` 与 `类名.png` 放在这里，并通过 `Fran/Particles/<类名>` 加载。粒子系统使用的共享
+Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存完整副本；原图可以继续保留在
+`Textures/Particles` 或 `Assets/OriginalVFX`，供弹幕 `PreDraw` 和其他非粒子绘制器使用。
+
+`FranParticleCore.cs`、`FranParticleEffects.cs`、`FranParticleTypes.cs` 等框架/集合文件会管理多个
+粒子或根本不直接绘图，因此不创建无意义的同名占位 PNG；一一对应规则只针对拥有唯一专属
+主贴图的粒子类。共享贴图是否齐全则以 `Textures/Particles/*.png` 到本目录的哈希一致镜像为准。
 
 ## 使用边界
 
-- `Textures` 中原先与 Calamity/Redemption 参考目录相同的占位图已经全部替换成 Fran 原创用途变体；旧 `Cal_`、`Red_` 前缀只保留为稳定运行时接口。
+- `FranGlowOrbParticle.png` 与 `FranSmallBloomParticle.png` 由用户确认已取得 Calamity 作者授权，
+  本目录保存原文件哈希一致的副本；它们不再通过 Calamity 运行时路径加载。
+- `FranBoltParticle.cs/.png`、`FranSkillGlyphParticle.cs/.png`、`FranGlowOrbParticle.cs/.png`、
+  `FranSmallBloomParticle.cs/.png` 是当前强制执行的一一对应专属资源。
+- `Textures/Particles` 的共享材质在本目录保留哈希一致副本；`FranParticleAssets` 只从 VIP 路径读取。
+- 粒子用到的 `FranPressureNeedle`、`FranFlashFourPoint`、`FranResonanceOrb` 同样在 VIP 保存副本，不跨区读取 `Assets/OriginalVFX`。
+- `LargeBloom.png` 即使已进入 VIP，仍属于大面积完整绘制素材，只能作为受控绘制层使用，禁止交给粒子生成器批量释放。
 - KS 等已确认许可库资源保持原样；`FranMysticGlyph1`～`5` 是作者从自己的 `CalamityThrowingSpear` 项目明确授权直接复制的五张自绘字形。
 - 若未来增加任何外来图片，必须先记录来源与许可，并重新执行资源指纹审计。
 
 ## 自定义粒子类型
 
-当前共有 24 种拥有独立更新/绘制逻辑的 Fran 粒子：
+当前共有 31 种拥有独立更新/绘制逻辑的 Fran 粒子：
 
 1. `FranGlowOrbParticle`：能量球、蓄能核心、命中 Bloom。
 2. `FranSparkParticle`：有色外焰与白热核心组成的高速火花。
@@ -36,15 +49,22 @@
 22. `FranRingPulseParticle`：真正圆环或可压扁为透视椭圆的扩散环，与方向性命中环分工。
 23. `FranMysticGlyphParticle`：五张作者自绘字形随机轮换，使用 AlphaBlend 保住细线主体。
 24. `FranBlackLightCoreParticle`：AlphaBlend 黑色遮光核心；必须另叠有色 Additive 外缘，禁止把纯黑直接送入 Additive。
+25. `FranSmallBloomParticle`：小尺寸、轮廓明确的授权 Bloom；像素尺寸被硬限制在 40px 内，供爆炸碎光等粒子层使用。
+26. `FranBloomCirclePulseParticle`：只绘制 `CL_BloomCircle`，不附加 SoftBloom/HardBloom 底盘；用于紫色 Nova 弹体、尾迹和分层爆发。
+27. `FranLightParticle`：由 BloomCircle 与纵向 GlowSpark 组合的通用亮点，支持速度挤压。
+28. `FranHalleyPulseRingParticle`：念动彗星专用的脉冲环，使用同名 VIP 贴图。
+29. `FranHalleySparkParticle`：念动彗星专用的拉伸火花，使用同名 VIP 贴图。
+30. `FranConstellationMoteParticle`：星座组控制的轨道亮点，按共享组生命周期更新。
+31. `FranTacticalDropletParticle`：蓝辉等战术使用的液滴/碎液粒子。
 
 `FranHeartSeekerProjectile` 是能造成伤害的心形追踪弹幕，不属于纯视觉粒子；它保持服务端伤害判定，视觉上调用 Heart 与 StarMote。
 
 ## 系统文件
 
-- `FranParticleCore.cs`：粒子生命周期、上限、延迟生成、前后绘制层与 Alpha/Additive 分流。
+- `FranParticleCore.cs`：粒子生命周期、上限、延迟生成、前后绘制层、Alpha/Additive 分流与专属同名贴图入口。
 - `FranParticleTypes.cs`：除闪电外的主要粒子类型。
 - `FranExpandedParticles.cs`：气针、Bloom、圆环、五字形和黑光核心。
-- `FranVanillaDustEffects.cs`：原版 Dust 的统一配额、技能配色、挥舞、释放、飞行与命中入口。
+- `FranVanillaDustEffects.cs`：原版 Dust 的统一配额和动作意图；每接纳 4 个自定义粒子固定生成 1 个 Dust。
 - `FranBoltParticle.cs`：独立闪电粒子文件。
 - `FranParticleEffects.cs`：供武器调用的组合效果与兼容入口。
 - 根目录 `FranLightingBoltsSystem.cs`：由用户自有 `CLCBLightingBoltsSystem` 移植，负责 Terraria 原生池化 Sparkle 和 Fran 粒子的组合图案。
@@ -101,7 +121,8 @@
 
 ## 原版 Dust 的 20% 辅助层
 
-- 这里的 20% 按“粒子数量预算”实现：每 4 个自定义粒子配约 1 个原版 Dust，即 `1 / (4 + 1) = 20%`；连续拖尾按其已有自定义粒子频率换算为约 1/6～1/8 帧一个 Dust。
+- 这里的 20% 按“粒子数量预算”在 `FranParticleSystem.Spawn` 统一实现：每接纳 4 个自定义粒子固定配 1 个原版 Dust，即 `1 / (4 + 1) = 20%`。
+- Dust 的位置、运动轴、侧向偏移、类型与颜色来自粒子本身和最近的技能动作意图；只使用固定节奏序列，不再用随机方向、随机速度掩盖缺少设计的问题。
 - 左键四段在有效挥舞期持续生成刃缘 Dust，命中再按自定义粒子数补足碎屑；不再是每 2～3 帧偶尔出现一个几乎看不见的点。
 - 八种技能统一经过技能释放 Dust；`FranBurst` 的所有爆发类型统一经过命中 Dust；气针、夺取飞灵、无目标分身和雷神锤另外拥有低频飞行 Dust。
 - Dust 只承担约五分之一的小尺度火花、烟屑、魔力碎点和环境噪声。弹幕主体、shader 拖尾、Bloom、环和关键冲击帧仍由原创纹理与自定义粒子承担。

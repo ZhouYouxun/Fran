@@ -5,9 +5,11 @@ Mods: {
 				DisplayName: 弗兰的头饰
 				Tooltip:
 					'''
-					将本物品放在背包中并标记为收藏，即可进入“弗兰人物模式”
+					将本物品放在背包中并标记为收藏，
+					即可进入“弗兰人物模式”
 					效果与把角色命名为“Fran / フラン / 弗兰”完全相同
-					开启弗兰外观框架、黑猫族战士本能、冲刺、黑天虎大招与师父系统
+					开启弗兰外观框架、黑猫族战士本能、
+					冲刺、黑天虎大招与师父系统
 					测试版暂时使用原版猫耳图标
 					'''
 			}
@@ -17,14 +19,23 @@ Mods: {
 				Tooltip:
 					'''
 					与弗兰绑定的传奇智慧武器
-					持续左键：循环使用横向扫斩、反身上挑、突进刺击与沉重斩落
-					按住右键打开术式轮盘，在目标扇区松开右键即可把术式嵌入四段剑术
+					持续左键：循环使用横向扫斩、反身上挑、
+					突进刺击与沉重斩落
+					按住右键打开术式轮盘，
+					在目标扇区松开右键即可把术式嵌入四段剑术
 					按[c/C3B2F5:魔石回廊]（默认J）分配通过Boss战获得的自我进化点
-					在轮盘中央松开右键可卸下术式；未装备术式时使用纯粹四段剑术
-					大招能量会在三分钟内自动充满；满值后按[c/8CDFFF:大招]（默认G）立即发动连续斩杀
-					手持其他武器时，师父会漂浮在弗兰身后，不会禁用其他职业
-					非弗兰人物只要实际持有师父，也可以使用左键连段和右键技能；人物被动仍只属于弗兰模式
-					师父不能丢弃、出售、研究、放入垃圾桶或留在仓库；建立绑定后会永久召回
+					在轮盘中央松开右键可卸下术式；
+					未装备术式时使用纯粹四段剑术
+					大招能量会在三分钟内自动充满；
+					满值后按[c/8CDFFF:大招]（默认G）立即发动连续斩杀
+					手持其他武器时，师父会漂浮在弗兰身后，
+					不会禁用其他职业
+					非弗兰人物只要实际持有师父，
+					也可以使用左键连段和右键技能；
+					人物被动仍只属于弗兰模式
+					师父不能丢弃、出售、研究，
+					不能放入垃圾桶或留在仓库；
+					建立绑定后会永久召回
 					武器伤害与可用技能会随世界流程成长
 					'''
 			}
@@ -46,9 +57,11 @@ Mods: {
 				Tooltip:
 					'''
 					开发工具：使用后打开仅包含原版Boss的进度面板
-					点击头像可设置或清除当前世界的击败标记；底部按钮可批量调整阶段
+					点击头像可设置或清除当前世界的击败标记；
+					底部按钮可批量调整阶段
 					多人模式的修改请求由服务器校验并执行
-					本工具只修改流程标记，不会逆转世界已经发生的永久地形转化
+					本工具只修改流程标记，
+					不会逆转世界已经发生的永久地形转化
 					'''
 			}
 		}
@@ -98,9 +111,9 @@ Mods: {
 			UltimateCharge: 黑天虎：{0}%
 			UltimateReady: 黑天虎·绝闪 READY
 			PureSwordsmanship: 纯剑术核心
-			PureSwordsmanshipDescription: 下方槽位全部卸下后即为纯剑术；四段师父剑术始终保留，战术只会叠加到剑术之上
+			PureSwordsmanshipDescription: "下方槽位全部卸下后即为纯剑术；\n四段师父剑术始终保留，\n战术只会叠加到剑术之上"
 			TacticSlots: 战术槽位：{0}/{1}
-			TacticControls: 左键上方图标装配｜左键下方槽位卸下｜再次右键或打开背包关闭
+			TacticControls: "左键星轮图标装配｜\n左键轮盘下方已装配图标卸下｜\n再次右键或打开背包关闭"
 			TacticLayerDetails: 当前已装备 {0} 层｜第一层：{1}｜后续每层：{2}
 			TacticEquipped: 已装配：{0} ×{1}
 			TacticUnequipped: 已卸下：{0}（剩余×{1}）
@@ -152,11 +165,11 @@ Mods: {
 
 		Notices: {
 			IntroTitle: 【弗兰人物模式已启动：师父已经回到你身边】
-			IntroCombat: 持续左键使用四段大剑连击；手持其他武器时，师父会浮在身后
-			IntroSkills: 右键打开或关闭战术轮盘；左键上方图标可重复装配，左键下方槽位卸下；背包打开时轮盘自动关闭
-			IntroEvolution: 实际参与Boss击杀可吸收独立魔石；按J打开魔石回廊，决定师父、弗兰与师徒共鸣的长期进化方向
-			IntroDash: 已绑定弗兰冲刺键时仅按该键冲刺；未绑定时双击左右方向键冲刺；其他装备冲刺优先
-			IntroPotential: 大招能量会随在线时间自动积攒三分钟；满值后按G立即发动黑天虎连续斩杀
+			IntroCombat: "持续左键使用四段大剑连击；\n手持其他武器时，师父会浮在身后"
+			IntroSkills: "右键打开或关闭战术轮盘；\n左键上方图标可重复装配，\n左键下方槽位卸下；\n背包打开时轮盘自动关闭"
+			IntroEvolution: "实际参与Boss击杀可吸收独立魔石；\n按J打开魔石回廊，\n决定师父、弗兰与师徒共鸣的长期进化方向"
+			IntroDash: "已绑定弗兰冲刺键时仅按该键冲刺；\n未绑定时双击左右方向键冲刺；\n其他装备冲刺优先"
+			IntroPotential: "大招能量会随在线时间自动积攒三分钟；\n满值后按G立即发动黑天虎连续斩杀"
 		}
 
 		Abilities: {
@@ -207,7 +220,7 @@ Mods: {
 			OpenHint: 打开魔石回廊（默认J）
 			Tooltip: 魔石回廊：{0}点可用 / 累计{1}点；按J展开三组星座
 			PointSummary: 可用 {0}　已投入 {1}　累计 {2}　当前阶段上限 {3}
-			Overview: 首次参与击败每种Boss可获得2～5点。中央核心向上、左下、右下展开师父、弗兰与师徒共鸣三组星座；指向星点查看效果。
+			Overview: "点数由当前世界的Boss进度自动决定。\n中央核心向上、左下、右下展开师父、\n弗兰与师徒共鸣三组星座；\n指向星点查看效果。"
 			MagicStoneAcquired: 获得魔石刻印·自我进化点 +{0}
 			NodeUnlocked: 自我进化：{0}
 			ResetFree: ✦ 单击免费重置 ✦
@@ -234,42 +247,42 @@ Mods: {
 			Nodes: {
 				EdgeCalibration: {
 					DisplayName: 锋刃校准
-					Description: 师父本体剑刃的攻击距离与判定范围提高6%；不强化技能弹幕。
+					Description: "师父本体剑刃的攻击距离与判定范围提高6%；\n不强化技能弹幕。"
 				}
 
 				ComboCalculation: {
 					DisplayName: 连击演算
-					Description: 按顺序命中四段基础剑术时，下一段剑刃直击伤害依次提高3%、6%、9%；中断后重置。
+					Description: "按顺序命中四段基础剑术时，\n下一段剑刃直击伤害依次提高3%、6%、9%；\n中断后重置。"
 				}
 
 				MagicStoneAnalysis: {
 					DisplayName: 魔石解析
-					Description: 6秒内以四段基础剑术依次命中同一Boss，使其被解析8秒；剑刃直击获得12点护甲穿透。
+					Description: "6秒内以四段基础剑术依次命中同一Boss，\n使其被解析8秒；剑刃直击获得12点护甲穿透。"
 				}
 
 				SelfEvolution: {
 					DisplayName: 自我进化
-					Description: 完成四段剑刃直击后储存一次进化回响；下一轮第一剑追加50%伤害的近距离剑影，且不会触发战术术式。
+					Description: "完成四段剑刃直击后储存一次进化回响；\n下一轮第一剑追加50%伤害的近距离剑影，\n且不会触发战术术式。"
 				}
 
 				CatStep: {
 					DisplayName: 猫步
-					Description: 弗兰冲刺冷却由50帧降至42帧；冲刺期间暂停基础连击的中断计时。
+					Description: "弗兰冲刺冷却由50帧降至42帧；\n冲刺期间暂停基础连击的中断计时。"
 				}
 
 				AerialHunt: {
 					DisplayName: 立体狩猎
-					Description: 主动冲刺键支持八方向冲刺：优先采用方向输入，无输入时指向鼠标；双击方向键仍保持水平冲刺。
+					Description: "主动冲刺键支持八方向冲刺：\n优先采用方向输入，无输入时指向鼠标；\n双击方向键仍保持水平冲刺。"
 				}
 
 				HuntingTempo: {
 					DisplayName: 猎场连携
-					Description: 冲刺接触敌人后储存一次猎手节奏；下一次师父本体挥砍的持续时间缩短12%。
+					Description: "冲刺接触敌人后储存一次猎手节奏；\n下一次师父本体挥砍的持续时间缩短12%。"
 				}
 
 				EvolvedFootwork: {
 					DisplayName: 进化之足
-					Description: 冲刺命中新目标时返还当前剩余冷却的60%；同一敌人180帧内只能触发一次。
+					Description: "冲刺命中新目标时返还当前剩余冷却的60%；\n同一敌人180帧内只能触发一次。"
 				}
 
 				MindSync: {
@@ -279,42 +292,42 @@ Mods: {
 
 				SharedRhythm: {
 					DisplayName: 共同步调
-					Description: 按顺序进入第四段基础剑术时，该段挥剑持续时间缩短12%。
+					Description: "按顺序进入第四段基础剑术时，\n该段挥剑持续时间缩短12%。"
 				}
 
 				ResonantPull: {
 					DisplayName: 共鸣牵引
-					Description: 师父本体剑刃命中普通敌人时，将其小幅拉向剑锋；Boss和完全抗击退目标不受影响。
+					Description: "师父本体剑刃命中普通敌人时，\n将其小幅拉向剑锋；\nBoss和完全抗击退目标不受影响。"
 				}
 
 				OneAsSword: {
 					DisplayName: 人剑一体
-					Description: 不受伤完成四段剑刃直击后，基础挥剑速度与剑刃范围提高10%，持续5秒；受伤立即结束。
+					Description: "不受伤完成四段剑刃直击后，\n基础挥剑速度与剑刃范围提高10%，持续5秒；\n受伤立即结束。"
 				}
 
 				ArcaneCirculation: {
 					DisplayName: 术式循环
-					Description: 携带师父时魔力消耗降低8%；师父本体剑刃的距离在锋刃校准基础上再提高4%。
+					Description: "携带师父时魔力消耗降低8%；\n师父本体剑刃的距离在锋刃校准基础上\n再提高4%。"
 				}
 
 				DeeperAnalysis: {
 					DisplayName: 深层解析
-					Description: 已解析Boss承受剑刃直击时的护甲穿透由12提高至18；进化回响伤害由50%提高至70%。
+					Description: "已解析Boss承受剑刃直击时的护甲穿透\n由12提高至18；进化回响伤害由50%提高至70%。"
 				}
 
 				SwordSaintReasoning: {
 					DisplayName: 剑圣演算
-					Description: 师父本体剑刃直击伤害提高6%；连击演算的三段增幅由3%/6%/9%提高至4%/8%/12%。
+					Description: "师父本体剑刃直击伤害提高6%；\n连击演算的三段增幅由3%/6%/9%\n提高至4%/8%/12%。"
 				}
 
 				FelineReflex: {
 					DisplayName: 猫之反射
-					Description: 弗兰冲刺冷却由42帧进一步降至38帧；携带师父时移动速度提高5%。
+					Description: "弗兰冲刺冷却由42帧进一步降至38帧；\n携带师父时移动速度提高5%。"
 				}
 
 				SkyHunter: {
 					DisplayName: 天空猎手
-					Description: 弗兰主动冲刺速度提高10%，八方向冲刺更适合空中追击与脱离。
+					Description: "弗兰主动冲刺速度提高10%，\n八方向冲刺更适合空中追击与脱离。"
 				}
 
 				PredatorSight: {
@@ -324,12 +337,12 @@ Mods: {
 
 				PhantomStep: {
 					DisplayName: 幻影步
-					Description: 每次主动冲刺额外获得4帧碰撞伤害免疫，使贴身穿越敌人更加稳定。
+					Description: "每次主动冲刺额外获得4帧碰撞伤害免疫，\n使贴身穿越敌人更加稳定。"
 				}
 
 				BlackCatAwakening: {
 					DisplayName: 黑猫觉醒
-					Description: 冲刺冷却降至34帧、总速度增幅提高至15%、接触伤害提高至150%；进化之足返还75%冷却，猎手节奏缩短下一剑18%。
+					Description: "冲刺冷却降至34帧、总速度增幅提高至15%、\n接触伤害提高至150%；\n进化之足返还75%冷却，\n猎手节奏缩短下一剑18%。"
 				}
 
 				SharedMana: {
@@ -354,7 +367,7 @@ Mods: {
 
 				SynchronizedVolley: {
 					DisplayName: 同步齐射
-					Description: 携带师父时魔法伤害提高6%，强化师父释放的战术术式与弹幕。
+					Description: "携带师父时魔法伤害提高6%，\n强化师父释放的战术术式与弹幕。"
 				}
 
 				LimitResonance: {
@@ -364,12 +377,12 @@ Mods: {
 
 				MutualGrowth: {
 					DisplayName: 共同成长
-					Description: 人剑一体的挥剑速度与剑刃范围增幅由10%提高至12%，持续时间由5秒延长至7秒。
+					Description: "人剑一体的挥剑速度与剑刃范围增幅\n由10%提高至12%，持续时间由5秒延长至7秒。"
 				}
 
 				EternalContract: {
 					DisplayName: 永恒契约
-					Description: 携带师父时所有伤害提高5%，并额外获得20最大魔力与3点防御。
+					Description: "携带师父时所有伤害提高5%，\n并额外获得20最大魔力与3点防御。"
 				}
 			}
 		}
@@ -476,8 +489,8 @@ Mods: {
 
 			BlueResonance: {
 				DisplayName: 蓝辉共鸣
-				Description: 每次剑击命中都会留下延迟复写的蓝色共鸣剑痕；第四刀产生三重和弦，共鸣命中可周期性恢复生命
-				FirstLayer: 普通剑击产生1道延迟共鸣，第四刀产生3道，并可周期性恢复生命
+				Description: 每次剑击命中都会留下延迟复写的蓝色共鸣剑痕，并从目标处向上散射星光针；第四刀产生三重和弦，共鸣命中可周期性恢复生命
+				FirstLayer: 普通剑击产生1道延迟共鸣，第四刀产生3道；命中向上散射星光针，并可周期性恢复生命
 				AdditionalLayer: 每次命中额外增加1道共鸣剑痕
 			}
 
@@ -570,6 +583,7 @@ Mods: {
 			// FranTelekineticPlanetExplosion.DisplayName: Fran Telekinetic Planet Explosion
 			// FranTelekineticFlightVisual.DisplayName: Telekinetic Flight Visual
 			// FranTacticalEjecta.DisplayName: Fran Tactical Ejecta
+			// FranTelekineticHalleyBolt.DisplayName: Fran Telekinetic Halley Bolt
 		}
 	}
 }

@@ -55,14 +55,73 @@ internal static class FranParticleEffects
 
     public static void MeleeImpact(Vector2 center, Vector2 incomingDirection, Color color, int combo)
     {
-        int count = combo == 2 ? 20 : combo == 3 ? 15 : 10;
-        float speed = combo == 2 ? 12f : combo == 3 ? 10f : 7f;
-        SpawnImpact(center, incomingDirection, color, count, speed, combo == 2 ? 1.35f : 1f);
+        if (Main.dedServ)
+            return;
+
+        // Calamity's large sword hits generally use a small, authored set of direction-aligned
+        // cuts around one focal event. Keep that readable sentence here instead of emitting a
+        // randomized constellation of tiny stars on every contact.
+        incomingDirection = incomingDirection.SafeNormalize(Vector2.UnitX);
+        Vector2 normal = incomingDirection.RotatedBy(MathHelper.PiOver2);
+        float intensity = combo == 2 ? 1.22f : combo == 3 ? 1.08f : 0.94f;
         Spawn(new FranDirectionalRingParticle(center, Vector2.Zero, color,
-            new Vector2(0.08f, 0.16f), new Vector2(combo == 2 ? 0.9f : 0.62f, combo == 2 ? 0.42f : 0.28f),
-            incomingDirection.ToRotation(), combo == 2 ? 16 : 12));
-        Spawn(new FranGlowOrbParticle(center, Vector2.Zero, color, combo == 2 ? 0.42f : 0.28f, 0.03f,
-            combo == 2 ? 13 : 10, true));
+            new Vector2(0.07f, 0.13f), new Vector2(0.76f, 0.27f) * intensity,
+            incomingDirection.ToRotation(), combo == 2 ? 15 : 12));
+
+        int cutCount = combo == 2 ? 4 : combo == 3 ? 3 : 2;
+        float middle = (cutCount - 1f) * 0.5f;
+        for (int i = 0; i < cutCount; i++)
+        {
+            float lane = i - middle;
+            Vector2 cutDirection = incomingDirection.RotatedBy(lane * 0.085f);
+            Vector2 position = center - incomingDirection * (3f + MathF.Abs(lane) * 2f) + normal * lane * 6f;
+            Vector2 velocity = incomingDirection * (2.6f + i * 0.55f) + normal * lane * 1.15f;
+            Spawn(new FranBladeEdgeMoteParticle(position, velocity, cutDirection,
+                i == cutCount / 2 ? Color.White : color,
+                (combo == 2 ? 31f : 25f) - MathF.Abs(lane) * 3f,
+                combo == 2 ? 1.7f : 1.45f, combo == 2 ? 12 : 10));
+        }
+
+        float arcSide = combo == 3 ? -1f : 1f;
+        Spawn(new FranBladeArcFragmentParticle(center - incomingDirection * 4f,
+            incomingDirection * 0.7f + normal * arcSide * 0.28f, incomingDirection, color,
+            combo == 2 ? 32f : 26f, arcSide * (combo == 2 ? 0.86f : 0.68f),
+            combo == 2 ? 2.8f : 2.2f, combo == 2 ? 13 : 11, arcSide * 0.018f));
+    }
+
+    public static void PhantomBladeExplosion(Vector2 center, Vector2 direction, float scale = 1f)
+    {
+        if (Main.dedServ)
+            return;
+
+        direction = direction.SafeNormalize(Vector2.UnitX);
+        Color body = new(145, 215, 255);
+        Color edge = new(225, 248, 255);
+        Spawn(new FranDirectionalRingParticle(center, Vector2.Zero, body,
+            new Vector2(0.08f, 0.14f), new Vector2(0.88f, 0.34f) * scale,
+            direction.ToRotation(), 15));
+        Spawn(new FranSmallBloomParticle(center, Vector2.Zero, edge,
+            27f * scale, 7f * scale, 12));
+
+        // A five-lane forward fan reads as a blade breaking apart, not as another radial star.
+        for (int i = 0; i < 5; i++)
+        {
+            float lane = i - 2f;
+            Vector2 ray = direction.RotatedBy(lane * 0.31f);
+            float speed = (5.6f - MathF.Abs(lane) * 0.65f) * scale;
+            Spawn(new FranBladeEdgeMoteParticle(center + ray * 5f, ray * speed, ray,
+                i == 2 ? Color.White : body, (36f - MathF.Abs(lane) * 5f) * scale,
+                (i == 2 ? 2.1f : 1.55f) * scale, 14 + (2 - (int)MathF.Abs(lane))));
+        }
+
+        Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
+        for (int side = -1; side <= 1; side += 2)
+            Spawn(new FranBladeArcFragmentParticle(center + normal * side * 4f,
+                direction * 1.2f + normal * side * 1.6f, direction, body,
+                27f * scale, side * 0.82f, 2.4f * scale, 14, side * 0.035f));
+
+        FranVanillaDustEffects.Impact(center, direction, FranSkill.MultipleBodyCreation,
+            edge, 9, 0.92f * scale);
     }
 
     public static void SpawnImpact(Vector2 center, Vector2 direction, Color color, int count, float speed,
@@ -195,8 +254,7 @@ internal static class FranParticleEffects
                 StarlightOrbit(center, color, rotation * 17f);
                 break;
             case FranBurstStyle.SkillTaker:
-                HeartMagic(center, direction, color, scale, 8);
-                SpawnImpact(center, direction, color, 12, 7f * scale, scale);
+                SkillTakerNovaExplosion(center, direction, color, scale);
                 break;
             case FranBurstStyle.Barrier:
                 BarrierWard(center, color, scale);
@@ -236,6 +294,40 @@ internal static class FranParticleEffects
                 MeleeImpact(center, direction, color, 2);
                 break;
         }
+    }
+
+    private static void SkillTakerNovaExplosion(Vector2 center, Vector2 direction, Color color, float scale)
+    {
+        direction = direction.SafeNormalize(Vector2.UnitX);
+        Color pale = Color.Lerp(color, Color.White, 0.68f);
+        Color deep = Color.Lerp(color, new Color(72, 8, 112), 0.46f);
+
+        // Three differently timed circles give the detonation a bright core, a purple body and
+        // a slower afterglow without falling back to the generic HardBloom plate.
+        Spawn(new FranBloomCirclePulseParticle(center, Vector2.Zero, pale,
+            12f * scale, 58f * scale, 11, 0.96f));
+        Spawn(new FranBloomCirclePulseParticle(center, -direction * 0.18f, color,
+            22f * scale, 118f * scale, 18, 0.84f, spin: 0.025f));
+        Spawn(new FranBloomCirclePulseParticle(center, -direction * 0.10f, deep,
+            34f * scale, 146f * scale, 24, 0.52f, spin: -0.018f));
+        Spawn(new FranRingPulseParticle(center, Vector2.Zero, pale,
+            Vector2.One * 18f * scale, Vector2.One * 126f * scale, 18,
+            direction.ToRotation(), 0.026f, 0.78f));
+
+        float phase = direction.ToRotation();
+        for (int i = 0; i < 8; i++)
+        {
+            Vector2 ray = (phase + MathHelper.TwoPi * i / 8f).ToRotationVector2();
+            Color rayColor = i % 3 == 0 ? pale : color;
+            Spawn(new FranNeedleParticle(center + ray * 4f, ray * (4.8f + i % 2 * 1.1f) * scale,
+                rayColor, new Vector2(44f, 5.5f) * scale, new Vector2(9f, 1.4f) * scale,
+                13 + i % 3, ray.ToRotation(), 0.91f));
+            if (i % 2 == 0)
+                Spawn(new FranBloomCirclePulseParticle(center + ray * 8f, ray * 2.4f * scale,
+                    rayColor, 10f * scale, 24f * scale, 13, 0.62f, 0.90f));
+        }
+
+        FranVanillaDustEffects.Impact(center, direction, FranSkill.SkillTaker, pale, 16, scale);
     }
 
     public static void DashLaunch(Vector2 center, Vector2 velocity)

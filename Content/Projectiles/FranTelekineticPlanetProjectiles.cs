@@ -38,9 +38,14 @@ internal static class FranPlanetVisuals
 /// </summary>
 public sealed class FranTelekineticPlanet : ModProjectile
 {
+    private const int ExtraUpdates = 2;
+    private const int UpdatesPerTick = ExtraUpdates + 1;
+    private const int FadeOutTicks = 30;
     private int Variant => Math.Clamp((int)Projectile.ai[0], 0, 9);
     private float Age => Projectile.localAI[0];
-    private bool Impacted => Projectile.localAI[1] > 0f;
+    private float AgeTicks => Age / UpdatesPerTick;
+    private ref float FadeOutTimer => ref Projectile.ai[1];
+    private bool FadingOut => FadeOutTimer > 0f;
     private float Diameter => 54f + (uint)Projectile.identity % 17u;
     private float Spin => (Projectile.identity % 2 == 0 ? 1f : -1f) *
         (0.035f + (uint)Projectile.identity % 9u * 0.004f);
@@ -61,85 +66,132 @@ public sealed class FranTelekineticPlanet : ModProjectile
         Projectile.friendly = true;
         Projectile.hostile = false;
         Projectile.DamageType = DamageClass.Melee;
-        Projectile.penetrate = 1;
-        Projectile.timeLeft = 150;
+        Projectile.penetrate = 2;
+        Projectile.timeLeft = 150 * UpdatesPerTick;
         Projectile.tileCollide = true;
         Projectile.ignoreWater = true;
         Projectile.netImportant = true;
+        Projectile.extraUpdates = ExtraUpdates;
+        Projectile.usesLocalNPCImmunity = true;
+        Projectile.localNPCHitCooldown = 10 * UpdatesPerTick;
     }
 
-    public override bool? CanDamage() => Age >= 4f ? null : false;
+    public override bool? CanDamage() => !FadingOut && AgeTicks >= 4f ? null : false;
 
     public override void AI()
     {
         Projectile.localAI[0]++;
         Projectile.rotation += Spin;
-        Projectile.Opacity = MathHelper.Clamp(Age / 7f, 0f, 1f);
+        if (FadingOut)
+        {
+            UpdateFadeOut();
+            return;
+        }
+        Projectile.Opacity = MathHelper.Clamp(AgeTicks / 7f, 0f, 1f);
 
         Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitY);
-        float speed = Projectile.velocity.Length();
-        if (Age <= 14f)
+        float speedPerTick = Projectile.velocity.Length() * UpdatesPerTick;
+        if (AgeTicks <= 14f)
         {
             // The summoned mass visibly catches in the telekinetic field before being hurled.
-            speed = MathHelper.Lerp(speed, 6.4f, 0.16f);
+            speedPerTick = MathHelper.Lerp(speedPerTick, 9.6f, 0.16f / UpdatesPerTick);
         }
         else
         {
-            float accelerationProgress = MathHelper.Clamp((Age - 14f) / 40f, 0f, 1f);
+            float accelerationProgress = MathHelper.Clamp((AgeTicks - 14f) / 40f, 0f, 1f);
             accelerationProgress = accelerationProgress * accelerationProgress * (3f - 2f * accelerationProgress);
-            speed = Math.Min(31f, speed + MathHelper.Lerp(0.16f, 0.72f, accelerationProgress));
+            speedPerTick = Math.Min(46.5f, speedPerTick +
+                MathHelper.Lerp(0.16f, 0.72f, accelerationProgress) / UpdatesPerTick);
         }
-        Projectile.velocity = direction * speed;
+        Projectile.velocity = direction * (speedPerTick / UpdatesPerTick);
 
         Color color = FranPlanetVisuals.Palette(Variant);
         Lighting.AddLight(Projectile.Center, color.ToVector3() * 0.58f);
-        if (Main.dedServ)
+        if (Main.dedServ || Projectile.numUpdates != 0)
             return;
 
-        int timer = (int)Age;
-        if (timer % 3 == 0)
+        int timer = (int)AgeTicks;
+        Vector2 back = -direction;
+        Vector2 side = direction.RotatedBy(MathHelper.PiOver2);
+        float phase = Projectile.identity * 0.71f + timer * 1.13f;
+        if (timer % 2 == 0)
         {
-            Vector2 trailVelocity = -Projectile.velocity * Main.rand.NextFloat(0.08f, 0.16f) +
-                Main.rand.NextVector2Circular(0.8f, 0.8f);
+            float sideSign = timer % 4 == 0 ? 1f : -1f;
+            Vector2 trailVelocity = back * MathHelper.Lerp(1.8f, 3.4f,
+                MathHelper.Clamp(speedPerTick / 46.5f, 0f, 1f)) + side * sideSign * 0.72f;
             FranParticleSystem.Spawn(new FranLightParticle(Projectile.Center, trailVelocity,
-                Main.rand.NextFloat(0.30f, 0.50f), color, Main.rand.Next(15, 23), 0.72f, 1.25f, 2.6f));
+                0.30f + (timer % 3) * 0.05f, color, 16 + timer % 5, 0.72f, 1.25f, 2.6f));
         }
-        if (timer % 6 == 0)
+        if (timer % 5 == 0)
         {
             FranParticleSystem.Spawn(new FranGlowOrbParticle(
-                Projectile.Center + Main.rand.NextVector2Circular(8f, 8f),
-                -Projectile.velocity * 0.045f, color, Main.rand.NextFloat(0.18f, 0.28f), 0.03f,
-                Main.rand.Next(12, 18)));
-        }
-        if (timer % 4 == 0)
-        {
-            Dust dust = Dust.NewDustPerfect(Projectile.Center + Main.rand.NextVector2Circular(10f, 10f),
-                DustID.TintableDustLighted, -Projectile.velocity * 0.035f, 80, color, 0.82f);
-            dust.noGravity = true;
+                Projectile.Center + phase.ToRotationVector2() * 7f,
+                back * 1.25f + side * MathF.Sin(phase) * 0.45f, color,
+                0.20f + (timer % 2) * 0.04f, 0.03f, 14 + timer % 4));
         }
     }
 
-    public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone) => Impact();
+    public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
+    {
+        SpawnImpactExplosion();
+        // OnHitNPC runs before vanilla consumes penetration. Convert the final hit into a harmless
+        // fade state so the projectile is not killed abruptly when its second hit is spent.
+        if (Projectile.penetrate <= 1)
+            BeginFadeOut();
+    }
 
     public override bool OnTileCollide(Vector2 oldVelocity)
     {
-        Impact();
+        SpawnImpactExplosion();
+        BeginFadeOut();
         return false;
     }
 
-    private void Impact()
+    private void SpawnImpactExplosion()
     {
-        if (Impacted)
-            return;
-        Projectile.localAI[1] = 1f;
-
         if (Projectile.owner == Main.myPlayer)
         {
             Projectile.NewProjectile(Projectile.GetSource_FromThis(), Projectile.Center, Vector2.Zero,
                 ModContent.ProjectileType<FranTelekineticPlanetExplosion>(), Projectile.damage,
                 Projectile.knockBack, Projectile.owner, Variant, Diameter);
         }
-        Projectile.Kill();
+    }
+
+    private void BeginFadeOut()
+    {
+        if (FadingOut)
+            return;
+
+        FadeOutTimer = 1f;
+        Projectile.penetrate = -1;
+        Projectile.friendly = false;
+        Projectile.tileCollide = false;
+        Projectile.timeLeft = Math.Max(Projectile.timeLeft, FadeOutTicks * UpdatesPerTick + 2);
+        Projectile.netUpdate = true;
+    }
+
+    private void UpdateFadeOut()
+    {
+        FadeOutTimer++;
+        float completion = MathHelper.Clamp((FadeOutTimer - 1f) / (FadeOutTicks * UpdatesPerTick), 0f, 1f);
+        float fade = 1f - MathHelper.SmoothStep(0f, 1f, completion);
+        Projectile.Opacity = fade;
+
+        // Decelerate once per real game tick despite the projectile's extra updates.
+        if (Projectile.numUpdates == 0)
+            Projectile.velocity *= 0.90f;
+
+        Color color = FranPlanetVisuals.Palette(Variant);
+        Lighting.AddLight(Projectile.Center, color.ToVector3() * (0.42f * fade));
+        if (!Main.dedServ && Projectile.numUpdates == 0 && (int)(FadeOutTimer / UpdatesPerTick) % 4 == 0)
+        {
+            FranParticleSystem.Spawn(new FranGlowOrbParticle(Projectile.Center,
+                -Projectile.velocity.SafeNormalize(Vector2.UnitY) * 0.7f, color,
+                0.16f * fade, 0.02f, 12));
+        }
+
+        if (completion >= 1f)
+            Projectile.Kill();
     }
 
     public override bool PreDraw(ref Color lightColor)
@@ -198,34 +250,27 @@ public sealed class FranTelekineticPlanetExplosion : ModProjectile
 
         Color color = FranPlanetVisuals.Palette(Variant);
         SoundEngine.PlaySound(SoundID.Item14 with { Volume = 0.42f, Pitch = 0.24f }, Projectile.Center);
-        FranParticleEffects.BloomPulse(Projectile.Center, color, Diameter * 0.32f, Diameter * 2.2f,
-            18, 0.78f, true);
-        FranParticleEffects.RingPulse(Projectile.Center, Color.Lerp(color, Color.White, 0.34f),
-            Vector2.One * Diameter * 0.34f, Vector2.One * Diameter * 1.9f, 18,
-            Main.rand.NextFloat(MathHelper.TwoPi), Main.rand.NextFloat(-0.04f, 0.04f), 0.86f);
-        FranParticleEffects.SpawnImpact(Projectile.Center, Main.rand.NextVector2Unit(), color,
-            10, 8.6f, 0.92f);
-        FranParticleEffects.MysticGlyphs(Projectile.Center, color, 2, Diameter * 0.72f, 0.58f);
+        float phase = Projectile.identity * 0.618f + Variant * 0.37f;
+        const int moteCount = 12;
+        for (int i = 0; i < moteCount; i++)
+        {
+            float angle = phase + MathHelper.TwoPi * i / moteCount;
+            Vector2 velocity = angle.ToRotationVector2() * (3.6f + i % 3 * 1.15f);
+            Color moteColor = Color.Lerp(color, Color.White, 0.12f + i % 4 * 0.10f);
+            if (i % 2 == 0)
+                FranParticleSystem.Spawn(new FranSmallBloomParticle(Projectile.Center, velocity,
+                    moteColor, 13f + i % 3 * 2f, 2.5f, 14 + i % 4));
+            else
+                FranParticleSystem.Spawn(new FranSparkParticle(Projectile.Center, velocity, moteColor,
+                    0.18f + i % 3 * 0.025f, new Vector2(0.36f, 0.82f), 15 + i % 4, 0.90f));
+        }
 
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < 3; i++)
         {
-            Vector2 velocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(4.8f, 10.5f);
-            FranParticleSystem.Spawn(new FranLightParticle(Projectile.Center, velocity,
-                Main.rand.NextFloat(0.42f, 0.82f), Color.Lerp(color, Color.White, Main.rand.NextFloat(0.12f, 0.52f)),
-                Main.rand.Next(24, 38), 0.94f, 1.5f, 3.4f));
-        }
-        for (int i = 0; i < 7; i++)
-        {
-            Vector2 velocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(2.2f, 6.8f);
-            FranParticleSystem.Spawn(new FranGlowOrbParticle(Projectile.Center, velocity, color,
-                Main.rand.NextFloat(0.24f, 0.46f), 0.04f, Main.rand.Next(16, 25)));
-        }
-        for (int i = 0; i < 5; i++)
-        {
-            Dust dust = Dust.NewDustPerfect(Projectile.Center, DustID.TintableDustLighted,
-                Main.rand.NextVector2Unit() * Main.rand.NextFloat(3.5f, 8f), 70, color,
-                Main.rand.NextFloat(0.9f, 1.3f));
-            dust.noGravity = true;
+            float angle = phase + MathHelper.TwoPi * i / 3f + MathHelper.Pi / 6f;
+            FranParticleSystem.Spawn(new FranSkillGlyphParticle(
+                Projectile.Center + angle.ToRotationVector2() * 5f,
+                angle.ToRotationVector2() * 2.4f, color, 0.46f, 13 + i));
         }
 
         Main.LocalPlayer.GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, 2.2f);
@@ -235,11 +280,11 @@ public sealed class FranTelekineticPlanetExplosion : ModProjectile
     {
         Color color = FranPlanetVisuals.Palette(Variant);
         float fade = MathF.Pow(1f - Progress, 1.4f);
-        float radius = MathHelper.Lerp(Diameter * 0.55f, Diameter * 1.45f, Progress);
+        float radius = MathHelper.Lerp(Diameter * 0.46f, Diameter * 0.96f, Progress);
         FranVfx.BeginAdditive();
-        FranVfx.DrawBloom(Projectile.Center, color, radius, 0.62f * fade, true);
+        FranVfx.DrawBloom(Projectile.Center, color, radius, 0.46f * fade);
         FranVfx.DrawRing(Projectile.Center, Color.Lerp(color, Color.White, 0.42f), radius,
-            0.76f * fade, Progress * 0.7f, "BloomRing");
+            0.58f * fade, Progress * 0.7f, "BloomRing");
         FranVfx.EndAdditive();
         return false;
     }

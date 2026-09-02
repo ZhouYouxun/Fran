@@ -10,23 +10,9 @@ public sealed class FranTelekineticFlightSystem : ModSystem
     private const string InvisibleWingTexture = "Fran/Assets/Flight/InvisibleWing";
     private static readonly int[] WingSlots = { -1, -1, -1, -1 };
 
-    public static int CurrentTier
-    {
-        get
-        {
-            if (!Main.hardMode)
-                return 0;
-            if (NPC.downedGolemBoss)
-                return 4;
-            if (NPC.downedPlantBoss)
-                return 3;
-            if (NPC.downedMechBoss1 && NPC.downedMechBoss2 && NPC.downedMechBoss3)
-                return 2;
-            return 1;
-        }
-    }
+    public static int CurrentTier => FranBalance.GetFlightTier();
 
-    public static bool HasInfiniteFlight => Main.hardMode && NPC.downedEmpressOfLight;
+    public static bool HasInfiniteFlight => FranBalance.HasInfiniteFlight();
 
     public override void Load()
     {
@@ -39,10 +25,7 @@ public sealed class FranTelekineticFlightSystem : ModSystem
 
     public override void PostSetupContent()
     {
-        SetWingStats(1, new WingStats(100, 7f, 1.15f));
-        SetWingStats(2, new WingStats(130, 8f, 1.65f));
-        SetWingStats(3, new WingStats(160, 9f, 2.15f, true, 8f, 5f));
-        SetWingStats(4, new WingStats(180, 9.75f, 2.5f, true, 9f, 6f));
+        RefreshWingStats();
     }
 
     public override void Unload()
@@ -70,8 +53,21 @@ public sealed class FranTelekineticFlightSystem : ModSystem
 
     public static WingStats GetCurrentWingStats()
     {
+        RefreshWingStats();
         int slot = GetCurrentWingSlot();
         return slot > 0 ? ArmorIDs.Wing.Sets.Stats[slot] : default;
+    }
+
+    private static void RefreshWingStats()
+    {
+        for (int tier = 1; tier <= WingSlots.Length; tier++)
+            SetWingStats(tier, new WingStats(
+                FranBalance.GetFlightTime(tier),
+                FranBalance.GetFlightRunSpeed(tier),
+                FranBalance.GetFlightAcceleration(tier),
+                FranBalance.GetFlightHasDownHover(tier),
+                FranBalance.GetFlightDownHoverSpeed(tier),
+                FranBalance.GetFlightDownHoverAcceleration(tier)));
     }
 
     private static void SetWingStats(int tier, WingStats stats)

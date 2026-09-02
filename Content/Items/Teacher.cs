@@ -16,17 +16,17 @@ public sealed class Teacher : ModItem
 {
     private const string GoldenPromptLineName = "GoldenPrompt";
 
-    public override string Texture => $"Terraria/Images/Item_{ItemID.BreakerBlade}";
+    public override string Texture => FranTeacherVisuals.TexturePath;
 
     public override void SetDefaults()
     {
         Item.width = 74;
         Item.height = 74;
-        Item.damage = 20;
+        Item.damage = FranBalance.GetInitialBaseDamage();
         Item.DamageType = DamageClass.Melee;
-        Item.knockBack = 7f;
-        Item.useTime = 25;
-        Item.useAnimation = 25;
+        Item.knockBack = FranBalance.GetFloat(nameof(FranBalance.TeacherKnockback), FranBalance.TeacherKnockback);
+        Item.useTime = FranBalance.GetInt(nameof(FranBalance.TeacherUseTimeFrames), FranBalance.TeacherUseTimeFrames);
+        Item.useAnimation = Item.useTime;
         Item.useStyle = ItemUseStyleID.Shoot;
         Item.noUseGraphic = true;
         Item.noMelee = true;
@@ -63,8 +63,9 @@ public sealed class Teacher : ModItem
             return false;
         }
 
-        Item.useTime = 25;
+        Item.useTime = FranBalance.GetInt(nameof(FranBalance.TeacherUseTimeFrames), FranBalance.TeacherUseTimeFrames);
         Item.useAnimation = Item.useTime;
+        Item.knockBack = FranBalance.GetFloat(nameof(FranBalance.TeacherKnockback), FranBalance.TeacherKnockback);
         Item.channel = true;
         Item.shoot = ModContent.ProjectileType<TeacherSwingRebuild>();
         return player.ownedProjectileCounts[Item.shoot] == 0;
@@ -79,22 +80,10 @@ public sealed class Teacher : ModItem
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
         FranEvolutionPlayer evolution = player.GetModPlayer<FranEvolutionPlayer>();
         int combo = fran.ConsumeNextCombo();
-        damage = Math.Max(1, (int)(damage * (combo switch
-        {
-            1 => 0.82f,
-            2 => 1.38f,
-            3 => 1.48f,
-            _ => 1f
-        })));
+        damage = Math.Max(1, (int)(damage * FranBalance.GetComboDamageMultiplier(combo)));
         Vector2 aim = (Main.MouseWorld - player.MountedCenter).SafeNormalize(Vector2.UnitX * player.direction);
         float attackSpeed = Math.Max(0.25f, player.GetAttackSpeed(DamageClass.Melee));
-        float baseDuration = combo switch
-        {
-            0 => 21f,
-            1 => 22f,
-            2 => 19f,
-            _ => 25f
-        };
+        float baseDuration = FranBalance.GetComboBaseDuration(combo);
         float evolutionDuration = evolution.ConsumeSwingDurationMultiplier(combo);
         int duration = Math.Max(12, (int)MathF.Round(baseDuration / attackSpeed * evolutionDuration));
         FranSkill skill = fran.HasSelectedSkill ? fran.SelectedSkill : FranSkill.None;

@@ -185,18 +185,11 @@ public sealed class FranModMain : Mod
     {
         if (Main.netMode != NetmodeID.MultiplayerClient || evolution is null)
             return;
-        IReadOnlyCollection<string> claims = evolution.GetClaimedBosses();
         ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
         packet.Write(SubmitEvolutionProfileMessage);
         packet.Write(evolution.NodeMask);
-        packet.Write((ushort)Math.Min(claims.Count, FranEvolutionInfo.MaximumClaimedBosses));
-        int written = 0;
-        foreach (string key in claims)
-        {
-            if (written++ >= FranEvolutionInfo.MaximumClaimedBosses)
-                break;
-            WriteBossKey(packet, key);
-        }
+        // Character-side boss history is never authoritative. The server reconstructs points from its world.
+        packet.Write((ushort)0);
         packet.Send();
     }
 

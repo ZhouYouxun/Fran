@@ -25,13 +25,20 @@ public sealed class FranUltimateController : ModProjectile
         FinalStrike
     }
 
-    private const int NormalStrikeCount = 18;
-    private const int StartingStrikeFrames = 9;
-    private const int EndingStrikeFrames = 4;
-    private const int StartingImpactDriftFrames = 6;
-    private const int EndingImpactDriftFrames = 2;
-    private const int FinalPauseFrames = 20;
-    private const int FinalStrikeFrames = 9;
+    private static int NormalStrikeCount => FranBalance.GetInt(nameof(FranBalance.UltimateNormalStrikeCount),
+        FranBalance.UltimateNormalStrikeCount);
+    private static int StartingStrikeFrames => FranBalance.GetInt(nameof(FranBalance.UltimateStartingStrikeFrames),
+        FranBalance.UltimateStartingStrikeFrames);
+    private static int EndingStrikeFrames => FranBalance.GetInt(nameof(FranBalance.UltimateEndingStrikeFrames),
+        FranBalance.UltimateEndingStrikeFrames);
+    private static int StartingImpactDriftFrames => FranBalance.GetInt(nameof(FranBalance.UltimateStartingDriftFrames),
+        FranBalance.UltimateStartingDriftFrames);
+    private static int EndingImpactDriftFrames => FranBalance.GetInt(nameof(FranBalance.UltimateEndingDriftFrames),
+        FranBalance.UltimateEndingDriftFrames);
+    private static int FinalPauseFrames => FranBalance.GetInt(nameof(FranBalance.UltimateFinalPauseFrames),
+        FranBalance.UltimateFinalPauseFrames);
+    private static int FinalStrikeFrames => FranBalance.GetInt(nameof(FranBalance.UltimateFinalStrikeFrames),
+        FranBalance.UltimateFinalStrikeFrames);
     private const float GoldenAngle = 2.39996323f;
     private const float NormalCollisionWidth = 78f;
     private const float FinalCollisionWidth = 142f;
@@ -396,6 +403,9 @@ public sealed class FranUltimateController : ModProjectile
 
     private void MaintainOwnerState(Player owner)
     {
+        Vector2 swordDirection = (strikeEnd - strikeStart).SafeNormalize(Vector2.UnitX * owner.direction);
+        int facing = swordDirection.X < 0f ? -1 : 1;
+        owner.ChangeDir(facing);
         owner.immune = true;
         owner.immuneTime = Math.Max(owner.immuneTime, 2);
         owner.noKnockback = true;
@@ -403,6 +413,9 @@ public sealed class FranUltimateController : ModProjectile
         owner.itemAnimation = 2;
         owner.itemTime = 2;
         owner.heldProj = Projectile.whoAmI;
+        owner.itemRotation = swordDirection.ToRotation() + (facing < 0 ? MathHelper.Pi : 0f);
+        owner.SetCompositeArmFront(true, Player.CompositeArmStretchAmount.Full,
+            swordDirection.ToRotation() - MathHelper.PiOver2);
         for (int i = 0; i < owner.hurtCooldowns.Length; i++)
             owner.hurtCooldowns[i] = Math.Max(owner.hurtCooldowns[i], 2);
     }
@@ -466,7 +479,11 @@ public sealed class FranUltimateController : ModProjectile
         Vector2 direction = (strikeEnd - strikeStart).SafeNormalize(Vector2.UnitX);
         float riftAngle = direction.ToRotation() + MathHelper.PiOver2 +
             Main.rand.NextFloat(final ? -0.12f : -0.52f, final ? 0.12f : 0.52f);
-        int riftDamage = Math.Max(1, (int)(Projectile.damage * (final ? 0.55f : 0.42f)));
+        int riftDamage = Math.Max(1, (int)(Projectile.damage * (final
+            ? FranBalance.GetFloat(nameof(FranBalance.UltimateFinalRiftDamageMultiplier),
+                FranBalance.UltimateFinalRiftDamageMultiplier)
+            : FranBalance.GetFloat(nameof(FranBalance.UltimateNormalRiftDamageMultiplier),
+                FranBalance.UltimateNormalRiftDamageMultiplier))));
         Projectile.NewProjectile(Projectile.GetSource_FromThis(), impactPoint, Vector2.Zero,
             ModContent.ProjectileType<FranUltimateBlackRiftLaser>(), riftDamage,
             Projectile.knockBack * 0.35f, Projectile.owner, riftAngle, final ? 1f : 0f, strikeIndex);
@@ -533,7 +550,8 @@ public sealed class FranUltimateController : ModProjectile
     public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
     {
         if (FinalStrike)
-            modifiers.SourceDamage *= 5f;
+            modifiers.SourceDamage *= FranBalance.GetFloat(nameof(FranBalance.UltimateFinalStrikeDamageMultiplier),
+                FranBalance.UltimateFinalStrikeDamageMultiplier);
     }
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
@@ -591,11 +609,16 @@ public sealed class FranUltimateController : ModProjectile
         Color body = FinalStrike ? new Color(255, 218, 126) : new Color(96, 203, 242);
         Color edge = FinalStrike ? Color.White : new Color(207, 159, 255);
 
-        Texture2D teacherTexture = TextureAssets.Item[ModContent.ItemType<Teacher>()].Value;
-        float swordRotation = direction.ToRotation() + (strikeIndex % 2 == 0 ? 0.45f : -0.45f);
-        Main.EntitySpriteDraw(teacherTexture, owner.Center - Main.screenPosition, null,
-            Color.Lerp(lightColor, Color.White, 0.62f), swordRotation, teacherTexture.Size() * 0.5f,
-            FinalStrike ? 1.42f : 1.24f, direction.X < 0f ? SpriteEffects.FlipVertically : SpriteEffects.None, 0f);
+        Texture2D teacherTexture = FranTeacherVisuals.Texture;
+        int facing = direction.X < 0f ? -1 : 1;
+        SpriteEffects swordEffects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+        Vector2 swordOrigin = new(facing < 0 ? teacherTexture.Width : 0f, teacherTexture.Height);
+        float swordRotation = direction.ToRotation() + MathHelper.PiOver4 +
+            (facing < 0 ? MathHelper.PiOver2 : 0f);
+        Vector2 swordPosition = owner.MountedCenter + direction * 8f - Main.screenPosition;
+        Main.EntitySpriteDraw(teacherTexture, swordPosition, null,
+            Color.Lerp(lightColor, Color.White, 0.62f), swordRotation, swordOrigin,
+            (FinalStrike ? 1.42f : 1.24f) * FranTeacherVisuals.TextureScale, swordEffects, 0f);
 
         FranVfx.BeginAdditive();
         if (phase is UltimatePhase.NormalStrike or UltimatePhase.FinalStrike)
@@ -619,10 +642,10 @@ public sealed class FranUltimateController : ModProjectile
             {
                 float ghostProgress = MathHelper.Clamp(progress - i * (FinalStrike ? 0.055f : 0.08f), 0f, 1f);
                 Vector2 ghostPosition = Vector2.Lerp(strikeStart, strikeEnd, ghostProgress);
-                Main.EntitySpriteDraw(teacherTexture, ghostPosition - Main.screenPosition, null,
+                Main.EntitySpriteDraw(teacherTexture, ghostPosition + direction * 8f - Main.screenPosition, null,
                     body * (0.15f * (1f - i / (ghostCount + 1f)) * flash), swordRotation,
-                    teacherTexture.Size() * 0.5f, FinalStrike ? 1.38f : 1.20f,
-                    direction.X < 0f ? SpriteEffects.FlipVertically : SpriteEffects.None, 0f);
+                    swordOrigin, (FinalStrike ? 1.38f : 1.20f) * FranTeacherVisuals.TextureScale,
+                    swordEffects, 0f);
             }
         }
         if (phase == UltimatePhase.FinalPause)

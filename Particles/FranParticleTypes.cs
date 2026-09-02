@@ -6,59 +6,6 @@ using Terraria;
 namespace FranMod.Particles;
 
 /// <summary>
-/// “辉光球”：Fran自己的双层辉光粒子。运动节奏参考常见的高速收束光球，
-/// 使用Fran独立贴图，不依赖或再分发其他模组的视觉资产。
-/// </summary>
-internal sealed class FranGlowOrbParticle : FranParticle
-{
-    private readonly float startScale;
-    private readonly float endScale;
-    private readonly bool whiteCore;
-    private readonly bool affectedByGravity;
-
-    public FranGlowOrbParticle(Vector2 position, Vector2 velocity, Color color, float startScale, float endScale,
-        int lifetime, bool whiteCore = true, FranParticleLayer layer = FranParticleLayer.AfterProjectiles,
-        bool affectedByGravity = false)
-    {
-        Position = position;
-        Velocity = velocity;
-        Color = color;
-        this.startScale = startScale;
-        this.endScale = endScale;
-        Lifetime = lifetime;
-        this.whiteCore = whiteCore;
-        this.affectedByGravity = affectedByGravity;
-        Layer = layer;
-    }
-
-    protected override void Update()
-    {
-        Velocity *= 0.95f;
-        if (affectedByGravity && Velocity.LengthSquared() < 144f)
-        {
-            Velocity.X *= 0.94f;
-            Velocity.Y += 0.25f;
-        }
-        Rotation = Velocity.ToRotation() + MathHelper.PiOver2;
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        float fade = MathF.Pow(1f - Completion, 0.72f) *
-            MathHelper.Clamp(Completion * 8f, 0f, 1f);
-        float size = MathHelper.Lerp(startScale, endScale, 1f - MathF.Pow(1f - Completion, 3f));
-        Vector2 motionStretch = new(0.88f, 1f + MathHelper.Clamp(Velocity.Length() * 0.025f, 0f, 0.55f));
-        FranParticleAssets.Draw(spriteBatch, "GlowOrbParticle", Position, Color * (0.78f * fade), Rotation,
-            motionStretch * size);
-        FranParticleAssets.Draw(spriteBatch, "BloomCircle", Position, Color * (0.38f * fade), Rotation,
-            motionStretch * size * 0.72f);
-        if (whiteCore)
-            FranParticleAssets.Draw(spriteBatch, "BloomCircle", Position, Color.White * (0.64f * fade), Rotation,
-                motionStretch * size * 0.18f);
-    }
-}
-
-/// <summary>
 /// Fran“光粒子”：一颗沿速度方向被压扁/拉长的三层发光粒子。
 /// 用于挥剑释放与爆炸散射，与Dust、辉光球和神秘文字组成不同尺度的视觉层。
 /// </summary>

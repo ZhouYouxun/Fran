@@ -5,41 +5,6 @@ using Terraria;
 
 namespace FranMod.Particles;
 
-// Purple technique fragments that orbit briefly instead of behaving like generic dust.
-internal sealed class FranSkillGlyphParticle : FranParticle
-{
-    private readonly float spin;
-    private readonly float baseScale;
-
-    public FranSkillGlyphParticle(Vector2 position, Vector2 velocity, Color color, float scale, int lifetime)
-    {
-        Position = position;
-        Velocity = velocity;
-        Color = color;
-        baseScale = scale;
-        Scale = scale;
-        Lifetime = lifetime;
-        spin = Main.rand.NextFloat(-0.22f, 0.22f);
-        Rotation = Main.rand.NextFloat(MathHelper.TwoPi);
-    }
-
-    protected override void Update()
-    {
-        Velocity = Velocity.RotatedBy(spin * 0.08f) * 0.93f;
-        Rotation += spin;
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        float fade = MathF.Sin(Completion * MathHelper.Pi);
-        float pulse = 0.78f + MathF.Sin(Time * 0.72f) * 0.22f;
-        FranParticleAssets.Draw(spriteBatch, "Cal_FadedStarRing", Position,
-            Color * (0.55f * fade), Rotation, Vector2.One * baseScale * pulse * 0.13f);
-        FranParticleAssets.Draw(spriteBatch, "Cal_PulseStar", Position,
-            Color.White * (0.72f * fade), -Rotation * 1.4f, Vector2.One * baseScale * 0.045f);
-    }
-}
-
 // Barrier fragments retain the shield's angled geometry as they fly away after a block or break.
 internal sealed class FranBarrierShardParticle : FranParticle
 {

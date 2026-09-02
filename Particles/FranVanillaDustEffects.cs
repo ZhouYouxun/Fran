@@ -1,71 +1,66 @@
 using System;
 using FranMod.Core;
+using FranMod.Particles;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 
 namespace FranMod.Content.Projectiles;
 
-// Vanilla Dust is a supporting material layer, not a replacement for authored projectile bodies.
-// One Dust per four custom particles gives Dust roughly 20% of the combined particle count:
-// dust / (custom + dust) = 1 / 5. Every method below uses that same bounded budget rule.
+// Every four accepted Fran particles produce exactly one supporting vanilla Dust:
+// 4 custom + 1 Dust = a 20% vanilla share. The emission inherits authored motion and color
+// from the particle/event instead of rolling an unrelated random direction.
 internal static class FranVanillaDustEffects
 {
-    private const float TargetDustShare = 0.20f;
+    private readonly record struct DustIntent(Vector2 Position, Vector2 Direction, FranSkill Skill,
+        Color Color, float Scale, ulong ExpiresAt);
+
+    private static long acceptedCustomParticles;
+    private static DustIntent latestIntent;
+
+    internal static void ResetBudget()
+    {
+        acceptedCustomParticles = 0;
+        latestIntent = default;
+    }
+
+    internal static void RegisterCustomParticle(FranParticle particle)
+    {
+        if (Main.dedServ || particle is null)
+            return;
+
+        acceptedCustomParticles++;
+        if (acceptedCustomParticles % 4 != 0)
+            return;
+
+        bool intentActive = latestIntent.ExpiresAt >= Main.GameUpdateCount;
+        Vector2 direction = particle.Velocity.LengthSquared() > 0.04f
+            ? particle.Velocity.SafeNormalize(Vector2.UnitY)
+            : intentActive ? latestIntent.Direction : Vector2.UnitY;
+        float speed = MathHelper.Clamp(particle.Velocity.Length() * 0.24f + 0.8f, 0.8f, 5.8f);
+        int cadence = (int)((acceptedCustomParticles / 4) % 4);
+        float angleOffset = cadence switch { 0 => -0.22f, 1 => 0.12f, 2 => 0.26f, _ => -0.10f };
+        Vector2 velocity = direction.RotatedBy(angleOffset) * speed;
+        Vector2 tangent = direction.RotatedBy(MathHelper.PiOver2) * (cadence % 2 == 0 ? 1.8f : -1.8f);
+        Vector2 position = particle.Position - direction * 3f + tangent;
+        FranSkill skill = intentActive ? latestIntent.Skill : SkillForParticle(particle);
+        Color color = intentActive ? Color.Lerp(particle.Color, latestIntent.Color, 0.36f) : particle.Color;
+        float scale = intentActive ? latestIntent.Scale :
+            MathHelper.Clamp(0.72f + particle.Scale * 0.18f, 0.65f, 1.25f);
+        SpawnDesigned(position, velocity, skill, color, scale, cadence);
+    }
 
     public static void SwingTrail(Vector2 origin, Vector2 tip, Vector2 tangent, FranSkill skill,
-        Color color, int combo, int tick)
-    {
-        if (Main.dedServ)
-            return;
-
-        int count = combo == 2 && tick % 2 == 0 ? 2 : 1;
-        for (int i = 0; i < count; i++)
-        {
-            Vector2 position = Vector2.Lerp(origin, tip, Main.rand.NextFloat(0.34f, 1f)) +
-                Main.rand.NextVector2Circular(3f, 3f);
-            Vector2 velocity = tangent.SafeNormalize(Vector2.UnitY).RotatedByRandom(combo == 2 ? 0.34f : 0.20f) *
-                Main.rand.NextFloat(1.8f, combo == 2 ? 6.2f : 4.1f);
-            Spawn(position, velocity, skill, color, Main.rand.NextFloat(0.86f, combo == 2 ? 1.22f : 1.06f),
-                tick + i, smokeChance: skill == FranSkill.PressurizedQuickdraw ? 4 : 10);
-        }
-    }
+        Color color, int combo, int tick) =>
+        RecordIntent(Vector2.Lerp(origin, tip, 0.72f), tangent, skill, color, combo == 2 ? 1.12f : 0.92f);
 
     public static void SkillRelease(Vector2 center, Vector2 direction, FranSkill skill, Color color,
-        int customParticleEstimate = 8, float scale = 1f)
-    {
-        if (Main.dedServ)
-            return;
-
-        direction = direction.SafeNormalize(Vector2.UnitX);
-        int count = DustCountForCustom(customParticleEstimate);
-        for (int i = 0; i < count; i++)
-        {
-            Vector2 velocity = direction.RotatedByRandom(0.48f) * Main.rand.NextFloat(2.2f, 6.8f) * scale;
-            Vector2 position = center + direction * Main.rand.NextFloat(2f, 18f) +
-                Main.rand.NextVector2Circular(6f, 6f) * scale;
-            Spawn(position, velocity, skill, color, Main.rand.NextFloat(0.90f, 1.28f) * scale,
-                i, smokeChance: skill == FranSkill.PressurizedQuickdraw ? 3 : 9);
-        }
-    }
+        int customParticleEstimate = 8, float scale = 1f) =>
+        RecordIntent(center, direction, skill, color, scale);
 
     public static void Impact(Vector2 center, Vector2 direction, FranSkill skill, Color color,
-        int customParticleEstimate, float scale = 1f)
-    {
-        if (Main.dedServ)
-            return;
-
-        direction = direction.SafeNormalize(Vector2.UnitX);
-        int count = DustCountForCustom(customParticleEstimate);
-        for (int i = 0; i < count; i++)
-        {
-            Vector2 velocity = direction.RotatedByRandom(1.05f) * Main.rand.NextFloat(2.4f, 8.4f) * scale;
-            Spawn(center + Main.rand.NextVector2Circular(8f, 8f) * scale, velocity, skill,
-                i % 4 == 0 ? Color.Lerp(color, Color.White, 0.72f) : color,
-                Main.rand.NextFloat(0.88f, 1.32f) * scale, i,
-                smokeChance: skill == FranSkill.PressurizedQuickdraw ? 3 : 8);
-        }
-    }
+        int customParticleEstimate, float scale = 1f) =>
+        RecordIntent(center, direction, skill, color, scale);
 
     public static void Burst(Vector2 center, Vector2 direction, Color color, FranBurstStyle style,
         int customParticleEstimate, float scale = 1f)
@@ -81,43 +76,43 @@ internal static class FranVanillaDustEffects
             FranBurstStyle.AirDraw => FranSkill.PressurizedQuickdraw,
             _ => FranSkill.None
         };
-        Impact(center, direction, skill, color, customParticleEstimate, scale);
+        RecordIntent(center, direction, skill, color, scale);
     }
 
     public static void ProjectileTrail(Vector2 center, Vector2 velocity, FranSkill skill, Color color,
-        float spawnChance = 0.28f, float scale = 1f)
+        float spawnChance = 0.28f, float scale = 1f) =>
+        RecordIntent(center, -velocity, skill, color, scale);
+
+    private static void RecordIntent(Vector2 position, Vector2 direction, FranSkill skill, Color color, float scale)
     {
-        if (Main.dedServ || !Main.rand.NextBool((int)MathHelper.Clamp(MathF.Round(1f / Math.Max(0.05f, spawnChance)), 1f, 20f)))
+        if (Main.dedServ)
             return;
-
-        Vector2 back = -velocity.SafeNormalize(Vector2.UnitX);
-        Spawn(center + Main.rand.NextVector2Circular(4f, 4f),
-            back.RotatedByRandom(0.42f) * Main.rand.NextFloat(0.5f, 2.4f), skill, color,
-            Main.rand.NextFloat(0.72f, 1.02f) * scale, unchecked((long)Main.GameUpdateCount),
-            smokeChance: skill == FranSkill.PressurizedQuickdraw ? 4 : 12);
+        latestIntent = new DustIntent(position, direction.SafeNormalize(Vector2.UnitY), skill, color,
+            MathHelper.Clamp(scale, 0.55f, 1.5f), Main.GameUpdateCount + 2);
     }
 
-    private static int DustCountForCustom(int customParticleEstimate)
+    private static void SpawnDesigned(Vector2 position, Vector2 velocity, FranSkill skill, Color color,
+        float scale, int cadence)
     {
-        if (customParticleEstimate <= 0)
-            return 0;
-        float dustPerCustom = TargetDustShare / (1f - TargetDustShare);
-        return Math.Clamp((int)MathF.Ceiling(customParticleEstimate * dustPerCustom), 1, 12);
-    }
-
-    private static void Spawn(Vector2 position, Vector2 velocity, FranSkill skill, Color color,
-        float scale, long sequence, int smokeChance)
-    {
-        int dustType = DustType(skill);
-        bool smoke = smokeChance > 0 && sequence % smokeChance == 0;
-        if (smoke)
-            dustType = DustID.Smoke;
-
+        bool smoke = skill == FranSkill.PressurizedQuickdraw && cadence == 0;
+        int dustType = smoke ? DustID.Smoke : DustType(skill);
         Dust dust = Dust.NewDustPerfect(position, dustType, velocity, smoke ? 90 : 35,
-            smoke ? new Color(80, 90, 105) : color, MathHelper.Clamp(scale, 0.55f, 1.8f));
+            smoke ? Color.Lerp(color, new Color(72, 78, 88), 0.72f) : color,
+            MathHelper.Clamp(scale, 0.55f, 1.5f));
         dust.noGravity = !smoke;
-        dust.fadeIn = smoke ? 0.85f : MathHelper.Clamp(scale + 0.18f, 0.8f, 1.8f);
+        dust.fadeIn = smoke ? 0.84f : MathHelper.Clamp(scale + 0.14f, 0.78f, 1.55f);
     }
+
+    private static FranSkill SkillForParticle(FranParticle particle) => particle switch
+    {
+        FranBoltParticle => FranSkill.ThunderChain,
+        FranToxicMoteParticle => FranSkill.SkillTaker,
+        FranWaterParticle => FranSkill.BlueResonance,
+        FranBarrierShardParticle => FranSkill.MagicBarrier,
+        FranNeedleParticle => FranSkill.PressurizedQuickdraw,
+        FranBlackLightCoreParticle => FranSkill.SkillTaker,
+        _ => FranSkill.None
+    };
 
     private static int DustType(FranSkill skill) => skill switch
     {

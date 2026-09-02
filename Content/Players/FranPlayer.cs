@@ -19,13 +19,16 @@ namespace FranMod.Content.Players;
 
 public sealed class FranPlayer : ModPlayer
 {
-    public const int DashDuration = 12;
-    public const int UltimateChargeDuration = 3 * 60 * 60;
-    public const int MaximumTacticSlots = 4;
+    public static int DashDuration =>
+        FranBalance.GetInt(nameof(FranBalance.DashDurationFrames), FranBalance.DashDurationFrames);
+    public static int UltimateChargeDuration =>
+        FranBalance.GetInt(nameof(FranBalance.UltimateChargeDurationFrames), FranBalance.UltimateChargeDurationFrames);
+    // 存档与联机协议仍保留四格技术容量；实际可用格数完全由 FranBalance 的槽位表决定。
+    public static int MaximumTacticSlots => FranBalance.TacticStorageCapacity;
     public static readonly Vector2 DefaultUltimateGaugeAnchor = new(0.5f, 0f);
 
     public bool FranMode { get; private set; }
-    private readonly FranSkill[] equippedTactics = new FranSkill[MaximumTacticSlots];
+    private readonly FranSkill[] equippedTactics = new FranSkill[FranBalance.TacticStorageCapacity];
     public int UltimateChargeTicks;
     public Vector2 UltimateGaugeAnchor = DefaultUltimateGaugeAnchor;
     public int DashTimer;
@@ -67,7 +70,7 @@ public sealed class FranPlayer : ModPlayer
             return Player.HasItem(type) || Player.whoAmI == Main.myPlayer && Main.mouseItem.type == type;
         }
     }
-    public int AvailableTacticSlots => NPC.downedMoonlord ? 4 : Main.hardMode ? 3 : 2;
+    public int AvailableTacticSlots => FranBalance.GetAvailableTacticSlots();
     public FranSkill SelectedSkill => GetEquippedTactic(0);
     public bool HasSelectedSkill => GetActiveTacticCount() > 0;
     // dashDelay is runtime state, not proof that another dash is equipped. In particular,
@@ -431,7 +434,10 @@ public sealed class FranPlayer : ModPlayer
             return;
         int barrierLayers = GetSkillStacks(FranSkill.MagicBarrier);
         if (barrierLayers > 0 && FranAutoBarrierProjectile.IsActive(Player))
-            modifiers.SourceDamage *= 1f - 0.10f * Math.Min(MaximumTacticSlots, barrierLayers);
+            modifiers.SourceDamage *= 1f -
+                FranBalance.GetFloat(nameof(FranBalance.MagicBarrierDamageReductionPerLayer),
+                    FranBalance.MagicBarrierDamageReductionPerLayer) *
+                Math.Min(MaximumTacticSlots, barrierLayers);
         if (FranClientConfig.Instance?.EnableFranVoice ?? true)
         {
             modifiers.DisableSound();
@@ -572,7 +578,8 @@ public sealed class FranPlayer : ModPlayer
     {
         if (!FranSkillInfo.IsRealSkill(skill) || !FranSkillInfo.IsUnlocked(skill))
             return false;
-        for (int i = 0; i < Math.Min(AvailableTacticSlots, MaximumTacticSlots); i++)
+        int slotCount = Math.Min(AvailableTacticSlots, MaximumTacticSlots);
+        for (int i = 0; i < slotCount; i++)
         {
             if (FranSkillInfo.IsRealSkill(equippedTactics[i]))
                 continue;
@@ -580,8 +587,15 @@ public sealed class FranPlayer : ModPlayer
             AnnounceTacticChange(skill, equipped: true);
             return true;
         }
-        SoundEngine.PlaySound(SoundID.MenuClose with { Pitch = -0.22f, Volume = 0.45f });
-        return false;
+
+        FranSkill removed = equippedTactics[0];
+        for (int i = 1; i < slotCount; i++)
+            equippedTactics[i - 1] = equippedTactics[i];
+        equippedTactics[slotCount - 1] = skill;
+        if (removed == FranSkill.ThorsHammer && GetSkillStacks(FranSkill.ThorsHammer) == 0)
+            HammerComboRounds = 0;
+        AnnounceTacticChange(skill, equipped: true);
+        return true;
     }
 
     public bool TryUnequipTactic(int slot)
@@ -677,7 +691,8 @@ public sealed class FranPlayer : ModPlayer
     public bool AdvanceHammerRound()
     {
         HammerComboRounds++;
-        if (HammerComboRounds < 2)
+        if (HammerComboRounds < FranBalance.GetInt(nameof(FranBalance.ThorsHammerRequiredComboRounds),
+                FranBalance.ThorsHammerRequiredComboRounds))
             return false;
         HammerComboRounds = 0;
         return true;
@@ -690,7 +705,8 @@ public sealed class FranPlayer : ModPlayer
         int healed = Math.Min(amount, Player.statLifeMax2 - Player.statLife);
         Player.statLife += healed;
         Player.HealEffect(healed, true);
-        ResonanceHealCooldown = 180;
+        ResonanceHealCooldown = FranBalance.GetInt(nameof(FranBalance.BlueResonanceHealingCooldownFrames),
+            FranBalance.BlueResonanceHealingCooldownFrames);
         return true;
     }
 
@@ -755,7 +771,9 @@ public sealed class FranPlayer : ModPlayer
         int barrierType = ModContent.ProjectileType<FranAutoBarrierProjectile>();
         if (Player.ownedProjectileCounts[barrierType] <= 0)
             Projectile.NewProjectile(Player.GetSource_Misc("FranBarrierImprint"), Player.MountedCenter,
-                Vector2.Zero, barrierType, Math.Max(1, (int)(Player.GetWeaponDamage(Player.HeldItem) * 0.72f)), 3f,
+                Vector2.Zero, barrierType, Math.Max(1, (int)(Player.GetWeaponDamage(Player.HeldItem) *
+                    FranBalance.GetFloat(nameof(FranBalance.MagicBarrierWeaponDamageMultiplier),
+                        FranBalance.MagicBarrierWeaponDamageMultiplier))), 3f,
                 Player.whoAmI);
     }
 
@@ -780,7 +798,12 @@ public sealed class FranPlayer : ModPlayer
             return;
 
         FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
-        int chargeGain = evolution.AcceleratedUltimateCharge && Main.GameUpdateCount % 5 == 0 ? 2 : 1;
+        int pulseInterval = Math.Max(1, FranBalance.GetInt(nameof(FranBalance.EvolutionUltimateChargePulseInterval),
+            FranBalance.EvolutionUltimateChargePulseInterval));
+        int chargeGain = evolution.AcceleratedUltimateCharge && Main.GameUpdateCount % (ulong)pulseInterval == 0
+            ? Math.Max(1, FranBalance.GetInt(nameof(FranBalance.EvolutionUltimateChargePulseAmount),
+                FranBalance.EvolutionUltimateChargePulseAmount))
+            : 1;
         UltimateChargeTicks += chargeGain;
         if (UltimateChargeTicks >= UltimateChargeDuration)
         {
@@ -890,7 +913,8 @@ public sealed class FranPlayer : ModPlayer
     {
         direction = direction.SafeNormalize(Vector2.UnitX * (Player.direction == 0 ? 1 : Player.direction));
         FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
-        float dashSpeed = 16f * evolution.DashSpeedMultiplier;
+        float dashSpeed = FranBalance.GetFloat(nameof(FranBalance.DashBaseSpeed), FranBalance.DashBaseSpeed) *
+            evolution.DashSpeedMultiplier;
         DashTimer = DashDuration;
         DashCooldown = evolution.DashCooldownTicks;
         DashVelocity = direction * dashSpeed;
@@ -1148,7 +1172,9 @@ public sealed class FranPlayer : ModPlayer
         int teacherDamage = teacher is null
             ? Math.Max(1, (int)Player.GetDamage(DamageClass.Melee).ApplyTo(FranSkillInfo.BaseDamage))
             : Math.Max(1, Player.GetWeaponDamage(teacher));
-        int strikeDamage = Math.Max(1, (int)(teacherDamage * 1.15f));
+        int strikeDamage = Math.Max(1, (int)(teacherDamage *
+            FranBalance.GetFloat(nameof(FranBalance.UltimateStrikeDamageMultiplier),
+                FranBalance.UltimateStrikeDamageMultiplier)));
 
         if (DashTimer > 0)
             EndDash(sync: false);
