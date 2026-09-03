@@ -34,7 +34,7 @@ public sealed class Teacher : ModItem
         Item.autoReuse = true;
         Item.shoot = ModContent.ProjectileType<TeacherSwingRebuild>();
         Item.shootSpeed = 1f;
-        Item.rare = ItemRarityID.Quest;
+        Item.rare = ModContent.RarityType<TeacherPrismaticRarity>();
         Item.value = 0;
         // A favorited item cannot be dropped, trashed, sold, quick-stacked into a chest,
         // or placed in an item frame. Refreshing this in UpdateInventory prevents the
@@ -117,14 +117,9 @@ public sealed class Teacher : ModItem
                 Language.GetTextValue($"Mods.Fran.Stages.Stage{stage + 1}.Summary")))
             { OverrideColor = new Color(180, 190, 205) });
         }
-        FranEvolutionPlayer evolution = Main.LocalPlayer.GetModPlayer<FranEvolutionPlayer>();
-        tooltips.Add(new TooltipLine(Mod, "Evolution", Language.GetTextValue("Mods.Fran.Evolution.Tooltip",
-            evolution.AvailablePoints, evolution.EarnedPoints))
-        { OverrideColor = new Color(195, 178, 245) });
-
-        // Intentionally kept as the requested placeholder until its final localization is supplied.
-        tooltips.Add(new TooltipLine(Mod, GoldenPromptLineName, "请输入文本")
-        { OverrideColor = new Color(241, 190, 76) });
+        if (FranEvolutionInfo.SystemEnabled)
+            tooltips.Add(new TooltipLine(Mod, "Evolution", Language.GetTextValue("Mods.Fran.Evolution.Tooltip"))
+            { OverrideColor = new Color(195, 178, 245) });
 
         FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
         bool dashEnabled = fran.FranMode && !fran.HasExternalDash;
@@ -135,6 +130,10 @@ public sealed class Teacher : ModItem
             !Main.LocalPlayer.mount.Active;
         tooltips.Add(new TooltipLine(Mod, "FranFlightStatus", BuildFlightStatus(fran))
         { OverrideColor = flightEnabled ? new Color(105, 205, 255) : new Color(165, 175, 190) });
+
+        // Intentionally kept as the requested placeholder until its final localization is supplied.
+        tooltips.Add(new TooltipLine(Mod, GoldenPromptLineName, "请输入文本")
+        { OverrideColor = new Color(241, 190, 76) });
     }
 
     private static string BuildDashStatus(FranPlayer fran)
@@ -143,9 +142,7 @@ public sealed class Teacher : ModItem
             ? "InactiveFranMode"
             : fran.HasExternalDash ? "Overridden" : "Enabled";
         return Language.GetTextValue("Mods.Fran.Abilities.Dash.Line",
-            Language.GetTextValue("Mods.Fran.Abilities.Dash.Progress"),
-            Language.GetTextValue($"Mods.Fran.Abilities.Dash.States.{stateKey}"),
-            Language.GetTextValue("Mods.Fran.Abilities.Dash.Effect"));
+            Language.GetTextValue($"Mods.Fran.Abilities.Dash.States.{stateKey}"));
     }
 
     private static string BuildFlightStatus(FranPlayer fran)
@@ -167,27 +164,17 @@ public sealed class Teacher : ModItem
                     : Main.LocalPlayer.mount.Active ? "Mounted" : "Enabled";
         string state = Language.GetTextValue($"Mods.Fran.Abilities.Flight.States.{stateKey}");
 
-        string effect;
-        if (tier <= 0)
-            effect = Language.GetTextValue("Mods.Fran.Abilities.Flight.Effects.Locked");
-        else
-        {
-            WingStats stats = FranTelekineticFlightSystem.GetCurrentWingStats();
-            string hover = Language.GetTextValue(stats.HasDownHoverStats
-                ? "Mods.Fran.Abilities.Flight.Effects.Hover"
-                : "Mods.Fran.Abilities.Flight.Effects.NoHover");
-            string effectKey = FranTelekineticFlightSystem.HasInfiniteFlight
-                ? "Mods.Fran.Abilities.Flight.Effects.Infinite"
-                : "Mods.Fran.Abilities.Flight.Effects.Finite";
-            effect = Language.GetTextValue(effectKey, stats.FlyTime, stats.FlyTime / 60f,
-                stats.AccRunSpeedOverride, stats.AccRunAccelerationMult, hover);
-        }
-
-        return Language.GetTextValue("Mods.Fran.Abilities.Flight.Line", progress, state, effect);
+        return Language.GetTextValue("Mods.Fran.Abilities.Flight.Line", progress, state);
     }
 
     public override bool PreDrawTooltipLine(DrawableTooltipLine line, ref int yOffset)
     {
+        if (line.Mod == "Terraria" && line.Name == "ItemName")
+        {
+            FranTooltipTextEffects.DrawTeacherPrismaticName(line);
+            return false;
+        }
+
         if (line.Mod != Mod.Name || line.Name != GoldenPromptLineName)
             return true;
 

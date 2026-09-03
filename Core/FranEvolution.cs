@@ -84,6 +84,8 @@ public sealed class FranEvolutionNodeDefinition
 
 public static class FranEvolutionInfo
 {
+    // 进化系统总开关。定义、存档、界面、网络同步与加成代码均保留，重新开放时只需启用这里。
+    public static bool SystemEnabled => false;
     public const int MaximumSpendablePoints = 51;
     public const int MaximumClaimedBosses = 256;
     public const int MaximumBossKeyLength = 64;

@@ -1,18 +1,18 @@
 # Fran 粒子与武器特效库
 
-本目录是 Fran 私人本地版本的粒子“VIP 房间”。拥有专属位图的单贴图粒子必须把
+本目录是 Fran 项目专用的粒子资源库。拥有专属位图的单贴图粒子必须把
 `类名.cs` 与 `类名.png` 放在这里，并通过 `Fran/Particles/<类名>` 加载。粒子系统使用的共享
 Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存完整副本；原图可以继续保留在
 `Textures/Particles` 或 `Assets/OriginalVFX`，供弹幕 `PreDraw` 和其他非粒子绘制器使用。
 
-`FranParticleCore.cs`、`FranParticleEffects.cs`、`FranParticleTypes.cs` 等框架/集合文件会管理多个
-粒子或根本不直接绘图，因此不创建无意义的同名占位 PNG；一一对应规则只针对拥有唯一专属
-主贴图的粒子类。共享贴图是否齐全则以 `Textures/Particles/*.png` 到本目录的哈希一致镜像为准。
+`FranParticleCore.cs` 与 `FranParticleEffects.cs` 负责生命周期和组合效果，不直接对应单个粒子。
+具体粒子已经拆分为独立同名 `.cs`；拥有主贴图的粒子同时使用同名 `.png`，其余辅助层继续
+读取本目录中的共享材质。共享贴图是否齐全以 `Textures/Particles/*.png` 到本目录的哈希一致镜像为准。
 
 ## 使用边界
 
-- `FranGlowOrbParticle.png` 与 `FranSmallBloomParticle.png` 由用户确认已取得 Calamity 作者授权，
-  本目录保存原文件哈希一致的副本；它们不再通过 Calamity 运行时路径加载。
+- `FranGlowOrbParticle.png` 与 `FranSmallBloomParticle.png` 的资源许可已经确认；本目录保存原文件
+  哈希一致的副本，不再通过 Calamity 运行时路径加载。
 - `FranBoltParticle.cs/.png`、`FranSkillGlyphParticle.cs/.png`、`FranGlowOrbParticle.cs/.png`、
   `FranSmallBloomParticle.cs/.png` 是当前强制执行的一一对应专属资源。
 - `Textures/Particles` 的共享材质在本目录保留哈希一致副本；`FranParticleAssets` 只从 VIP 路径读取。
@@ -23,7 +23,7 @@ Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存
 
 ## 自定义粒子类型
 
-当前共有 31 种拥有独立更新/绘制逻辑的 Fran 粒子：
+当前共有 34 种拥有独立更新/绘制逻辑的 Fran 粒子：
 
 1. `FranGlowOrbParticle`：能量球、蓄能核心、命中 Bloom。
 2. `FranSparkParticle`：有色外焰与白热核心组成的高速火花。
@@ -56,18 +56,21 @@ Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存
 29. `FranHalleySparkParticle`：念动彗星专用的拉伸火花，使用同名 VIP 贴图。
 30. `FranConstellationMoteParticle`：星座组控制的轨道亮点，按共享组生命周期更新。
 31. `FranTacticalDropletParticle`：蓝辉等战术使用的液滴/碎液粒子。
+32. `FranSwingCadenceParticle`：普通挥砍使用的短火花、脉冲与线状节奏粒子。
+33. `FranWaveSquishyLightParticle`：蓝辉共鸣命中时爆发的可挤压波体光粒子。
+34. `FranWaveGlowSparkParticle`：可复用的径向收缩火花；折念刃冲击波不调用该粒子。
 
 `FranHeartSeekerProjectile` 是能造成伤害的心形追踪弹幕，不属于纯视觉粒子；它保持服务端伤害判定，视觉上调用 Heart 与 StarMote。
 
 ## 系统文件
 
 - `FranParticleCore.cs`：粒子生命周期、上限、延迟生成、前后绘制层、Alpha/Additive 分流与专属同名贴图入口。
-- `FranParticleTypes.cs`：除闪电外的主要粒子类型。
+- 各个 `Fran*Particle.cs`：独立保存对应粒子的更新和绘制逻辑。
 - `FranExpandedParticles.cs`：气针、Bloom、圆环、五字形和黑光核心。
 - `FranVanillaDustEffects.cs`：原版 Dust 的统一配额和动作意图；每接纳 4 个自定义粒子固定生成 1 个 Dust。
 - `FranBoltParticle.cs`：独立闪电粒子文件。
 - `FranParticleEffects.cs`：供武器调用的组合效果与兼容入口。
-- 根目录 `FranLightingBoltsSystem.cs`：由用户自有 `CLCBLightingBoltsSystem` 移植，负责 Terraria 原生池化 Sparkle 和 Fran 粒子的组合图案。
+- `Content/Systems/FranLightingBoltsSystem.cs`：负责 Terraria 原生池化 Sparkle 与 Fran 粒子的组合图案。
 
 ## 左键四段表现合同
 

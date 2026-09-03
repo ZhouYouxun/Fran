@@ -48,7 +48,9 @@ public static class FranSkillInfo
         Language.GetTextValue($"Mods.Fran.Skills.{skill}.Description");
 
     public static string FirstLayerText(FranSkill skill) =>
-        Language.GetTextValue($"Mods.Fran.Skills.{skill}.FirstLayer");
+        skill == FranSkill.TelekineticCatapult
+            ? Language.GetTextValue($"Mods.Fran.Skills.{skill}.CurrentState.Stage{FranBalance.GetTelekineticPatternStage()}")
+            : Language.GetTextValue($"Mods.Fran.Skills.{skill}.FirstLayer");
 
     public static string AdditionalLayerText(FranSkill skill) =>
         Language.GetTextValue($"Mods.Fran.Skills.{skill}.AdditionalLayer");

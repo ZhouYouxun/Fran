@@ -8,8 +8,7 @@ using Terraria.ModLoader;
 
 namespace FranMod.Content.Projectiles;
 
-// A damaging form of the Leonid-inspired heart/starlight language. It is a projectile,
-// not a cosmetic particle, so collision and multiplayer damage remain authoritative.
+// 可造成伤害的心形星光弹幕；碰撞与多人伤害由服务端判定，不属于纯视觉粒子。
 internal sealed class FranHeartSeekerProjectile : ModProjectile
 {
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";

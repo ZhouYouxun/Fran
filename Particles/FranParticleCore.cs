@@ -44,9 +44,8 @@ internal abstract class FranParticle
 
 internal static class FranParticleAssets
 {
-    // Fran/Particles is the canonical VIP asset room for the particle runtime. Shared source
-    // materials may still have a copy in Textures/Particles for projectile/PreDraw consumers,
-    // but particle classes never cross that boundary when requesting their own textures.
+    // Fran/Particles 是粒子运行时的唯一资源入口。Textures/Particles 可以保留共享材质副本，
+    // 供弹幕 PreDraw 使用，但粒子类自身不会跨目录请求贴图。
     private const string Root = "Fran/Particles/";
     private const string ParticleRoot = Root;
     private const float MaximumRenderedDimension = 256f;

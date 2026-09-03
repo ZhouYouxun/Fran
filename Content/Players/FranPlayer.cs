@@ -39,7 +39,6 @@ public sealed class FranPlayer : ModPlayer
     public int BlueResonanceTimer;
     public int StolenSkillTimer;
     public int HammerComboRounds;
-    public int ResonanceHealCooldown;
     public readonly int[] SkillCooldowns = new int[FranSkillInfo.Count];
     public readonly int[] SkillCooldownMaximums = new int[FranSkillInfo.Count];
     public bool TelekineticFlightEnabled { get; private set; }
@@ -201,7 +200,20 @@ public sealed class FranPlayer : ModPlayer
 
     public override void PostUpdateEquips()
     {
-        if (!FranMode || !Main.hardMode || Player.mount.Active || HasExternalWings)
+        if (!FranMode)
+            return;
+
+        int barrierLayers = GetActiveMagicBarrierLayers();
+        if (barrierLayers > 0)
+        {
+            int defense = FranBalance.GetInt(nameof(FranBalance.MagicBarrierBaseDefense),
+                FranBalance.MagicBarrierBaseDefense) +
+                FranBalance.GetInt(nameof(FranBalance.MagicBarrierExtraLayerDefense),
+                    FranBalance.MagicBarrierExtraLayerDefense) * (barrierLayers - 1);
+            Player.statDefense += Math.Max(0, defense);
+        }
+
+        if (!Main.hardMode || Player.mount.Active || HasExternalWings)
             return;
 
         int wingSlot = FranTelekineticFlightSystem.GetCurrentWingSlot();
@@ -432,17 +444,30 @@ public sealed class FranPlayer : ModPlayer
     {
         if (!FranMode)
             return;
-        int barrierLayers = GetSkillStacks(FranSkill.MagicBarrier);
-        if (barrierLayers > 0 && FranAutoBarrierProjectile.IsActive(Player))
-            modifiers.SourceDamage *= 1f -
-                FranBalance.GetFloat(nameof(FranBalance.MagicBarrierDamageReductionPerLayer),
-                    FranBalance.MagicBarrierDamageReductionPerLayer) *
-                Math.Min(MaximumTacticSlots, barrierLayers);
+        int barrierLayers = GetActiveMagicBarrierLayers();
+        if (barrierLayers > 0)
+        {
+            float damageReduction = FranBalance.GetFloat(nameof(FranBalance.MagicBarrierBaseDamageReduction),
+                FranBalance.MagicBarrierBaseDamageReduction) +
+                FranBalance.GetFloat(nameof(FranBalance.MagicBarrierExtraLayerDamageReduction),
+                    FranBalance.MagicBarrierExtraLayerDamageReduction) * (barrierLayers - 1);
+            modifiers.SourceDamage *= 1f - MathHelper.Clamp(damageReduction, 0f, 0.95f);
+        }
         if (FranClientConfig.Instance?.EnableFranVoice ?? true)
         {
             modifiers.DisableSound();
             SoundEngine.PlaySound(SoundID.PlayerHit with { Pitch = 0.28f, Volume = 0.72f }, Player.Center);
         }
+    }
+
+    public override void ModifyHitByNPC(NPC npc, ref Player.HurtModifiers modifiers)
+    {
+        int barrierLayers = GetActiveMagicBarrierLayers();
+        int availableSlots = Math.Min(AvailableTacticSlots, MaximumTacticSlots);
+        if (availableSlots > 0 && barrierLayers == availableSlots)
+            modifiers.FinalDamage *= FranBalance.GetFloat(
+                nameof(FranBalance.MagicBarrierFullLoadoutContactDamageMultiplier),
+                FranBalance.MagicBarrierFullLoadoutContactDamageMultiplier);
     }
 
     public override void OnHurt(Player.HurtInfo info)
@@ -506,7 +531,6 @@ public sealed class FranPlayer : ModPlayer
         BlueResonanceTimer = 0;
         StolenSkillTimer = 0;
         HammerComboRounds = 0;
-        ResonanceHealCooldown = 0;
         screenShakePower = 0f;
         dashHitNpcs.Clear();
         Array.Clear(SkillCooldowns);
@@ -559,6 +583,15 @@ public sealed class FranPlayer : ModPlayer
             if (equippedTactics[i] == skill)
                 count++;
         return count;
+    }
+
+    private int GetActiveMagicBarrierLayers()
+    {
+        if (!FranMode || !FranAutoBarrierProjectile.IsActive(Player))
+            return 0;
+
+        int availableSlots = Math.Min(AvailableTacticSlots, MaximumTacticSlots);
+        return Math.Clamp(GetSkillStacks(FranSkill.MagicBarrier), 0, availableSlots);
     }
 
     public FranSkill[] GetActiveTacticSnapshot()
@@ -688,25 +721,28 @@ public sealed class FranPlayer : ModPlayer
         SkillCooldownMaximums[(int)skill] = Math.Max(SkillCooldownMaximums[(int)skill], cooldown);
     }
 
-    public bool AdvanceHammerRound()
+    public bool AdvanceHammerRound(int tacticLayers)
     {
+        tacticLayers = Math.Clamp(tacticLayers, 1, MaximumTacticSlots);
+        bool fullHammerLoadout = GetActiveTacticCount() == AvailableTacticSlots &&
+            tacticLayers == AvailableTacticSlots;
+        int requiredRounds = fullHammerLoadout ? 1 : FranBalance.GetInt(
+            nameof(FranBalance.ThorsHammerRequiredComboRounds), FranBalance.ThorsHammerRequiredComboRounds);
         HammerComboRounds++;
-        if (HammerComboRounds < FranBalance.GetInt(nameof(FranBalance.ThorsHammerRequiredComboRounds),
-                FranBalance.ThorsHammerRequiredComboRounds))
+        if (HammerComboRounds < Math.Max(1, requiredRounds))
             return false;
         HammerComboRounds = 0;
         return true;
     }
 
-    public bool TryApplyResonanceHealing(int amount)
+    public bool ApplyResonanceHealing(int amount)
     {
-        if (ResonanceHealCooldown > 0 || amount <= 0 || Player.statLife >= Player.statLifeMax2)
+        if (Main.netMode == NetmodeID.MultiplayerClient || amount <= 0 ||
+            Player.statLife >= Player.statLifeMax2)
             return false;
         int healed = Math.Min(amount, Player.statLifeMax2 - Player.statLife);
         Player.statLife += healed;
         Player.HealEffect(healed, true);
-        ResonanceHealCooldown = FranBalance.GetInt(nameof(FranBalance.BlueResonanceHealingCooldownFrames),
-            FranBalance.BlueResonanceHealingCooldownFrames);
         return true;
     }
 
@@ -752,8 +788,6 @@ public sealed class FranPlayer : ModPlayer
             BlueResonanceTimer--;
         if (StolenSkillTimer > 0)
             StolenSkillTimer--;
-        if (ResonanceHealCooldown > 0)
-            ResonanceHealCooldown--;
         for (int i = 0; i < SkillCooldowns.Length; i++)
             if (SkillCooldowns[i] > 0)
             {
@@ -926,13 +960,17 @@ public sealed class FranPlayer : ModPlayer
             Player.ChangeDir(Math.Sign(direction.X));
         dashStartedThisTick = true;
         dashHitNpcs.Clear();
+        Player.fullRotation = 0f;
         FranModMain.SendCombatState(Player.whoAmI, DashTimer, DashVelocity);
         Player.GiveImmuneTimeForCollisionAttack(DashDuration + 2 + evolution.DashImmunityBonus);
         SoundEngine.PlaySound(SoundID.Item74 with { Pitch = 0.18f, Volume = 0.65f }, Player.Center);
-        ShakeScreen(Player.Center, 2.4f);
+        SoundEngine.PlaySound(SoundID.Roar with { Pitch = -0.55f, Volume = 0.24f }, Player.Center);
+        ShakeScreen(Player.Center, 3.5f);
         if (Player.whoAmI == Main.myPlayer)
+        {
             Projectile.NewProjectile(Player.GetSource_Misc("FranDashVisual"), Player.Center, DashVelocity,
                 ModContent.ProjectileType<FranDashTrail>(), 0, 0f, Player.whoAmI, DashDuration);
+        }
     }
 
     private void UpdateDash()
@@ -956,7 +994,7 @@ public sealed class FranPlayer : ModPlayer
             Vector2 dashMotion = Player.velocity;
             Dust dust = Dust.NewDustPerfect(Player.Center - dashMotion * 0.45f, DustID.Shadowflame,
                 -dashMotion * 0.12f + Main.rand.NextVector2Circular(1.2f, 1.2f), 110,
-                new Color(38, 22, 58), 1.20f);
+                new Color(154, 94, 218), 1.20f);
             dust.noGravity = true;
         }
 
@@ -973,7 +1011,8 @@ public sealed class FranPlayer : ModPlayer
                     continue;
                 dashHitNpcs.Add(npc.whoAmI);
                 FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
-                int damage = (int)(FranSkillInfo.BaseDamage * evolution.DashImpactDamageMultiplier);
+                int damage = Math.Max(1, (int)(FranBalance.GetDashDamage() *
+                    evolution.DashImpactDamageMultiplier));
                 FranBurst.Spawn(Player.GetSource_Misc("FranDash"), npc.Center, Player.whoAmI,
                     FranBurstStyle.DashImpact, 1f, damage, 6f, Player.velocity.ToRotation());
                 Player.GetModPlayer<FranEvolutionPlayer>().ApplyDashHit(npc);
@@ -987,20 +1026,12 @@ public sealed class FranPlayer : ModPlayer
             EndDash(sync: Player.whoAmI == Main.myPlayer);
         else
         {
-            ApplyDashRollVisual();
+            // The Black Heavenly Tiger dash is a direct body-check, not a somersault. Holding the
+            // rotation at zero also prevents another visual system from leaving a partial roll behind.
+            Player.fullRotation = 0f;
             if (collisionChangedVelocity && Player.whoAmI == Main.myPlayer)
                 FranModMain.SendCombatState(Player.whoAmI, DashTimer, DashVelocity);
         }
-    }
-
-    private void ApplyDashRollVisual()
-    {
-        float progress = 1f - (DashTimer - 1f) / Math.Max(1f, DashDuration - 1f);
-        float rollDirection = Math.Abs(DashVelocity.X) > 0.05f
-            ? Math.Sign(DashVelocity.X)
-            : Player.direction == 0 ? 1f : Player.direction;
-        Player.fullRotationOrigin = Player.Size * 0.5f;
-        Player.fullRotation = rollDirection * MathHelper.TwoPi * 2f * progress * Player.gravDir;
     }
 
     private void UpdateTelekineticFlightVisual()
@@ -1143,7 +1174,8 @@ public sealed class FranPlayer : ModPlayer
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroTitle"), new Color(145, 225, 255));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroCombat"), Color.White);
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroSkills"), new Color(185, 215, 255));
-        Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroEvolution"), new Color(205, 178, 245));
+        if (FranEvolutionInfo.SystemEnabled)
+            Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroEvolution"), new Color(205, 178, 245));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroDash"), new Color(185, 215, 255));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroPotential"), new Color(225, 235, 255));
     }

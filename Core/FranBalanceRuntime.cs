@@ -42,7 +42,7 @@ public enum FranProgressionMilestone
 public static partial class FranBalance
 {
     // 技术容量只负责存档和联机包的固定长度，不代表实际可用槽位。
-    // 实际槽位由下方 TacticSlotProgression 决定，目前最终上限是 3。
+    // 实际槽位由下方 TacticSlotProgression 决定，月亮领主后开放最终第四格。
     public static int TacticStorageCapacity = 4;
 
     // 技能轮仍以四个叙事阶段展示。它只控制 UI 阶段文字；真正能否使用以上面的 Boss 条件表为准。
@@ -91,92 +91,11 @@ public static partial class FranBalance
     };
 
     // =====================================================================
-    // 战术通用与各战术伤害参数
-    // =====================================================================
-    public static int[] TacticCooldownFrames =
-    {
-        0,   // 念动弹射
-        0,   // 技能夺取者
-        150, // 魔力屏障破裂后 2.5 秒重构
-        0,   // 多重分体
-        0,   // 蓝辉共鸣
-        0,   // 雷链
-        0,   // 压缩居合
-        0    // 雷神之锤
-    };
-
-    // 念动弹射：前三剑气针、第四剑激光、困难模式星球。
-    public static float TelekineticTwoShellDamageMultiplier = 0.42f;
-    public static float TelekineticThreeShellDamageMultiplier = 0.31f;
-    public static float TelekineticManyShellDamageMultiplier = 0.24f;
-    public static float TelekineticLaserDamageMultiplier = 0.88f;
-    public static float TelekineticLaserExtraLayerMultiplier = 0.25f;
-    public static float TelekineticPlanetDamageMultiplier = 0.15f;
-    public static float TelekineticFinisherPlanetDamageMultiplier = 0.17f;
-
-    // 技能夺取者：印记只强化师父本体剑击；灵弹是额外追踪伤害。
-    public static int SkillTakerMaximumSeals = 4;
-    public static float SkillTakerDamagePerSeal = 0.10f;
-    public static float SkillTakerExtraLayerDamagePerSeal = 0.03f;
-    public static int SkillTakerBaseWispCount = 2;
-    public static float SkillTakerWispDamageMultiplier = 0.24f;
-    public static float SkillTakerWispDamagePerSeal = 0.015f;
-
-    // 魔力屏障：每次受击消耗一点耐久，破裂后进入战术冷却。
-    public static int MagicBarrierMaximumIntegrity = 5;
-    public static float MagicBarrierWeaponDamageMultiplier = 0.72f;
-    public static float MagicBarrierDamageReductionPerLayer = 0.10f;
-    public static float MagicBarrierCounterDamageMultiplier = 0.86f;
-    public static int MagicBarrierHitImmunityFrames = 18;
-
-    // 多重分体：数量增长与总伤害增长分开，避免以后调整数量时误改总伤害。
-    public static int MultipleBodyNormalBaseCount = 2;
-    public static int MultipleBodyFinisherBaseCount = 4;
-    public static int MultipleBodyNormalExtraLayerCount = 1;
-    public static int MultipleBodyFinisherExtraLayerCount = 2;
-    public static float MultipleBodyNormalDamageMultiplier = 0.86f;
-    public static float MultipleBodyFinisherDamageMultiplier = 1.24f;
-    public static float MultipleBodyExtraLayerDamageMultiplier = 0.18f;
-
-    // 蓝辉共鸣：终结剑拥有更多剑痕；治疗共享一个全局冷却。
-    public static int BlueResonanceNormalBaseCount = 1;
-    public static int BlueResonanceFinisherBaseCount = 3;
-    public static int BlueResonanceExtraLayerCount = 1;
-    public static float BlueResonanceNormalDamageMultiplier = 0.38f;
-    public static float BlueResonanceFinisherDamageMultiplier = 0.30f;
-    public static int BlueResonanceHealingCooldownFrames = 180;
-    public static int BlueResonanceHealingLifeDivisor = 50;
-    public static int BlueResonanceHealingMinimum = 2;
-    public static int BlueResonanceHealingMaximum = 10;
-
-    // 雷链：主雷/伴随雷使用同一倍率，自动追踪雷使用略高倍率。
-    public static float ThunderChainMainDamageMultiplier = 0.31f;
-    public static float ThunderChainTrackedDamageMultiplier = 0.37f;
-    public static float ThunderChainExtraLayerDamageMultiplier = 0.12f;
-    public static int ThunderChainNormalSupportingBoltCount = 1;
-    public static int ThunderChainFinisherSupportingBoltCount = 2;
-    public static int ThunderChainNormalTrackedTargetCount = 3;
-    public static int ThunderChainFinisherTrackedTargetCount = 4;
-
-    // 压缩居合：四段剑术在剑弧上产生不同数量的压缩空气爆点。
-    public static int[] QuickdrawAirburstCounts = { 5, 6, 8, 7 };
-    public static float[] QuickdrawAirburstDamageMultipliers = { 0.18f, 0.16f, 0.13f, 0.15f };
-    public static float QuickdrawExtraLayerDamageMultiplier = 0.15f;
-    public static float QuickdrawExtraLayerSizeMultiplier = 0.10f;
-
-    // 雷神之锤：完成指定轮数的四段剑术后，在第二轮终结剑召唤。
-    public static int ThorsHammerRequiredComboRounds = 2;
-    public static float ThorsHammerDropDamageMultiplier = 1.18f;
-    public static float ThorsHammerExtraLayerDamageMultiplier = 0.22f;
-    public static float ThorsHammerExplosionDamageMultiplier = 0.88f;
-
-    // =====================================================================
     // 冲刺与黑天虎大招
     // =====================================================================
     public static int DashDurationFrames = 12;                 // 主动冲刺持续时间
     public static float DashBaseSpeed = 16f;                   // 主动冲刺基础速度
     public static int DashBaseCooldownFrames = 50;             // 未投入猫步时的基础冷却
-    public static float DashBaseImpactDamageMultiplier = 1.20f;// 冲刺接触伤害 = 当前基础伤害 × 此倍率
 
     // 魔石回廊：以下是现有进化节点给予的实战数值，节点关系本身仍由 FranEvolution 定义。
     public static float EvolutionArcaneManaCostReduction = 0.08f;       // 魔力循环：魔力消耗降低
@@ -228,7 +147,7 @@ public static partial class FranBalance
 
     public static int UltimateChargeDurationFrames = 10800;    // 黑天虎自然充能：180 秒
     public static float UltimateStrikeDamageMultiplier = 1.15f;// 大招每次普通斩的基础倍率
-    public static int UltimateNormalStrikeCount = 18;          // 普通高速斩次数
+    public static int UltimateNormalStrikeCount = 36;          // 普通高速斩次数（原18次整体翻倍）
     public static int UltimateStartingStrikeFrames = 9;        // 第一轮普通斩耗时
     public static int UltimateEndingStrikeFrames = 4;          // 最后一轮普通斩耗时
     public static int UltimateStartingDriftFrames = 6;         // 第一轮命中漂移耗时
@@ -270,13 +189,13 @@ public static partial class FranBalance
 
     public static int GetBaseDamage()
     {
-        GetCurrentCoreProgression(out int damage, out _);
+        GetCurrentCoreProgression(out int damage, out _, out _);
         return damage;
     }
 
     public static int GetInitialBaseDamage()
     {
-        foreach ((FranProgressionMilestone milestone, int damage, float _) in
+        foreach ((FranProgressionMilestone milestone, int damage, float _, int _) in
                  FranBalanceSource.GetCoreProgressionTable(nameof(CoreProgression), CoreProgression))
             if (milestone == FranProgressionMilestone.Initial)
                 return Math.Max(1, damage);
@@ -285,19 +204,27 @@ public static partial class FranBalance
 
     public static float GetCoreSizeMultiplier()
     {
-        GetCurrentCoreProgression(out _, out float sizeMultiplier);
+        GetCurrentCoreProgression(out _, out float sizeMultiplier, out _);
         return sizeMultiplier;
+    }
+
+    public static int GetDashDamage()
+    {
+        GetCurrentCoreProgression(out _, out _, out int dashDamage);
+        return dashDamage;
     }
 
     public static float GetCurrentDamageMultiplier() =>
         GetBaseDamage() / (float)Math.Max(1, GetInitialBaseDamage());
 
-    private static void GetCurrentCoreProgression(out int damage, out float sizeMultiplier)
+    private static void GetCurrentCoreProgression(out int damage, out float sizeMultiplier, out int dashDamage)
     {
         damage = GetInitialBaseDamageFallback();
         sizeMultiplier = GetInitialCoreSizeFallback();
+        dashDamage = GetInitialDashDamageFallback();
         int bestRank = -1;
-        foreach ((FranProgressionMilestone milestone, int candidateDamage, float candidateSize) in
+        foreach ((FranProgressionMilestone milestone, int candidateDamage, float candidateSize,
+                     int candidateDashDamage) in
                  FranBalanceSource.GetCoreProgressionTable(nameof(CoreProgression), CoreProgression))
         {
             int rank = GetDamageProgressionRank(milestone);
@@ -306,6 +233,7 @@ public static partial class FranBalance
             bestRank = rank;
             damage = Math.Max(1, candidateDamage);
             sizeMultiplier = Math.Max(0.1f, candidateSize);
+            dashDamage = Math.Max(1, candidateDashDamage);
         }
     }
 
@@ -324,6 +252,15 @@ public static partial class FranBalance
                 CoreProgression[row, 2] is float value)
                 return Math.Max(0.1f, value);
         return 1f;
+    }
+
+    private static int GetInitialDashDamageFallback()
+    {
+        for (int row = 0; row < CoreProgression.GetLength(0); row++)
+            if (CoreProgression[row, 0] is FranProgressionMilestone.Initial &&
+                CoreProgression[row, 3] is int value)
+                return Math.Max(1, value);
+        return GetInitialBaseDamageFallback();
     }
 
     public static bool IsTacticUnlocked(FranSkill skill)
@@ -405,6 +342,31 @@ public static partial class FranBalance
 
     public static int GetInt(string fieldName, int fallback) => FranBalanceSource.GetInt(fieldName, fallback);
     public static float GetFloat(string fieldName, float fallback) => FranBalanceSource.GetFloat(fieldName, fallback);
+
+    public static int GetTelekineticLaserDamagingHits()
+    {
+        int progressionIndex = NPC.downedMoonlord ? 3 :
+            NPC.downedPlantBoss ? 2 :
+            Main.hardMode ? 1 : 0;
+        return Math.Max(1, GetArrayValue(nameof(TelekineticLaserDamagingHits),
+            TelekineticLaserDamagingHits, progressionIndex, 1));
+    }
+
+    // 念动弹射只在五个关键节点重组弹幕。这个阶段不影响师父本体固定的四刀。
+    public static int GetTelekineticPatternStage() =>
+        IsMilestoneCompleted(FranProgressionMilestone.MoonLord) ? 4 :
+        IsMilestoneCompleted(FranProgressionMilestone.Plantera) ? 3 :
+        IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) ? 2 :
+        IsMilestoneCompleted(FranProgressionMilestone.Skeletron) ? 1 : 0;
+
+    public static float GetTelekineticFormationDamageMultiplier(int projectileCount) => projectileCount switch
+    {
+        <= 1 => GetFloat(nameof(TelekineticSingleProjectileDamageMultiplier),
+            TelekineticSingleProjectileDamageMultiplier),
+        2 => GetFloat(nameof(TelekineticTwoShellDamageMultiplier), TelekineticTwoShellDamageMultiplier),
+        3 => GetFloat(nameof(TelekineticThreeShellDamageMultiplier), TelekineticThreeShellDamageMultiplier),
+        _ => GetFloat(nameof(TelekineticManyShellDamageMultiplier), TelekineticManyShellDamageMultiplier)
+    };
 
     public static bool IsMilestoneCompleted(FranProgressionMilestone milestone) => milestone switch
     {
@@ -594,31 +556,34 @@ internal static class FranBalanceSource
         return parsed;
     }
 
-    public static List<(FranProgressionMilestone Milestone, int Damage, float Size)> GetCoreProgressionTable(
+    public static List<(FranProgressionMilestone Milestone, int Damage, float Size, int DashDamage)>
+        GetCoreProgressionTable(
         string fieldName, object[,] fallback)
     {
-        List<(FranProgressionMilestone, int, float)> parsed = new();
+        List<(FranProgressionMilestone, int, float, int)> parsed = new();
         foreach (string row in GetRows(fieldName))
         {
             List<string> cells = SplitCells(row);
-            if (cells.Count >= 3 && TryParseEnum(cells[0], out FranProgressionMilestone milestone) &&
-                TryParseInt(cells[1], out int damage) && TryParseFloat(cells[2], out float size))
-                parsed.Add((milestone, damage, size));
+            if (cells.Count >= 4 && TryParseEnum(cells[0], out FranProgressionMilestone milestone) &&
+                TryParseInt(cells[1], out int damage) && TryParseFloat(cells[2], out float size) &&
+                TryParseInt(cells[3], out int dashDamage))
+                parsed.Add((milestone, damage, size, dashDamage));
         }
         if (parsed.Count > 0)
             return parsed;
 
         for (int row = 0; row < fallback.GetLength(0); row++)
         {
-            if (fallback[row, 0] is not FranProgressionMilestone milestone || fallback[row, 1] is not int damage)
+            if (fallback[row, 0] is not FranProgressionMilestone milestone ||
+                fallback[row, 1] is not int damage || fallback[row, 3] is not int dashDamage)
                 continue;
             object rawSize = fallback[row, 2];
             if (rawSize is float floatSize)
-                parsed.Add((milestone, damage, floatSize));
+                parsed.Add((milestone, damage, floatSize, dashDamage));
             else if (rawSize is double doubleSize)
-                parsed.Add((milestone, damage, (float)doubleSize));
+                parsed.Add((milestone, damage, (float)doubleSize, dashDamage));
             else if (rawSize is int intSize)
-                parsed.Add((milestone, damage, intSize));
+                parsed.Add((milestone, damage, intSize, dashDamage));
         }
         return parsed;
     }

@@ -25,7 +25,7 @@ internal static class FranSpectatorVfx
     public static FranSpectatorPalette ForSkill(FranSkill skill) => skill switch
     {
         FranSkill.SkillTaker => FranSpectatorPalette.Purple,
-        FranSkill.TelekineticCatapult => FranSpectatorPalette.Gold,
+        FranSkill.TelekineticCatapult => FranSpectatorPalette.Cyan,
         FranSkill.MultipleBodyCreation => FranSpectatorPalette.Mint,
         FranSkill.ThunderChain or FranSkill.ThorsHammer => FranSpectatorPalette.Lightning,
         _ => FranSpectatorPalette.Cyan

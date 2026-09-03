@@ -5,7 +5,7 @@ using Terraria;
 
 namespace FranMod.Particles;
 
-// Paired with Particles/FranGlowOrbParticle.png, copied from Calamity with the author's permission.
+// 主贴图与类同名；资源授权记录统一保存在 Particles/README.md。
 internal sealed class FranGlowOrbParticle : FranParticle
 {
     private readonly float startScale;

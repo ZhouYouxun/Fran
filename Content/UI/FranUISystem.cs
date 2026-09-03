@@ -30,20 +30,15 @@ public sealed class FranUISystem : ModSystem
     private const int TacticSigilScreenMargin = 12;
     private const int EquippedTacticSlotSize = 58;
     private const float EquippedTacticSlotOffsetY = 190f;
-    private const string SkillIconRoot = "Fran/Textures/技能组图标/32/";
+    private const float WheelRadius = 92.4f;
+    private const float WheelCollapsedRadius = 57f;
+    private const float WheelHitRadius = 30f;
+    private const float WheelFadeInSpeed = 0.30f;
+    private const float WheelFadeOutSpeed = 0.22f;
+    private const float NativeSkillIconSize = 40f;
+    private const string SkillIconRoot = "Fran/Textures/技能组图标/";
     private const string PureSwordsmanshipIcon = SkillIconRoot + "FranSkill_09_PureSwordsmanship";
     private const string UltimateIcon = SkillIconRoot + "FranSkill_10_Ultimate_BlackHeavenlyTiger";
-    private static readonly string[] SkillIcons =
-    [
-        SkillIconRoot + "FranSkill_01_TelekineticCatapult",
-        SkillIconRoot + "FranSkill_02_SkillTaker",
-        SkillIconRoot + "FranSkill_03_MagicBarrier",
-        SkillIconRoot + "FranSkill_04_MultipleBodyCreation",
-        SkillIconRoot + "FranSkill_05_BlueResonance",
-        SkillIconRoot + "FranSkill_06_ThunderChain",
-        SkillIconRoot + "FranSkill_07_PressurizedQuickdraw",
-        SkillIconRoot + "FranSkill_08_ThorsHammer"
-    ];
 
     private static bool wheelOpen;
     private static Vector2 wheelCenter;
@@ -52,6 +47,7 @@ public sealed class FranUISystem : ModSystem
     private static int previousHovered = -2;
     private static bool previousWheelHeld;
     private static bool previousLeftMouseHeld;
+    private static float wheelVisibility;
     private static bool draggingUltimateGauge;
     private static Vector2 ultimateGaugeDragOffset;
     private static float tacticSigilHoverFade;
@@ -69,6 +65,7 @@ public sealed class FranUISystem : ModSystem
         if (Main.gameMenu || Main.LocalPlayer is null)
         {
             wheelOpen = false;
+            wheelVisibility = 0f;
             return;
         }
 
@@ -81,6 +78,7 @@ public sealed class FranUISystem : ModSystem
         {
             if (wheelOpen)
                 CloseWheel();
+            AdvanceWheelAnimation();
             return;
         }
 
@@ -89,25 +87,29 @@ public sealed class FranUISystem : ModSystem
             if (wheelOpen)
             {
                 CloseWheel();
-                return;
             }
-
-            wheelOpen = true;
-            float minX = Math.Min(300f, Main.screenWidth * 0.5f);
-            float maxX = Math.Max(minX, Main.screenWidth - minX);
-            float minY = Math.Min(180f, Main.screenHeight * 0.40f);
-            float maxY = Math.Max(minY, Main.screenHeight - 344f);
-            wheelCenter = new Vector2(MathHelper.Clamp(Main.MouseScreen.X, minX, maxX),
-                MathHelper.Clamp(Main.MouseScreen.Y, minY, maxY));
-            previousHovered = -2;
-            SoundEngine.PlaySound(SoundID.MenuOpen with { Volume = 0.55f });
+            else
+            {
+                wheelOpen = true;
+                float minX = Math.Min(300f, Main.screenWidth * 0.5f);
+                float maxX = Math.Max(minX, Main.screenWidth - minX);
+                float minY = Math.Min(180f, Main.screenHeight * 0.40f);
+                float maxY = Math.Max(minY, Main.screenHeight - 344f);
+                wheelCenter = new Vector2(MathHelper.Clamp(Main.MouseScreen.X, minX, maxX),
+                    MathHelper.Clamp(Main.MouseScreen.Y, minY, maxY));
+                previousHovered = -2;
+                SoundEngine.PlaySound(SoundID.MenuOpen with { Volume = 0.55f });
+            }
         }
+
+        AdvanceWheelAnimation();
 
         if (wheelOpen)
         {
             PlayerInput.LockVanillaMouseScroll("FranSkillWheel");
-            hoveredSkill = FindHoveredSkill(Main.MouseScreen);
-            hoveredEquippedSlot = FindHoveredEquippedSlot(fran, Main.MouseScreen);
+            bool buttonsReady = wheelVisibility >= 0.45f;
+            hoveredSkill = buttonsReady ? FindHoveredSkill(Main.MouseScreen) : -1;
+            hoveredEquippedSlot = buttonsReady ? FindHoveredEquippedSlot(fran, Main.MouseScreen) : -1;
             int hoverToken = hoveredSkill >= 0 ? hoveredSkill : hoveredEquippedSlot >= 0
                 ? 100 + hoveredEquippedSlot : -1;
             if (hoverToken != previousHovered)
@@ -137,6 +139,18 @@ public sealed class FranUISystem : ModSystem
         previousHovered = -2;
         SoundEngine.PlaySound(SoundID.MenuClose with { Volume = 0.5f });
     }
+
+    private static void AdvanceWheelAnimation()
+    {
+        float speed = wheelOpen ? WheelFadeInSpeed : WheelFadeOutSpeed;
+        wheelVisibility = MathHelper.Clamp(wheelVisibility + (wheelOpen ? speed : -speed), 0f, 1f);
+    }
+
+    private static float WheelAnimationEase =>
+        wheelVisibility * wheelVisibility * (3f - 2f * wheelVisibility);
+
+    private static float AnimatedWheelRadius =>
+        MathHelper.Lerp(WheelCollapsedRadius, WheelRadius, WheelAnimationEase);
 
     public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)
     {
@@ -175,9 +189,27 @@ public sealed class FranUISystem : ModSystem
 
         if (fran.FranMode && !ModContent.GetInstance<FranClientConfig>().HideUltimateGauge)
             DrawUltimateGauge(fran);
-        if (wheelOpen)
-            DrawWheel(fran);
+        if (wheelVisibility > 0.001f)
+            DrawWheelPointClamped(fran);
         return true;
+    }
+
+    private static void DrawWheelPointClamped(FranPlayer fran)
+    {
+        // Interface layers default to linear sampling. Restart only this wheel's batch with nearest
+        // sampling so its authored pixels survive UI scaling, then restore the layer's original batch.
+        Main.spriteBatch.End();
+        try
+        {
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
+                DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
+            DrawWheel(fran);
+        }
+        finally
+        {
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, Main.UIScaleMatrix);
+        }
     }
 
     private static void UpdateUltimateGaugeDrag(Player player, FranPlayer fran)
@@ -308,9 +340,12 @@ public sealed class FranUISystem : ModSystem
 
     private static void DrawWheel(FranPlayer fran)
     {
-        const float radius = 132f;
-        const float iconSize = 58f;
         float time = Main.GlobalTimeWrappedHourly;
+        float animation = WheelAnimationEase;
+        float opacity = animation;
+        float detailsOpacity = MathHelper.Clamp((wheelVisibility - 0.18f) / 0.82f, 0f, 1f);
+        detailsOpacity = detailsOpacity * detailsOpacity * (3f - 2f * detailsOpacity);
+        float radius = AnimatedWheelRadius;
 
         for (int i = 0; i < FranSkillInfo.Count; i++)
         {
@@ -323,74 +358,81 @@ public sealed class FranUISystem : ModSystem
             int stacks = fran.GetSkillStacks(skill);
             Color color = unlocked ? FranSkillInfo.Color(skill) : new Color(55, 62, 70);
 
-            DrawLine(wheelCenter + direction * 52f, wheelCenter + direction * (radius - 38f),
-                color * (hovered ? 0.82f : 0.22f), hovered ? 3f : 1f);
+            float lineStartRadius = MathHelper.Lerp(38f, 49f, animation);
+            float lineEndRadius = Math.Max(lineStartRadius + 2f, radius - 24f);
+            DrawLine(wheelCenter + direction * lineStartRadius, wheelCenter + direction * lineEndRadius,
+                color * ((hovered ? 0.82f : 0.22f) * opacity), hovered ? 3f : 1f);
             int cooldown = fran.SkillCooldowns[i];
             float cooldownRatio = cooldown > 0
                 ? cooldown / (float)Math.Max(1, fran.SkillCooldownMaximums[i])
                 : 0f;
-            float drawSize = hovered ? iconSize + 8f : stacks > 0 ? iconSize + 3f : iconSize;
-            DrawOutlinedSkillIcon(center, drawSize, SkillIconPath(skill),
+            DrawNativeSkillIcon(center, SkillIconPath(skill),
                 unlocked ? Color.White : new Color(105, 111, 120),
-                stacks > 0 ? Color.Lerp(color, Color.White, 0.32f) : color,
                 (hovered ? 1f : stacks > 0 ? 0.98f : unlocked ? 0.82f : 0.46f) *
-                MathHelper.Lerp(1f, 0.38f, cooldownRatio), hovered ? 4 : 3);
+                MathHelper.Lerp(1f, 0.38f, cooldownRatio) * opacity);
             if (stacks > 0)
-                DrawStackBadge(center + new Vector2(drawSize * 0.31f, drawSize * 0.25f), stacks, color);
+                DrawStackBadge(center + new Vector2(NativeSkillIconSize * 0.31f,
+                    NativeSkillIconSize * 0.25f), stacks, color, opacity);
         }
 
-        DrawOutlinedSkillIcon(wheelCenter, 64f, PureSwordsmanshipIcon, Color.White,
-            fran.HasSelectedSkill ? new Color(92, 142, 165) : new Color(210, 232, 242), 0.96f, 3);
+        DrawNativeSkillIcon(wheelCenter, PureSwordsmanshipIcon, Color.White, 0.96f * opacity);
 
         for (int i = 0; i < 32; i++)
         {
             float angle = MathHelper.TwoPi * i / 32f + time * 0.08f;
-            Vector2 a = wheelCenter + angle.ToRotationVector2() * 68f;
-            Vector2 b = wheelCenter + (angle + MathHelper.TwoPi / 32f * 0.62f).ToRotationVector2() * 68f;
-            DrawLine(a, b, new Color(70, 165, 205) * 0.48f, 2f);
+            float innerRingRadius = MathHelper.Lerp(35f, 47.6f, animation);
+            Vector2 a = wheelCenter + angle.ToRotationVector2() * innerRingRadius;
+            Vector2 b = wheelCenter + (angle + MathHelper.TwoPi / 32f * 0.62f).ToRotationVector2() *
+                innerRingRadius;
+            DrawLine(a, b, new Color(70, 165, 205) * (0.48f * opacity), 2f);
         }
 
         string slotText = Language.GetTextValue("Mods.Fran.UI.TacticSlots",
             fran.GetActiveTacticCount(), fran.AvailableTacticSlots);
-        DrawCentered(slotText, new Rectangle((int)wheelCenter.X - 170, (int)wheelCenter.Y + 37, 340, 32),
-            new Color(205, 229, 239), 0.68f);
+        DrawCentered(slotText, new Rectangle((int)wheelCenter.X - 170, (int)wheelCenter.Y + 113, 340, 24),
+            new Color(205, 229, 239) * detailsOpacity, 0.64f);
         DrawCentered(Language.GetTextValue("Mods.Fran.UI.TacticControls"),
-            new Rectangle((int)wheelCenter.X - 220, (int)wheelCenter.Y + 68, 440, 28),
-            new Color(145, 176, 191), 0.56f);
+            new Rectangle((int)wheelCenter.X - 220, (int)wheelCenter.Y + 136, 440, 22),
+            new Color(145, 176, 191) * detailsOpacity, 0.52f);
 
-        DrawEquippedTacticSlots(fran);
+        DrawEquippedTacticSlots(fran, detailsOpacity);
 
         FranSkill detailSkill = hoveredSkill >= 0 ? (FranSkill)hoveredSkill : hoveredEquippedSlot >= 0
             ? fran.GetEquippedTactic(hoveredEquippedSlot) : FranSkill.None;
-        Rectangle descriptionPanel = new((int)wheelCenter.X - 300, (int)wheelCenter.Y + 228, 600, 116);
-        DrawRect(descriptionPanel, new Color(5, 10, 16, 230));
+        // 固定三行：名称、首层效果、重复层效果。460 像素足够容纳中文短句，
+        // 同时让说明框的左右边缘明显向轮盘中心收拢，不再横跨大半个屏幕。
+        Rectangle descriptionPanel = new((int)wheelCenter.X - 230, (int)wheelCenter.Y + 228, 460, 88);
+        DrawRect(descriptionPanel, new Color(5, 10, 16, 230) * detailsOpacity);
         Color panelColor = FranSkillInfo.IsRealSkill(detailSkill)
             ? FranSkillInfo.Color(detailSkill) : new Color(105, 145, 164);
-        DrawBorder(descriptionPanel, panelColor * 0.78f, 2);
+        DrawBorder(descriptionPanel, panelColor * (0.78f * detailsOpacity), 2);
+        string title;
+        string firstLine;
+        string secondLine;
+        Color textColor;
         if (FranSkillInfo.IsRealSkill(detailSkill))
         {
             bool unlocked = FranSkillInfo.IsUnlocked(detailSkill);
-            int stacks = fran.GetSkillStacks(detailSkill);
-            DrawCentered(FranSkillInfo.Name(detailSkill),
-                new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 5,
-                    descriptionPanel.Width - 24, 27), unlocked ? panelColor : new Color(160, 160, 165), 0.78f);
-            string description = unlocked
-                ? Language.GetTextValue("Mods.Fran.UI.TacticLayerDetails", stacks,
-                    FranSkillInfo.FirstLayerText(detailSkill), FranSkillInfo.AdditionalLayerText(detailSkill))
-                : FranSkillInfo.UnlockText(detailSkill);
-            DrawWrappedCentered(description, new Rectangle(descriptionPanel.X + 14, descriptionPanel.Y + 34,
-                descriptionPanel.Width - 28, descriptionPanel.Height - 40),
-                unlocked ? Color.White : new Color(185, 185, 190), 0.66f);
+            title = FranSkillInfo.Name(detailSkill);
+            firstLine = unlocked ? FranSkillInfo.FirstLayerText(detailSkill) : FranSkillInfo.UnlockText(detailSkill);
+            secondLine = unlocked ? FranSkillInfo.AdditionalLayerText(detailSkill) : string.Empty;
+            panelColor = unlocked ? panelColor : new Color(160, 160, 165);
+            textColor = unlocked ? Color.White : new Color(185, 185, 190);
         }
         else
         {
-            DrawCentered(Language.GetTextValue("Mods.Fran.UI.PureSwordsmanship"),
-                new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 5,
-                    descriptionPanel.Width - 24, 27), new Color(220, 235, 242), 0.78f);
-            DrawWrappedCentered(Language.GetTextValue("Mods.Fran.UI.PureSwordsmanshipDescription"),
-                new Rectangle(descriptionPanel.X + 14, descriptionPanel.Y + 34,
-                    descriptionPanel.Width - 28, descriptionPanel.Height - 40), Color.White, 0.66f);
+            title = Language.GetTextValue("Mods.Fran.UI.PureSwordsmanship");
+            firstLine = Language.GetTextValue("Mods.Fran.UI.PureSwordsmanshipLine1");
+            secondLine = Language.GetTextValue("Mods.Fran.UI.PureSwordsmanshipLine2");
+            panelColor = new Color(220, 235, 242);
+            textColor = Color.White;
         }
+        DrawCentered(title, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 5,
+            descriptionPanel.Width - 24, 24), panelColor * detailsOpacity, 0.76f);
+        DrawCentered(firstLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 33,
+            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.62f);
+        DrawCentered(secondLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 58,
+            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.62f);
     }
 
     private static int FindHoveredSkill(Vector2 mouse)
@@ -398,8 +440,8 @@ public sealed class FranUISystem : ModSystem
         for (int i = 0; i < FranSkillInfo.Count; i++)
         {
             float angle = -MathHelper.PiOver2 + MathHelper.TwoPi * i / FranSkillInfo.Count;
-            Vector2 center = wheelCenter + angle.ToRotationVector2() * 132f;
-            if (Vector2.DistanceSquared(mouse, center) <= 38f * 38f)
+            Vector2 center = wheelCenter + angle.ToRotationVector2() * AnimatedWheelRadius;
+            if (Vector2.DistanceSquared(mouse, center) <= WheelHitRadius * WheelHitRadius)
                 return i;
         }
         return -1;
@@ -460,7 +502,7 @@ public sealed class FranUISystem : ModSystem
             DrawRect(new Rectangle(center.X, center.Y - 2, 1, 2), Color.White * (0.62f * opacity));
     }
 
-    private static void DrawEquippedTacticSlots(FranPlayer fran)
+    private static void DrawEquippedTacticSlots(FranPlayer fran, float opacity)
     {
         int slotCount = Math.Min(fran.AvailableTacticSlots, FranBalance.TacticStorageCapacity);
         if (slotCount <= 0)
@@ -469,8 +511,8 @@ public sealed class FranUISystem : ModSystem
         Rectangle first = GetEquippedTacticSlotArea(slotCount, 0);
         Rectangle last = GetEquippedTacticSlotArea(slotCount, slotCount - 1);
         Rectangle connectedGroup = new(first.X, first.Y, last.Right - first.X, first.Height);
-        DrawRect(connectedGroup, new Color(4, 9, 15, 188));
-        DrawBorder(connectedGroup, new Color(73, 112, 130) * 0.72f, 2);
+        DrawRect(connectedGroup, new Color(4, 9, 15, 188) * opacity);
+        DrawBorder(connectedGroup, new Color(73, 112, 130) * (0.72f * opacity), 2);
 
         for (int slot = 0; slot < slotCount; slot++)
         {
@@ -483,11 +525,11 @@ public sealed class FranUISystem : ModSystem
 
             if (slot > 0)
                 DrawRect(new Rectangle(slotArea.X - 1, slotArea.Y + 3, 2, slotArea.Height - 6),
-                    frame * (hovered ? 0.92f : 0.58f));
+                    frame * ((hovered ? 0.92f : 0.58f) * opacity));
             if (hovered)
             {
-                DrawRect(slotArea, new Color(18, 25, 34, 224));
-                DrawBorder(slotArea, Color.Lerp(frame, Color.White, 0.44f), 3);
+                DrawRect(slotArea, new Color(18, 25, 34, 224) * opacity);
+                DrawBorder(slotArea, Color.Lerp(frame, Color.White, 0.44f) * opacity, 3);
             }
 
             if (FranSkillInfo.IsRealSkill(skill))
@@ -495,11 +537,11 @@ public sealed class FranUISystem : ModSystem
                 int cooldown = fran.SkillCooldowns[(int)skill];
                 float cooldownRatio = cooldown > 0
                     ? cooldown / (float)Math.Max(1, fran.SkillCooldownMaximums[(int)skill]) : 0f;
-                DrawOutlinedSkillIcon(center, hovered ? 52f : 48f, SkillIconPath(skill), Color.White,
-                    frame, MathHelper.Lerp(1f, 0.42f, cooldownRatio), hovered ? 3 : 2);
+                DrawNativeSkillIcon(center, SkillIconPath(skill), Color.White,
+                    MathHelper.Lerp(1f, 0.42f, cooldownRatio) * opacity);
             }
             else
-                DrawCentered((slot + 1).ToString(), slotArea, new Color(90, 125, 141), 0.62f);
+                DrawCentered((slot + 1).ToString(), slotArea, new Color(90, 125, 141) * opacity, 0.62f);
         }
     }
 
@@ -511,8 +553,20 @@ public sealed class FranUISystem : ModSystem
         return new Rectangle(x, y, EquippedTacticSlotSize, EquippedTacticSlotSize);
     }
 
-    private static string SkillIconPath(FranSkill skill) =>
-        FranSkillInfo.IsRealSkill(skill) ? SkillIcons[(int)skill] : PureSwordsmanshipIcon;
+    // Bind by skill identity rather than enum/array position. This mapping is shared by the wheel
+    // and equipped slots, so a later enum reorder cannot silently swap two authored icons.
+    private static string SkillIconPath(FranSkill skill) => skill switch
+    {
+        FranSkill.TelekineticCatapult => SkillIconRoot + "FranSkill_01_TelekineticCatapult",
+        FranSkill.SkillTaker => SkillIconRoot + "FranSkill_02_SkillTaker",
+        FranSkill.MagicBarrier => SkillIconRoot + "FranSkill_03_MagicBarrier",
+        FranSkill.MultipleBodyCreation => SkillIconRoot + "FranSkill_04_MultipleBodyCreation",
+        FranSkill.BlueResonance => SkillIconRoot + "FranSkill_05_BlueResonance",
+        FranSkill.ThunderChain => SkillIconRoot + "FranSkill_06_ThunderChain",
+        FranSkill.PressurizedQuickdraw => SkillIconRoot + "FranSkill_07_PressurizedQuickdraw",
+        FranSkill.ThorsHammer => SkillIconRoot + "FranSkill_08_ThorsHammer",
+        _ => PureSwordsmanshipIcon
+    };
 
     private static void DrawSkillIcon(Vector2 center, float size, string texturePath, Color tint,
         float opacity)
@@ -524,33 +578,21 @@ public sealed class FranUISystem : ModSystem
         Main.spriteBatch.Draw(texture, destination, tint * MathHelper.Clamp(opacity, 0f, 1f));
     }
 
-    private static void DrawOutlinedSkillIcon(Vector2 center, float size, string texturePath, Color tint,
-        Color outline, float opacity, int outlineThickness)
+    private static void DrawNativeSkillIcon(Vector2 center, string texturePath, Color tint, float opacity)
     {
         Texture2D texture = ModContent.Request<Texture2D>(texturePath).Value;
-        int pixels = Math.Max(1, (int)MathF.Round(size * SkillIconDrawScale));
-        Rectangle destination = new((int)MathF.Round(center.X - pixels * 0.5f),
-            (int)MathF.Round(center.Y - pixels * 0.5f), pixels, pixels);
-        float alpha = MathHelper.Clamp(opacity, 0f, 1f);
-        int thickness = Math.Max(1, outlineThickness);
-        for (int x = -thickness; x <= thickness; x++)
-        for (int y = -thickness; y <= thickness; y++)
-        {
-            if (x == 0 && y == 0 || x * x + y * y > thickness * thickness + 1)
-                continue;
-            Rectangle shifted = destination;
-            shifted.Offset(x, y);
-            Main.spriteBatch.Draw(texture, shifted, outline * (alpha * 0.92f));
-        }
-        Main.spriteBatch.Draw(texture, destination, tint * alpha);
+        Vector2 pixelCenter = new(MathF.Round(center.X), MathF.Round(center.Y));
+        Main.spriteBatch.Draw(texture, pixelCenter, null,
+            tint * MathHelper.Clamp(opacity, 0f, 1f), 0f, texture.Size() * 0.5f, 1f,
+            SpriteEffects.None, 0f);
     }
 
-    private static void DrawStackBadge(Vector2 center, int stacks, Color color)
+    private static void DrawStackBadge(Vector2 center, int stacks, Color color, float opacity)
     {
         string text = $"×{stacks}";
         Vector2 size = FontAssets.MouseText.Value.MeasureString(text) * 0.56f;
         Utils.DrawBorderString(Main.spriteBatch, text, center - size * 0.5f,
-            Color.Lerp(color, Color.White, 0.52f), 0.56f);
+            Color.Lerp(color, Color.White, 0.52f) * opacity, 0.56f);
     }
 
     private static void DrawCentered(string text, Rectangle area, Color color, float scale)

@@ -23,7 +23,6 @@ public sealed class TeacherSwingRebuild : ModProjectile
     private const int TrailSamples = 72;
     private const int SamplesPerTick = 4;
     private const int GhostAuraDraws = 20;
-    private const int ExtendedBladeDraws = 45;
     private readonly Vector2[] tipHistory = new Vector2[TrailSamples];
     private readonly Vector2[] midHistory = new Vector2[TrailSamples];
     private readonly float[] trailStrength = new float[TrailSamples];
@@ -57,7 +56,6 @@ public sealed class TeacherSwingRebuild : ModProjectile
     private int facing;
     private bool initialized;
     private bool attackSoundPlayed;
-    private bool peakFlareEmitted;
     private bool imprintReleaseTriggered;
     private bool evolutionSequenceRegistered;
     private float evolutionDamageMultiplier = 1f;
@@ -284,44 +282,17 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
         EmitQuickdrawAirbursts(tip, blade, tangent);
 
-        bool attackStartedNow = false;
         if (!attackSoundPlayed)
         {
             attackSoundPlayed = true;
-            attackStartedNow = true;
             SoundStyle sound = Combo == 2 ? SoundID.Item71 : Combo == 3 ? SoundID.Item1 : SoundID.Item60;
             SoundEngine.PlaySound(sound with { Volume = Combo == 2 ? 0.92f : 0.72f, Pitch = Combo == 2 ? -0.34f : Combo == 3 ? 0.2f : -0.08f }, Owner.Center);
         }
 
-        if (attackStartedNow)
-        {
-            float releaseIntensity = Combo switch { 2 => 1.12f, 3 => 0.92f, 1 => 0.82f, _ => 0.74f };
-            FranParticleSystem.Spawn(new FranBladeTipFlareParticle(tip, tangent, blade,
-                Color.Lerp(color, Color.White, 0.18f), releaseIntensity, Combo == 2 ? 14 : 11));
-            if (Combo is 2 or 3)
-            {
-                Vector2 releaseDirection = Combo == 3 ? blade : tangent;
-                FranSpectatorVfx.SpawnReleaseFan(Projectile.GetSource_FromThis(), tip - releaseDirection * 5f,
-                    releaseDirection, Owner.whoAmI, FranSpectatorVfx.ForSkill(ImprintSkill),
-                    Combo == 2 ? 3 : 2, Combo == 2 ? 1.05f : 0.88f);
-                Owner.GetModPlayer<FranPlayer>().ShakeScreen(tip, Combo == 2 ? 1.4f : 1f);
-            }
-        }
-
-        float peakTime = Combo switch { 0 => 0.40f, 1 => 0.48f, 2 => 0.43f, _ => 0.42f };
-        if (!peakFlareEmitted && Progress >= peakTime)
-        {
-            peakFlareEmitted = true;
-            float peakIntensity = Combo switch { 2 => 1.36f, 3 => 1.14f, 1 => 1.02f, _ => 1.06f };
-            FranParticleSystem.Spawn(new FranBladeTipFlareParticle(tip - blade * (Combo == 3 ? 2f : 6f),
-                tangent, blade, Color.Lerp(color, Color.White, 0.36f), peakIntensity, Combo == 2 ? 13 : 10));
-        }
-
         float swingActivity = SwingActivity();
-        EmitArcShedLightParticles(blade, tangent, color, swingActivity);
-        EmitStructuredTrailParticles(tip, blade, tangent, color, swingActivity);
-        EmitAnalyticArcFragments(tip, blade, tangent, color, swingActivity);
-        EmitSupportingDust(tip, tangent, color);
+        FranVanillaDustEffects.SwingTrail(Owner.MountedCenter, tip, tangent, ImprintSkill,
+            color, Combo, (int)Projectile.localAI[0]);
+        EmitSwingCadenceParticles(blade, tangent, color, swingActivity);
 
         if ((HasTactic(FranSkill.ThunderChain) || HasTactic(FranSkill.ThorsHammer)) &&
             swingActivity > 0.32f && (int)Projectile.localAI[0] % 3 == 0)
@@ -341,11 +312,10 @@ public sealed class TeacherSwingRebuild : ModProjectile
         return MathF.Sin(activeProgress * MathHelper.Pi);
     }
 
-    private void EmitArcShedLightParticles(Vector2 blade, Vector2 tangent, Color color, float swingActivity)
+    private void EmitSwingCadenceParticles(Vector2 blade, Vector2 tangent, Color color,
+        float swingActivity)
     {
-        int timer = (int)Projectile.localAI[0];
-        int interval = Combo switch { 2 => 2, 1 => 4, 3 => 3, _ => 3 };
-        if (swingActivity <= 0.12f || timer % interval != 0)
+        if (swingActivity <= 0.08f)
             return;
 
         int maximumHistoryIndex = Math.Min(Combo == 2 ? 11 : 8, TrailSamples - 2);
@@ -353,55 +323,48 @@ public sealed class TeacherSwingRebuild : ModProjectile
         Vector2 arcPoint = tipHistory[historyIndex];
         Vector2 olderPoint = tipHistory[Math.Min(historyIndex + SamplesPerTick, TrailSamples - 1)];
         Vector2 localTangent = (arcPoint - olderPoint).SafeNormalize(tangent);
-        float alongBlade = Combo == 3
-            ? Main.rand.NextFloat(0.76f, 1f)
-            : Main.rand.NextFloat(0.62f, 0.98f);
+        float alongBlade = Combo == 3 ? Main.rand.NextFloat(0.70f, 1f) : Main.rand.NextFloat(0.56f, 0.98f);
         Vector2 position = Vector2.Lerp(Owner.MountedCenter, arcPoint, alongBlade) +
-            Main.rand.NextVector2Circular(2.5f, 2.5f);
-        Vector2 releaseDirection = Combo == 3 ? blade : localTangent;
-        float speedScale = MathHelper.Lerp(0.78f, 1.08f, swingActivity);
-        Vector2 velocity = releaseDirection.RotatedByRandom(Combo == 3 ? 0.045f : Combo == 1 ? 0.16f : 0.10f) *
-            Main.rand.NextFloat(Combo == 2 ? 4.2f : 3f, Combo == 2 ? 7.2f : 5.8f) * speedScale +
-            (Combo == 3 ? Vector2.Zero : blade * Main.rand.NextFloat(0.20f, 0.78f)) +
-            (Combo == 3 ? Vector2.Zero : Owner.velocity * 0.10f);
-        Color particleColor = timer % 4 == 0 ? Color.White :
-            Color.Lerp(color, new Color(255, 220, 132), 0.20f);
-        FranParticleSystem.Spawn(new FranLightParticle(position, velocity,
-            Main.rand.NextFloat(0.30f, Combo == 2 ? 0.62f : 0.52f), particleColor,
-            Main.rand.Next(14, Combo == 2 ? 23 : 21), 0.80f, 1.16f, 2.6f,
-            timer % 7 == 0 ? 0.0025f : 0f));
+            Main.rand.NextVector2Circular(1.8f, 1.8f);
+        float speedScale = MathHelper.Lerp(0.82f, 1.08f, swingActivity);
+        Vector2 velocity;
+        FranSwingCadenceParticle particle;
 
-        // Round glow is an accent for the rotational and heavy stages only. The clean cut and
-        // thrust keep their silhouettes directional instead of filling the path with bubbles.
-        if (Combo is not (1 or 2) || swingActivity < 0.38f)
-            return;
+        switch (Combo)
+        {
+            case 0:
+                velocity = localTangent.RotatedByRandom(0.10f) * Main.rand.NextFloat(3.4f, 5.4f) * speedScale +
+                    blade * Main.rand.NextFloat(0.15f, 0.48f);
+                particle = FranSwingCadenceParticle.CritSpark(position, velocity,
+                    Color.Lerp(color, new Color(255, 205, 132), 0.18f));
+                break;
 
-        int orbInterval = Combo == 2 ? 6 : 7;
-        if (timer % orbInterval != 0)
-            return;
-        int orbHistoryIndex = Main.rand.Next(maximumHistoryIndex + 1);
-        Vector2 orbPoint = tipHistory[orbHistoryIndex];
-        Vector2 orbOlderPoint = tipHistory[Math.Min(orbHistoryIndex + SamplesPerTick, TrailSamples - 1)];
-        Vector2 orbTangent = (orbPoint - orbOlderPoint).SafeNormalize(tangent);
-        Vector2 orbPosition = Vector2.Lerp(Owner.MountedCenter, orbPoint,
-            Combo == 3 ? Main.rand.NextFloat(0.78f, 1f) : Main.rand.NextFloat(0.66f, 1f));
-        Vector2 orbVelocity = orbTangent.RotatedByRandom(0.18f) * Main.rand.NextFloat(1.8f, 3.8f) +
-            blade * Main.rand.NextFloat(0.15f, 0.72f) + Owner.velocity * 0.08f;
-        FranParticleSystem.Spawn(new FranGlowOrbParticle(
-            orbPosition + Main.rand.NextVector2Circular(3f, 3f), orbVelocity,
-            Color.Lerp(color, Color.White, 0.20f), Main.rand.NextFloat(0.14f, 0.23f),
-            0.025f, Main.rand.Next(13, 20), true));
-    }
+            case 1:
+                velocity = localTangent.RotatedByRandom(0.15f) * Main.rand.NextFloat(2.8f, 4.8f) * speedScale +
+                    blade * Main.rand.NextFloat(0.12f, 0.42f);
+                particle = FranSwingCadenceParticle.SparklePulse(position, velocity,
+                    Main.rand.NextBool(4) ? Color.Lerp(color, Color.White, 0.46f) : color,
+                    localTangent.ToRotation(), Main.rand.NextFloat(0.4f, 1.1f));
+                break;
 
-    private void EmitSupportingDust(Vector2 tip, Vector2 tangent, Color color)
-    {
-        int timer = (int)Projectile.localAI[0];
-        int interval = Combo switch { 2 => 3, 3 => 5, _ => 4 };
-        if (timer % interval != 0)
-            return;
+            case 2:
+                velocity = localTangent.RotatedByRandom(0.13f) * Main.rand.NextFloat(4.4f, 7.0f) * speedScale +
+                    blade * Main.rand.NextFloat(0.18f, 0.62f);
+                particle = FranSwingCadenceParticle.DrainLineBloom(position, velocity,
+                    Color.Lerp(color, Color.White, 0.10f), Main.rand.NextFloat(0.3f, 0.8f));
+                break;
 
-        FranVanillaDustEffects.SwingTrail(Owner.MountedCenter, tip, tangent, ImprintSkill,
-            color, Combo, timer);
+            default:
+                velocity = -blade.RotatedByRandom(0.20f) * Main.rand.NextFloat(7.5f, 10.5f) * speedScale;
+                position = tipHistory[0] - blade * Main.rand.NextFloat(6f, 48f) +
+                    Main.rand.NextVector2Circular(1.4f, 1.4f);
+                particle = FranSwingCadenceParticle.DrainLine(position, velocity,
+                    Main.rand.NextBool(3) ? Color.Lerp(color, Color.White, 0.72f) : color,
+                    Main.rand.NextFloat(0.3f, 0.7f));
+                break;
+        }
+
+        FranParticleSystem.Spawn(particle);
     }
 
     private void EmitQuickdrawAirbursts(Vector2 tip, Vector2 blade, Vector2 tangent)
@@ -431,8 +394,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 2 => 0.62f + 0.14f * MathF.Sin(completion * MathHelper.Pi),
                 3 => 0.70f + 0.12f * completion,
                 _ => 0.66f + 0.16f * MathF.Sin(completion * MathHelper.Pi)
-            }) * (1f + FranBalance.GetFloat(nameof(FranBalance.QuickdrawExtraLayerSizeMultiplier),
-                FranBalance.QuickdrawExtraLayerSizeMultiplier) * (quickdrawLayers - 1));
+            });
             float damageScale = FranBalance.GetQuickdrawAirburstDamageMultiplier(Combo);
             int burstDamage = Math.Max(1, (int)(Projectile.damage * damageScale *
                 (1f + FranBalance.GetFloat(nameof(FranBalance.QuickdrawExtraLayerDamageMultiplier),
@@ -443,107 +405,6 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 Projectile.knockBack * 0.35f, Owner.whoAmI, delay, scale,
                 currentAngle + step * 0.73f);
         }
-    }
-
-    private void EmitStructuredTrailParticles(Vector2 tip, Vector2 blade, Vector2 tangent, Color color,
-        float swingActivity)
-    {
-        int timer = (int)Projectile.localAI[0];
-        switch (Combo)
-        {
-            case 0:
-                if (timer % 2 != 0)
-                    return;
-                Vector2 edgePosition = Vector2.Lerp(Owner.MountedCenter, tip, Main.rand.NextFloat(0.68f, 0.98f));
-                FranParticleSystem.Spawn(new FranBladeEdgeMoteParticle(edgePosition,
-                    tangent.RotatedByRandom(0.14f) * Main.rand.NextFloat(1.8f, 3.5f), tangent,
-                    Color.Lerp(color, Color.White, 0.28f), Main.rand.NextFloat(24f, 36f),
-                    Main.rand.NextFloat(1.4f, 2.1f), Main.rand.Next(9, 14)));
-                if (timer % 4 == 0)
-                {
-                    Vector2 wakePosition = Vector2.Lerp(Owner.MountedCenter, tip, Main.rand.NextFloat(0.50f, 0.86f));
-                    FranParticleSystem.Spawn(new FranBladeWakeSliverParticle(wakePosition,
-                        -tangent * Main.rand.NextFloat(0.25f, 0.68f), blade.RotatedByRandom(0.07f),
-                        Color.Lerp(color, new Color(195, 242, 255), 0.30f), Main.rand.NextFloat(18f, 29f),
-                        Main.rand.NextFloat(2.1f, 3.3f), Main.rand.Next(8, 13), Main.rand.NextFloat(-0.022f, 0.022f)));
-                }
-                break;
-
-            case 1:
-                if (timer % 3 == 0)
-                {
-                    Vector2 orbitPoint = Vector2.Lerp(Owner.MountedCenter, tip, Main.rand.NextFloat(0.74f, 0.98f));
-                    FranParticleSystem.Spawn(new FranBladeEdgeMoteParticle(orbitPoint,
-                        tangent * Main.rand.NextFloat(2.2f, 4.4f), tangent, Color.Lerp(color, Color.White, 0.42f),
-                        Main.rand.NextFloat(20f, 32f), Main.rand.NextFloat(1.2f, 1.9f), Main.rand.Next(9, 14)));
-                    FranParticleSystem.Spawn(new FranStarMoteParticle(orbitPoint, tangent * 0.9f,
-                        Color.White, color, Main.rand.NextFloat(0.18f, 0.34f), Main.rand.Next(12, 19)));
-                }
-                if (timer % 6 == 0)
-                    FranParticleSystem.Spawn(new FranBladeWakeSliverParticle(
-                        Vector2.Lerp(Owner.MountedCenter, tip, Main.rand.NextFloat(0.58f, 0.82f)),
-                        -tangent * 0.45f, tangent.RotatedByRandom(0.10f), color,
-                        Main.rand.NextFloat(16f, 25f), Main.rand.NextFloat(1.7f, 2.7f), Main.rand.Next(8, 12),
-                        facing * 0.018f));
-                break;
-
-            case 2:
-                if (swingActivity > 0.24f && timer % 2 == 0)
-                {
-                    Vector2 heavyPoint = Vector2.Lerp(Owner.MountedCenter, tip, Main.rand.NextFloat(0.55f, 0.98f));
-                    FranParticleSystem.Spawn(new FranBladeWakeSliverParticle(heavyPoint,
-                        -tangent * Main.rand.NextFloat(0.45f, 1.1f), blade.RotatedByRandom(0.14f),
-                        Color.Lerp(color, Color.White, 0.16f), Main.rand.NextFloat(24f, 42f),
-                        Main.rand.NextFloat(2.8f, 4.6f), Main.rand.Next(10, 16), Main.rand.NextFloat(-0.035f, 0.035f)));
-                    FranParticleSystem.Spawn(new FranBladeChipParticle(tip,
-                        tangent.RotatedByRandom(0.36f) * Main.rand.NextFloat(4f, 8.5f), color,
-                        Main.rand.NextFloat(0.85f, 1.3f), Main.rand.Next(12, 19), 0.07f,
-                        HasTactic(FranSkill.ThunderChain) || HasTactic(FranSkill.ThorsHammer)));
-                }
-                if (swingActivity > 0.54f && timer % 5 == 0)
-                    FranParticleSystem.Spawn(new FranHeavySmokeParticle(tip - blade * 18f,
-                        -tangent * Main.rand.NextFloat(0.7f, 1.7f), Color.Lerp(color, new Color(24, 20, 42), 0.62f),
-                        Main.rand.NextFloat(0.20f, 0.32f), Main.rand.Next(18, 25), 0.44f, true));
-                break;
-
-            default:
-                if (swingActivity > 0.16f && timer % 2 == 0)
-                {
-                    Vector2 thrustPoint = tip - blade * Main.rand.NextFloat(10f, 54f);
-                    FranParticleSystem.Spawn(new FranBladeEdgeMoteParticle(thrustPoint,
-                        -blade * Main.rand.NextFloat(1.8f, 4.2f), blade,
-                        Color.Lerp(color, Color.White, 0.46f), Main.rand.NextFloat(26f, 46f),
-                        Main.rand.NextFloat(1.1f, 1.8f), Main.rand.Next(8, 13), 0.91f));
-                }
-                if (swingActivity > 0.42f && timer % 4 == 0)
-                    FranParticleSystem.Spawn(new FranBoltParticle(tip, -blade * 2f, color, 0.18f,
-                        new Vector2(0.36f, 1.25f), 9));
-                break;
-        }
-    }
-
-    private void EmitAnalyticArcFragments(Vector2 tip, Vector2 blade, Vector2 tangent, Color color,
-        float swingActivity)
-    {
-        // Only the two broad cuts shed curved pieces of the blade material. The spin already owns
-        // circular stars/orbs, while the thrust must remain strictly collinear.
-        if (Combo is not (0 or 2) || swingActivity < 0.28f)
-            return;
-
-        int timer = (int)Projectile.localAI[0];
-        int interval = Combo == 2 ? 3 : 5;
-        if (timer % interval != 0)
-            return;
-
-        Vector2 center = Vector2.Lerp(Owner.MountedCenter, tip, Main.rand.NextFloat(0.58f, 0.94f));
-        Vector2 velocity = tangent.RotatedByRandom(Combo == 2 ? 0.24f : 0.14f) *
-            Main.rand.NextFloat(0.8f, Combo == 2 ? 3.6f : 2.5f) - blade * Main.rand.NextFloat(0.1f, 0.7f);
-        float arc = (Combo == 2 ? 0.82f : 0.68f) * facing;
-        FranParticleSystem.Spawn(new FranBladeArcFragmentParticle(center, velocity, tangent,
-            Color.Lerp(color, Color.White, Combo == 2 ? 0.20f : 0.36f),
-            Main.rand.NextFloat(Combo == 2 ? 22f : 14f, Combo == 2 ? 36f : 28f), arc,
-            Main.rand.NextFloat(1.0f, Combo == 2 ? 2.9f : 2.1f), Main.rand.Next(8, 14),
-            facing * Main.rand.NextFloat(0.018f, Combo == 2 ? 0.038f : 0.028f)));
     }
 
     private void TriggerImprintRelease()
@@ -585,10 +446,6 @@ public sealed class TeacherSwingRebuild : ModProjectile
         if (evolution.HasNode(FranEvolutionNode.MagicStoneAnalysis) &&
             FranEvolutionBossSystem.IsAnalyzedFor(target, Owner.whoAmI))
             modifiers.ArmorPenetration += evolution.AnalysisArmorPenetration;
-        int skillTakerLayers = GetTacticStackCount(FranSkill.SkillTaker);
-        if (skillTakerLayers > 0)
-            modifiers.FinalDamage *= target.GetGlobalNPC<FranImprintTargetGlobalNPC>()
-                .SkillTakerDamageMultiplier(Owner.whoAmI, skillTakerLayers);
     }
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
@@ -604,20 +461,6 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
         Color color = ElementColor();
         Vector2 incoming = currentAngle.ToRotationVector2();
-        int blueResonanceLayers = GetTacticStackCount(FranSkill.BlueResonance);
-        if (blueResonanceLayers > 0)
-        {
-            // Blue Resonance exclusively owns the former generic hit needles. They erupt from the
-            // marked enemy in an upward fan; the delayed resonance cuts and healing remain unchanged.
-            Color ejectaColor = FranSkillInfo.Color(FranSkill.BlueResonance);
-            int ejectaCount = Combo switch { 2 => 5, 3 => 4, 1 => 4, _ => 3 };
-            int ejectaDamage = Math.Max(1, (int)(damageDone * (Combo == 2 ? 0.12f : 0.16f)));
-            FranTacticalEjecta.SpawnCone(Projectile.GetSource_OnHit(target),
-                target.Center - Vector2.UnitY * Math.Min(14f, target.height * 0.18f), -Vector2.UnitY, ejectaCount,
-                MathHelper.ToRadians(Combo == 2 ? 68f : 58f), Combo == 2 ? 9.2f : 8.2f,
-                Combo == 3 ? 15.3f : 13.6f, ejectaDamage, Projectile.knockBack * 0.22f,
-                Owner.whoAmI, ejectaColor);
-        }
         FranParticleEffects.MeleeImpact(target.Center, incoming, color, Combo);
         FranVanillaDustEffects.Impact(target.Center, incoming, ImprintSkill, color,
             Combo == 2 ? 6 : 5, Combo == 2 ? 1.12f : 0.94f);
@@ -681,7 +524,6 @@ public sealed class TeacherSwingRebuild : ModProjectile
         FranVfx.BeginAdditive();
         Vector2 blade = currentAngle.ToRotationVector2();
         Vector2 center = Owner.MountedCenter + blade * currentReach * 0.58f;
-        float sign = facing;
         switch (Combo)
         {
             case 0:
@@ -705,16 +547,13 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 break;
 
             case 2:
-                // The third cut is the weight peak: dark material mass, a ragged colored edge and a short hot cleft.
-                FranVfx.DrawShared("VerticalSmearRagged", center - blade * 6f,
-                    color * (0.36f * visualStrength), currentAngle + MathHelper.PiOver2 + sign * 0.30f,
-                    0.72f * (0.78f + visualStrength * 0.28f));
-                FranVfx.DrawShared("VerticalSmearThin", center + blade * 8f,
-                    Color.White * (0.52f * visualStrength), currentAngle + MathHelper.PiOver2 + sign * 0.16f,
-                    0.57f * (0.76f + visualStrength * 0.24f));
-                FranVfx.DrawShared("SlashSmear", center + blade * 18f,
-                    Color.Lerp(color, Color.White, 0.32f) * (0.24f * visualStrength),
-                    currentAngle + MathHelper.PiOver2 - sign * 0.10f, 0.52f);
+                // 大型纵向挥砍纹理固定在持剑轴心，并随实时武器角度旋转，避免与剑身运动脱节。
+                Texture2D swooshTexture = FranVfx.Shared("VerticalSmearLarge");
+                float swooshDiameter = Math.Max(1f, Math.Max(swooshTexture.Width, swooshTexture.Height));
+                float swooshScale = currentReach * 2.15f / swooshDiameter;
+                float swooshRotation = currentAngle + (facing > 0 ? MathHelper.Pi : 0f);
+                FranVfx.DrawShared("VerticalSmearLarge", Owner.MountedCenter,
+                    color * (0.42f * visualStrength), swooshRotation, swooshScale);
                 FranVfx.DrawShared("HalfStar", tipHistory[0], Color.White * (0.78f * visualStrength),
                     currentAngle, 1.02f);
                 break;
@@ -735,50 +574,11 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 break;
         }
 
-        DrawExtendedBloomBlade(blade, color);
+        // Disabled by design: the 45-stamp extension read as a long, wavering laser on every swing.
         FranVfx.EndAdditive();
 
         float tangentRotation() => (tipHistory[0] - tipHistory[Math.Min(4, TrailSamples - 1)])
             .SafeNormalize(blade.RotatedBy(MathHelper.PiOver2)).ToRotation();
-    }
-
-    // Build the long blade from 45 overlapping soft circles, following Earth's construction rather
-    // than stretching one sprite. The chain grows outward during the active swing and contracts/fades
-    // in recovery; taper at both ends keeps Teacher's own blade silhouette.
-    private void DrawExtendedBloomBlade(Vector2 blade, Color color)
-    {
-        float strength = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(visualStrength, 0f, 1f));
-        if (strength <= 0.012f)
-            return;
-
-        float startDistance = 22f;
-        float endDistance = currentReach * (1.03f + 0.88f * strength);
-        Vector2 perpendicular = blade.RotatedBy(MathHelper.PiOver2);
-        float time = Main.GlobalTimeWrappedHourly * 9f;
-
-        for (int i = 0; i < ExtendedBladeDraws; i++)
-        {
-            float completion = i / (float)(ExtendedBladeDraws - 1);
-            float tipTaper = completion > 0.73f
-                ? MathHelper.Lerp(0.90f, 0.32f,
-                    FranMotion.Smooth(FranMotion.Segment(completion, 0.73f, 1f)))
-                : 1f;
-            float hiltTaper = MathHelper.Lerp(0.68f, 1f,
-                FranMotion.Smooth(FranMotion.Segment(completion, 0f, 0.16f)));
-            float body = 0.62f + MathF.Sin(completion * MathHelper.Pi) * 0.38f;
-            float shimmer = 0.94f + MathF.Sin(time - completion * 8f) * 0.06f;
-            float taper = tipTaper * hiltTaper * body * shimmer;
-
-            Vector2 point = Owner.MountedCenter + blade * MathHelper.Lerp(startDistance, endDistance, completion);
-            point += perpendicular * MathF.Sin(time * 1.7f + i * 1.91f) * 1.35f * strength;
-
-            Color stampColor = Color.Lerp(color, Color.White, 0.12f + completion * 0.20f);
-            Vector2 stampScale = new(
-                (0.044f + taper * 0.024f) * strength,
-                (0.082f + taper * 0.050f) * strength);
-            FranVfx.DrawShared("CL_BloomCircle", point,
-                stampColor * (0.28f * strength), currentAngle + MathHelper.PiOver2, stampScale);
-        }
     }
 
     private static void DrawSafeVertical(string textureName, Vector2 start, Vector2 end, Color color, float width)

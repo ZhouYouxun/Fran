@@ -5,6 +5,7 @@ using Luminance.Core.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.ModLoader;
 
 namespace FranMod.Core.Graphics;
 
@@ -13,7 +14,9 @@ internal enum FranProjectileTrailProfile
     TelekineticNeedle,
     ArcaneWisp,
     SpectralBlade,
-    HeavyHammer
+    HeavyHammer,
+    // 折念刃的宽而圆钝波体；着色器使用重压分支，几何轮廓单独定义。
+    TelekineticWave
 }
 
 // Texture-driven projectile ribbons. Geometry is shared, but every projectile family owns its
@@ -24,6 +27,7 @@ internal static class FranProjectileTrailRenderer
     private const float MaximumTrailRadius = 760f;
     private const float MaximumSegmentLength = 58f;
     private static bool shaderTrailFaulted;
+    private static bool telekineticWaveShaderFaulted;
 
     public static bool TryDraw(Projectile projectile, FranProjectileTrailProfile profile,
         Color bodyColor, Color edgeColor, Color coreColor, float halfWidth, float opacity)
@@ -36,7 +40,8 @@ internal static class FranProjectileTrailRenderer
         if (points.Count < 3 || !ShaderManager.TryGetShader("Fran.FranBladeTrailShader", out ManagedShader shader))
             return false;
 
-        halfWidth = MathHelper.Clamp(MathF.Abs(halfWidth), 3f, 68f);
+        float maximumHalfWidth = profile == FranProjectileTrailProfile.TelekineticWave ? 96f : 68f;
+        halfWidth = MathHelper.Clamp(MathF.Abs(halfWidth), 3f, maximumHalfWidth);
         opacity = MathHelper.Clamp(opacity, 0f, 1f);
         if (opacity <= 0.01f)
             return false;
@@ -118,7 +123,91 @@ internal static class FranProjectileTrailRenderer
         }
     }
 
-    public static void Unload() => shaderTrailFaulted = false;
+    public static bool TryDrawTelekineticWave(Projectile projectile, float opacity)
+    {
+        if (Main.dedServ || telekineticWaveShaderFaulted || projectile.oldPos is null ||
+            !IsFinite(projectile.Center) || !float.IsFinite(opacity))
+            return false;
+
+        List<Vector2> points = BuildTelekineticWavePoints(projectile);
+        if (points.Count < 6 || !ShaderManager.TryGetShader("Fran.FranTelekineticWaveShader",
+                out ManagedShader shader))
+            return false;
+
+        opacity = MathHelper.Clamp(opacity, 0f, 1f);
+        if (opacity <= 0.01f)
+            return false;
+
+        GraphicsDevice device = Main.instance.GraphicsDevice;
+        BlendState previousBlend = device.BlendState;
+        DepthStencilState previousDepth = device.DepthStencilState;
+        RasterizerState previousRasterizer = device.RasterizerState;
+        SamplerState previousSampler0 = device.SamplerStates[0];
+        SamplerState previousSampler1 = device.SamplerStates[1];
+        Texture previousTexture1 = device.Textures[1];
+        try
+        {
+            shader.TrySetParameter("uOpacity", 1f);
+            shader.SetTexture(ModContent.Request<Texture2D>("Terraria/Images/Misc/Perlin").Value,
+                1, SamplerState.LinearWrap);
+            // _Wave writes A=0 and is effectively submitted through Terraria's premultiplied
+            // AlphaBlend state. That produces a pure additive RGB result; forcing Additive here
+            // would multiply the already-faded color by zero source alpha.
+            device.BlendState = BlendState.AlphaBlend;
+
+            float WidthFunction(float completion)
+            {
+                float sine = MathF.Sin(MathHelper.Clamp(completion, 0f, 1f) * MathHelper.Pi);
+                return 200f * MathHelper.Lerp(0.25f, 1f,
+                    MathF.Pow(MathF.Max(0f, sine), 0.60f));
+            }
+
+            Color[] palette =
+            [
+                new Color(230, 252, 255),
+                new Color(125, 225, 255),
+                new Color(50, 150, 240),
+                new Color(14, 52, 115)
+            ];
+            Color ColorFunction(float completion)
+            {
+                int paletteIndex = Math.Clamp((int)(completion * (palette.Length - 1)),
+                    0, palette.Length - 1);
+                Color color = palette[paletteIndex] * ((1f - completion) * opacity * 1.2f);
+                color.A = 0;
+                return color;
+            }
+
+            PrimitiveSettings wave = new(
+                WidthFunction,
+                ColorFunction,
+                Smoothen: false,
+                Pixelate: false,
+                Shader: shader);
+            PrimitiveRenderer.RenderTrail(points, wave, points.Count);
+            return true;
+        }
+        catch
+        {
+            telekineticWaveShaderFaulted = true;
+            return false;
+        }
+        finally
+        {
+            device.BlendState = previousBlend;
+            device.DepthStencilState = previousDepth;
+            device.RasterizerState = previousRasterizer;
+            device.SamplerStates[0] = previousSampler0;
+            device.SamplerStates[1] = previousSampler1;
+            device.Textures[1] = previousTexture1;
+        }
+    }
+
+    public static void Unload()
+    {
+        shaderTrailFaulted = false;
+        telekineticWaveShaderFaulted = false;
+    }
 
     private static void DrawPass(List<Vector2> points, ManagedShader shader,
         FranProjectileTrailProfile profile, float width, float opacity, float passMode, BlendState blendState)
@@ -142,6 +231,7 @@ internal static class FranProjectileTrailRenderer
             FranProjectileTrailProfile.TelekineticNeedle => MathF.Pow(1f - completion, 0.82f),
             FranProjectileTrailProfile.ArcaneWisp => MathF.Pow(1f - completion, 0.46f),
             FranProjectileTrailProfile.SpectralBlade => MathF.Pow(1f - completion, 0.68f),
+            FranProjectileTrailProfile.TelekineticWave => MathF.Pow(1f - completion, 0.30f),
             _ => MathF.Pow(1f - completion, 0.34f)
         };
         float headShape = profile switch
@@ -155,6 +245,9 @@ internal static class FranProjectileTrailRenderer
             FranProjectileTrailProfile.SpectralBlade => MathHelper.Lerp(0.22f, 1f,
                 FranMotion.Smooth(FranMotion.Segment(completion, 0f, 0.22f))) *
                 (0.90f + MathF.Sin(completion * MathHelper.Pi) * 0.18f),
+            // 对标 UnholyEssence_Wave：中段饱满，两端保留圆钝宽度，不收成尖角。
+            FranProjectileTrailProfile.TelekineticWave => MathHelper.Lerp(0.25f, 1f,
+                MathF.Pow(MathF.Max(0f, MathF.Sin(completion * MathHelper.Pi)), 0.60f)),
             // Hammer wakes retain mass and break into repeating compression knots.
             _ => 0.92f + MathF.Sin(completion * MathHelper.Pi * 4f) * 0.10f
         };
@@ -166,6 +259,7 @@ internal static class FranProjectileTrailRenderer
         FranProjectileTrailProfile.TelekineticNeedle => FranVfx.Original("FranTrailFilamentNoise"),
         FranProjectileTrailProfile.ArcaneWisp => FranVfx.Original("FranTrailWispNoise"),
         FranProjectileTrailProfile.SpectralBlade => FranVfx.Original("FranTrailFractureNoise"),
+        FranProjectileTrailProfile.TelekineticWave => FranVfx.Original("FranTrailWispNoise"),
         _ => FranVfx.Original("FranTrailFractureNoise")
     };
 
@@ -174,6 +268,7 @@ internal static class FranProjectileTrailRenderer
         FranProjectileTrailProfile.TelekineticNeedle => FranVfx.Original("FranTrailFractureNoise"),
         FranProjectileTrailProfile.ArcaneWisp => FranVfx.Original("FranTrailFilamentNoise"),
         FranProjectileTrailProfile.SpectralBlade => FranVfx.Original("FranTrailFilamentNoise"),
+        FranProjectileTrailProfile.TelekineticWave => FranVfx.Original("FranTrailFilamentNoise"),
         _ => FranVfx.Original("FranTrailWispNoise")
     };
 
@@ -182,6 +277,7 @@ internal static class FranProjectileTrailRenderer
         FranProjectileTrailProfile.TelekineticNeedle => 1.62f,
         FranProjectileTrailProfile.ArcaneWisp => 1.88f,
         FranProjectileTrailProfile.SpectralBlade => 1.54f,
+        FranProjectileTrailProfile.TelekineticWave => 1.92f,
         _ => 1.78f
     };
 
@@ -190,6 +286,7 @@ internal static class FranProjectileTrailRenderer
         FranProjectileTrailProfile.TelekineticNeedle => 0.24f,
         FranProjectileTrailProfile.ArcaneWisp => 0.30f,
         FranProjectileTrailProfile.SpectralBlade => 0.22f,
+        FranProjectileTrailProfile.TelekineticWave => 0.16f,
         _ => 0.18f
     };
 
@@ -198,6 +295,7 @@ internal static class FranProjectileTrailRenderer
         FranProjectileTrailProfile.TelekineticNeedle => 1.8f,
         FranProjectileTrailProfile.ArcaneWisp => -0.82f,
         FranProjectileTrailProfile.SpectralBlade => 1.15f,
+        FranProjectileTrailProfile.TelekineticWave => 1.46f,
         _ => 2.25f
     };
 
@@ -206,6 +304,7 @@ internal static class FranProjectileTrailRenderer
         FranProjectileTrailProfile.TelekineticNeedle => 0.52f,
         FranProjectileTrailProfile.ArcaneWisp => 0.86f,
         FranProjectileTrailProfile.SpectralBlade => 0.68f,
+        FranProjectileTrailProfile.TelekineticWave => 0.62f,
         _ => 0.74f
     };
 
@@ -214,12 +313,14 @@ internal static class FranProjectileTrailRenderer
         FranProjectileTrailProfile.TelekineticNeedle => 0.58f,
         FranProjectileTrailProfile.ArcaneWisp => 0.78f,
         FranProjectileTrailProfile.SpectralBlade => 0.62f,
+        FranProjectileTrailProfile.TelekineticWave => 0.74f,
         _ => 0.72f
     };
 
     private static float BodyOpacity(FranProjectileTrailProfile profile) => profile switch
     {
         FranProjectileTrailProfile.ArcaneWisp => 0.88f,
+        FranProjectileTrailProfile.TelekineticWave => 0.96f,
         _ => 1f
     };
 
@@ -228,6 +329,7 @@ internal static class FranProjectileTrailRenderer
         FranProjectileTrailProfile.TelekineticNeedle => 1f,
         FranProjectileTrailProfile.ArcaneWisp => 0.74f,
         FranProjectileTrailProfile.SpectralBlade => 0.94f,
+        FranProjectileTrailProfile.TelekineticWave => 1f,
         _ => 0.88f
     };
 
@@ -258,6 +360,75 @@ internal static class FranProjectileTrailRenderer
                 points.Add(point);
         }
         return points;
+    }
+
+    private static List<Vector2> BuildTelekineticWavePoints(Projectile projectile)
+    {
+        List<Vector2> controls = new(projectile.oldPos?.Length ?? 0);
+        if (projectile.oldPos is null)
+            return controls;
+        Vector2 forward = projectile.velocity.SafeNormalize(Vector2.UnitX);
+        Vector2 frontOffset = forward * (projectile.width * 1.2f + 4f);
+        foreach (Vector2 oldPosition in projectile.oldPos)
+        {
+            if (oldPosition == Vector2.Zero)
+                break;
+            Vector2 point = oldPosition + projectile.Size * 0.5f + frontOffset;
+            if (!IsFinite(point) || Vector2.DistanceSquared(point, projectile.Center) >
+                MaximumTrailRadius * MaximumTrailRadius)
+                break;
+            controls.Add(point);
+        }
+        return ResampleCatmullRomByDistance(controls, 60);
+    }
+
+    // Calamity's renderer smooths the eight oldPos controls to sixty points and then evaluates
+    // width/color by travelled distance. Luminance uses point index, so equal-distance resampling
+    // reproduces the same visible profile while keeping every generated segment bounded.
+    private static List<Vector2> ResampleCatmullRomByDistance(List<Vector2> controls, int resultCount)
+    {
+        if (controls.Count < 5)
+            return new List<Vector2>();
+
+        const int SamplesPerSegment = 12;
+        List<Vector2> dense = new((controls.Count - 1) * SamplesPerSegment + 1) { controls[0] };
+        for (int segment = 0; segment < controls.Count - 1; segment++)
+        {
+            Vector2 p0 = controls[Math.Max(segment - 1, 0)];
+            Vector2 p1 = controls[segment];
+            Vector2 p2 = controls[segment + 1];
+            Vector2 p3 = controls[Math.Min(segment + 2, controls.Count - 1)];
+            for (int step = 1; step <= SamplesPerSegment; step++)
+            {
+                Vector2 point = Vector2.CatmullRom(p0, p1, p2, p3,
+                    step / (float)SamplesPerSegment);
+                if (!IsFinite(point) || Vector2.DistanceSquared(point, dense[^1]) >
+                    MaximumSegmentLength * MaximumSegmentLength)
+                    return new List<Vector2>();
+                dense.Add(point);
+            }
+        }
+
+        float[] distances = new float[dense.Count];
+        for (int i = 1; i < dense.Count; i++)
+            distances[i] = distances[i - 1] + Vector2.Distance(dense[i - 1], dense[i]);
+        float totalLength = distances[^1];
+        if (!float.IsFinite(totalLength) || totalLength <= 0.01f)
+            return new List<Vector2>();
+
+        List<Vector2> result = new(resultCount);
+        int denseIndex = 1;
+        for (int i = 0; i < resultCount; i++)
+        {
+            float targetDistance = totalLength * i / (resultCount - 1f);
+            while (denseIndex < distances.Length - 1 && distances[denseIndex] < targetDistance)
+                denseIndex++;
+            float span = distances[denseIndex] - distances[denseIndex - 1];
+            float local = span <= 0.0001f ? 0f :
+                (targetDistance - distances[denseIndex - 1]) / span;
+            result.Add(Vector2.Lerp(dense[denseIndex - 1], dense[denseIndex], local));
+        }
+        return result;
     }
 
     private static bool IsFinite(Vector2 value) => float.IsFinite(value.X) && float.IsFinite(value.Y);

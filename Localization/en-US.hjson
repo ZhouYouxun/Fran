@@ -1,5 +1,7 @@
 Mods: {
 	Fran: {
+		Rarities.TeacherPrismaticRarity.DisplayName: Master-and-Disciple Prismatic
+
 		Items: {
 			FransHeadwear: {
 				DisplayName: Fran's Headwear
@@ -17,11 +19,10 @@ Mods: {
 				Tooltip:
 					'''
 					A legendary intelligent sword bound to Fran
-					Hold left click: cycle through Sweep, Rising Slash, Lunge Thrust, and Heavy Finisher
-					Hold right click to open the imprint wheel, then release it in a sector to bind that imprint into the four-part combo
+					[Left Click] Cycle through Sweep, Rising Slash, Lunge Thrust, and Heavy Finisher
+					[Right Click] Open the tactic wheel; left-click icons to equip or remove tactics
 					Press [c/C3B2F5:Magic-Stone Corridor] (default J) to allocate Self Evolution Points earned from boss battles
-					Release right click in the wheel center to remove the imprint and return to pure swordsmanship
-					The ultimate charges automatically over three minutes; press [c/8CDFFF:Ultimate] (default G) when full to begin the execution rush immediately
+					[Ultimate] At full charge, press [c/8CDFFF:Ultimate] (default G) to unleash Black Heavenly Tiger
 					Teacher follows behind Fran whenever another weapon is held
 					A non-Fran character who actually owns Teacher may still use its combo and skill wheel; character passives remain exclusive to Fran Mode
 					Teacher cannot be dropped, sold, researched, trashed, or left in storage; once bonded, it will always return
@@ -99,9 +100,10 @@ Mods: {
 			UltimateReady: BLACK TIGER READY
 			PureSwordsmanship: Pure Swordsmanship Core
 			PureSwordsmanshipDescription: Empty every lower slot to use pure swordsmanship. Teacher's four-part combo always remains; tactics are layered onto it rather than replacing it
+			PureSwordsmanshipLine1: Empty every tactic slot to use pure swordsmanship
+			PureSwordsmanshipLine2: Teacher's four-cut combo always remains
 			TacticSlots: Tactic slots: {0}/{1}
 			TacticControls: Left-click a wheel icon to equip | left-click an equipped icon below the wheel to remove | right-click again or open inventory to close
-			TacticLayerDetails: Equipped: {0} layer(s) | First layer: {1} | Each later layer: {2}
 			TacticEquipped: Equipped: {0} x{1}
 			TacticUnequipped: Removed: {0} (x{1} remaining)
 		}
@@ -163,7 +165,7 @@ Mods: {
 			Dash: {
 				Line: "[Dash] Current progress: {0} | {1} | Effect: {2}"
 				Progress: Unlocked from the beginning
-				Effect: Speed 16, 12-tick duration, 50-tick base cooldown; Fran makes two visual rolls during the dash
+				Effect: A direct, roll-free dash wrapped in the Black Heavenly Tiger spirit
 
 				States: {
 					Enabled: Enabled: no other dash is equipped
@@ -448,58 +450,66 @@ Mods: {
 		Skills: {
 			TelekineticCatapult: {
 				DisplayName: Telekinetic Catapult
-				Description: The full sword combo remains intact; the first three cuts fire 2, 3, and 4 parallel telekinetic shells, while the fourth uses an infinitely piercing directional laser. In Hardmode, every cut also drops 2 to 3 planets from above; each planet brakes, accelerates, and explodes on its first enemy or tile impact
-				FirstLayer: The first three cuts fire 2/3/4 parallel needles and the fourth fires an infinitely piercing laser; in Hardmode every cut also drops 2 to 3 planets
-				AdditionalLayer: Adds 1 needle to the first three cuts, 25% laser damage to the fourth, and 1 additional Hardmode planet
+				Description: Teacher's four-part sword combo always remains intact. The current world stage rearranges pressure cores, fold blades, high-speed lasers, and falling planets around those same four cuts
+				FirstLayer: One layer: uses the current four-cut projectile sequence
+				AdditionalLayer: Stack: adds one pressure core per layer
+
+				CurrentState: {
+					Stage0: One layer: 1 core | 2 delayed core | 3 twin cores | 4 heavy core
+					Stage1: One layer: 1 core | 2 blade | 3 twin cores + blade | 4 twin blades
+					Stage2: One layer: 1 laser | 2 laser + blade | 3 twin lasers + core | 4 heavy laser
+					Stage3: One layer: 1 laser + core | 2 laser + twin blades | 3 twin lasers + twin cores | 4 heavy laser + twin blades
+					Stage4: One layer: 1 laser + core | 2 laser + twin blades | 3 twin lasers + twin cores | 4 three planets
+				}
 			}
 
 			SkillTaker: {
 				DisplayName: Skill Taker
-				Description: Only direct sword hits trigger a purple technique burst and a theft stack; each hit splits two violet wisps that scatter before homing, up to four stacks with 10% sword damage each
-				FirstLayer: Sword hits apply up to 4 seals, each adding 10% later sword damage, and split 2 homing wisps
-				AdditionalLayer: Adds 1 homing wisp per hit and another 3% damage to every active seal
+				Description: Sword hits apply a theft mark. Sustained attacks gradually increase the target's vulnerability; both the vulnerability and mark decay after attacks stop
+				FirstLayer: One layer: sustained attacks raise a marked enemy's vulnerability
+				AdditionalLayer: Stack: vulnerability rises faster and the mark lasts longer
 			}
 
 			MagicBarrier: {
 				DisplayName: Magic Barrier
-				Description: Maintains a spherical barrier around the player; each equipped layer grants 10% damage reduction, taking a hit spends one of five charges and releases a retaliatory pulse before the barrier breaks and rebuilds
-				FirstLayer: Creates a spherical barrier with 5 integrity and grants 10% damage reduction
-				AdditionalLayer: Adds another 10% damage reduction, up to 40% at four layers
+				Description: Maintains a spherical barrier around the player. The first layer grants 10% damage reduction and 10 defense; each later layer grants another 5% damage reduction and 5 defense. Filling every currently available tactic slot with Magic Barrier halves enemy contact damage. Taking a hit spends one of five charges and releases a retaliatory pulse before the barrier rebuilds
+				FirstLayer: One layer: 10% damage reduction and 10 defense
+				AdditionalLayer: Stack: adds 5% and 5 defense; a full barrier loadout halves contact damage
 			}
 
 			MultipleBodyCreation: {
 				DisplayName: Multiple Body Creation
 				Description: Every swing arrays two Teacher phantoms behind the player; after a brief hover they lock onto the cursor area and dash, while the fourth cut launches four in sequence
-				FirstLayer: Arrays 2 phantoms on the first three cuts and 4 on the fourth; without an enemy they still dash toward the cursor
-				AdditionalLayer: Adds 1 phantom to normal cuts, 2 to the fourth cut, and 18% total phantom damage
+				FirstLayer: One layer: 2 phantoms on normal cuts and 4 on the fourth
+				AdditionalLayer: Stack: adds 1 phantom to normal cuts and 2 to the fourth
 			}
 
 			BlueResonance: {
 				DisplayName: Blue Resonance
-				Description: Every sword hit leaves a delayed blue repeat-cut and scatters starlight needles upward from the target; the fourth cut forms a three-note chord whose hits can periodically restore life
-				FirstLayer: Normal sword hits create 1 delayed resonance and the fourth creates 3; hits scatter starlight needles upward and resonance can periodically restore life
-				AdditionalLayer: Adds 1 resonance cut to every hit
+				Description: Sword hits burst blue resonance motes. They seek and heal injured players; when everyone is healthy they instead seek enemies and deal damage
+				FirstLayer: One layer: hits release blue motes that heal or damage
+				AdditionalLayer: Stack: adds one blue mote per layer
 			}
 
 			ThunderChain: {
 				DisplayName: Thunder Chain
 				Description: Every swing calls several ancient lightning arcs down over the cursor and adds automatic strikes above up to three nearby enemies; the fourth cut calls even more bolts
-				FirstLayer: Calls a focal bolt and supporting bolt at the cursor and automatically strikes up to 3 nearby enemies; the fourth cut adds more lightning
-				AdditionalLayer: Adds 1 supporting bolt, 1 automatic target, and 12% damage to the full volley
+				FirstLayer: One layer: swings call a lightning chain and tracked strikes
+				AdditionalLayer: Stack: adds supporting lightning and tracked targets
 			}
 
 			PressurizedQuickdraw: {
 				DisplayName: Pressurized Quickdraw
 				Description: Every swing releases a high-pressure wave using the Terra Blade beam form; it pierces without limit and gradually slows, while the fourth cut fires a smaller and faster finishing wave
-				FirstLayer: Detonates a sequence of compressed-air bursts along the blade's swept arc
-				AdditionalLayer: Adds 15% burst damage and 10% burst size
+				FirstLayer: One layer: detonates compressed air along the sword arc
+				AdditionalLayer: Stack: only raises compressed-burst damage
 			}
 
 			ThorsHammer: {
 				DisplayName: Thor's Hammer
-				Description: After two complete four-cut rounds, the second round's fourth cut locks onto the enemy nearest the cursor; without a nearby enemy the seal stays at the cursor. Thor's Hammer then strikes the seal and detonates a wide lightning-meteor impact
-				FirstLayer: Every two complete four-cut rounds summons Thor's Hammer at a target or the cursor
-				AdditionalLayer: Adds 22% direct and explosion damage to Thor's Hammer
+				Description: After two complete four-cut rounds, the second round's fourth cut locks onto the enemy nearest the cursor; without a nearby enemy the seal stays at the cursor. A full loadout of Thor's Hammer needs only one round. The hammer then strikes the seal and detonates a wide lightning-meteor impact
+				FirstLayer: One layer: two complete four-cut rounds summon Thor's Hammer
+				AdditionalLayer: Stack: only adds damage; a full Hammer loadout needs one round
 			}
 		}
 
@@ -571,6 +581,12 @@ Mods: {
 			FranTelekineticFlightVisual.DisplayName: Telekinetic Flight Visual
 			FranTacticalEjecta.DisplayName: Fran Tactical Ejecta
 			FranTelekineticHalleyBolt.DisplayName: Fran Telekinetic Halley Bolt
+			FranBlackTigerImpactVisual.DisplayName: Fran Black Tiger Impact Visual
+			FranThunderCircuitFinisher.DisplayName: Fran Thunder Circuit Finisher
+			FranThunderCircuitLink.DisplayName: Fran Thunder Circuit Link
+			FranThunderCircuitNode.DisplayName: Fran Thunder Circuit Node
+			FranThunderStrikeProjectile.DisplayName: Fran Thunder Strike Projectile
+			FranTelekineticFoldBlade.DisplayName: Fran Telekinetic Fold Blade
 		}
 	}
 }

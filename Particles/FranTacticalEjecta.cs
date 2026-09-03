@@ -10,20 +10,20 @@ using Terraria.ModLoader;
 namespace FranMod.Particles;
 
 /// <summary>
-/// 主武器命中后向斩击前方甩出的“战术液滴/撕裂碎屑”。
+/// 主武器命中后沿斩击方向释放的战术液滴与撕裂碎屑。
 /// <para>
-/// 这个类是可复用的完整弹幕：它自己负责飞行、短暂无伤害期、拖尾绘制、落地/命中后的消散粒子，
-/// 不依赖其他模组。弹幕本体直接使用 Fran 的 BOLT，命中后的消散碎屑复用 Fran 自己的粒子贴图。
+/// 封装飞行、短暂无伤害期、拖尾绘制，以及落地或命中后的消散粒子。
+/// 弹幕本体使用 Fran 的 BOLT，消散阶段使用本模组粒子资源，不依赖外部模组。
 /// </para>
 /// <para>
-/// 【给后续维护者的最简单用法】调用 <see cref="SpawnCone"/>：
+/// 通过 <see cref="SpawnCone"/> 创建锥形弹幕组：
 /// <code>
 /// FranTacticalEjecta.SpawnCone(source, position, direction, 3,
 ///     MathHelper.ToRadians(24f), 6f, 10f, damage, knockback, owner);
 /// </code>
-/// 不传最后一个 color 参数时默认为白色；需要跟随战术附着时，传入
-/// <c>FranSkillInfo.Color(skill)</c>。颜色会写进 Projectile.ai[0..2]，因此联机同步时不依赖客户端自行猜测。
-/// direction 是喷射方向；BOLT 的原生长轴为竖直方向，绘制时由本类统一对齐飞行方向。
+/// 未指定 color 参数时使用白色；需要匹配战术颜色时传入
+/// <c>FranSkillInfo.Color(skill)</c>。颜色存入 Projectile.ai[0..2]，以便联机同步。
+/// direction 表示喷射方向；绘制时会将 BOLT 的竖直长轴旋转至飞行方向。
 /// </para>
 /// </summary>
 public sealed class FranTacticalEjecta : ModProjectile
@@ -35,7 +35,7 @@ public sealed class FranTacticalEjecta : ModProjectile
 
     private int Age => (int)Projectile.localAI[0];
 
-    // ai[0..2] 全为 0 表示调用者没有传色。这里明确回退到白色，而不是显示成黑色。
+    // ai[0..2] 全为 0 表示未指定颜色，此时回退为白色。
     private Color Tint
     {
         get
@@ -242,52 +242,5 @@ public sealed class FranTacticalEjecta : ModProjectile
 
         Main.projectile[index].scale = MathHelper.Clamp(scale, 0.72f, 1.35f);
         Main.projectile[index].netUpdate = true;
-    }
-}
-
-/// <summary>
-/// 战术液滴消散时飞出的非发光实体碎屑。它与弹幕的 BOLT 本体是两层不同的视觉：
-/// BOLT 负责“看见一滴东西在飞”，本粒子负责“它撞碎之后还留下有重量的液体残片”。
-/// </summary>
-internal sealed class FranTacticalDropletParticle : FranParticle
-{
-    private readonly float gravity;
-    private readonly float startScale;
-    private readonly float spin;
-
-    public override bool Additive => false;
-
-    public FranTacticalDropletParticle(Vector2 position, Vector2 velocity, Color color,
-        float scale, int lifetime, float gravity)
-    {
-        Position = position;
-        Velocity = velocity;
-        Color = color;
-        startScale = MathHelper.Clamp(scale, 0.18f, 1.5f);
-        Lifetime = Math.Max(5, lifetime);
-        this.gravity = gravity;
-        spin = Main.rand.NextFloat(-0.12f, 0.12f);
-        Rotation = velocity.ToRotation();
-    }
-
-    protected override void Update()
-    {
-        Velocity *= 0.965f;
-        Velocity.Y += gravity;
-        Rotation = Velocity.LengthSquared() > 0.01f ? Velocity.ToRotation() : Rotation + spin;
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        float fade = MathF.Pow(1f - Completion, 1.35f);
-        float shrink = MathHelper.Lerp(1f, 0.18f, Completion);
-        float speedStretch = 1f + MathHelper.Clamp(Velocity.Length() * 0.08f, 0f, 1.1f);
-        Vector2 bodySize = new Vector2(13f * startScale * speedStretch, 8f * startScale) * shrink;
-        Color shadow = Color.Lerp(Color, new Color(10, 11, 18), 0.52f);
-        FranParticleAssets.DrawPixels(spriteBatch, "WaterGlob", Position,
-            shadow * (0.82f * fade), Rotation, bodySize);
-        FranParticleAssets.DrawPixels(spriteBatch, "NoiseSharp", Position,
-            Microsoft.Xna.Framework.Color.Lerp(Color, Microsoft.Xna.Framework.Color.White, 0.64f) *
-            (0.54f * fade), Rotation, bodySize * new Vector2(0.66f, 0.30f));
     }
 }

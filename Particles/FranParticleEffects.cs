@@ -58,9 +58,7 @@ internal static class FranParticleEffects
         if (Main.dedServ)
             return;
 
-        // Calamity's large sword hits generally use a small, authored set of direction-aligned
-        // cuts around one focal event. Keep that readable sentence here instead of emitting a
-        // randomized constellation of tiny stars on every contact.
+        // 大剑命中只围绕一个焦点生成少量定向切痕，避免随机小星点削弱打击方向。
         incomingDirection = incomingDirection.SafeNormalize(Vector2.UnitX);
         Vector2 normal = incomingDirection.RotatedBy(MathHelper.PiOver2);
         float intensity = combo == 2 ? 1.22f : combo == 3 ? 1.08f : 0.94f;
@@ -97,13 +95,8 @@ internal static class FranParticleEffects
         direction = direction.SafeNormalize(Vector2.UnitX);
         Color body = new(145, 215, 255);
         Color edge = new(225, 248, 255);
-        Spawn(new FranDirectionalRingParticle(center, Vector2.Zero, body,
-            new Vector2(0.08f, 0.14f), new Vector2(0.88f, 0.34f) * scale,
-            direction.ToRotation(), 15));
-        Spawn(new FranSmallBloomParticle(center, Vector2.Zero, edge,
-            27f * scale, 7f * scale, 12));
 
-        // A five-lane forward fan reads as a blade breaking apart, not as another radial star.
+        // 收束成五道有序剑片，不补圆形光晕。
         for (int i = 0; i < 5; i++)
         {
             float lane = i - 2f;
@@ -121,7 +114,7 @@ internal static class FranParticleEffects
                 27f * scale, side * 0.82f, 2.4f * scale, 14, side * 0.035f));
 
         FranVanillaDustEffects.Impact(center, direction, FranSkill.MultipleBodyCreation,
-            edge, 9, 0.92f * scale);
+            edge, 5, 0.78f * scale);
     }
 
     public static void SpawnImpact(Vector2 center, Vector2 direction, Color color, int count, float speed,
@@ -241,7 +234,7 @@ internal static class FranParticleEffects
             FranBurstStyle.SkillTaker => 20,
             FranBurstStyle.ThorsHammer => 18,
             FranBurstStyle.ShipCutter => 18,
-            FranBurstStyle.DashImpact => 23,
+            FranBurstStyle.DashImpact => 18,
             FranBurstStyle.AirDraw => 19,
             FranBurstStyle.Flame => 22,
             _ => 12
@@ -273,18 +266,17 @@ internal static class FranParticleEffects
                     new Vector2(1.15f, 0.42f) * scale, rotation, 15));
                 break;
             case FranBurstStyle.Lightning:
+                LightningBurst(center, color, 10, scale);
+                break;
             case FranBurstStyle.ThorsHammer:
-                LightningBurst(center, color, style == FranBurstStyle.ThorsHammer ? 18 : 10, scale);
+                // The hammer projectile emits its dedicated high-speed ordered/chaotic detonation
+                // immediately on impact. Do not append the old slow generic lightning cloud here.
                 break;
             case FranBurstStyle.ShipCutter:
                 WaterBurst(center, direction, color, 18, scale);
                 break;
             case FranBurstStyle.DashImpact:
                 SpawnImpact(center, direction, color, 18, 11f * scale, scale);
-                for (int i = 0; i < 5; i++)
-                    Spawn(new FranHeavySmokeParticle(center + Main.rand.NextVector2Circular(16f, 16f),
-                        -direction * Main.rand.NextFloat(1f, 4f), new Color(34, 14, 54),
-                        Main.rand.NextFloat(0.25f, 0.45f) * scale, Main.rand.Next(18, 30), 0.75f));
                 break;
             case FranBurstStyle.Potential:
                 Implosion(center, color, scale * 1.2f);
@@ -338,7 +330,6 @@ internal static class FranParticleEffects
         Vector2 direction = velocity.SafeNormalize(Vector2.UnitX);
         Vector2 back = -direction;
         Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
-        Color shadow = new(24, 8, 42);
         Color violet = new(122, 62, 184);
         Color edge = new(214, 176, 255);
 
@@ -358,11 +349,6 @@ internal static class FranParticleEffects
                 new Vector2(Main.rand.NextFloat(36f, 60f), Main.rand.NextFloat(5f, 9f)),
                 new Vector2(10f, 2f), Main.rand.Next(10, 17), particleVelocity.ToRotation()));
         }
-
-        for (int i = 0; i < 3; i++)
-            Spawn(new FranHeavySmokeParticle(center - direction * Main.rand.NextFloat(4f, 18f) +
-                normal * Main.rand.NextFloat(-16f, 16f), back.RotatedByRandom(0.5f) * Main.rand.NextFloat(1.4f, 3.8f),
-                shadow, Main.rand.NextFloat(0.32f, 0.52f), Main.rand.Next(22, 34), 0.90f));
 
         FranVanillaDustEffects.SkillRelease(center, back, FranSkill.None, edge, 14, 0.92f);
     }
@@ -389,9 +375,6 @@ internal static class FranParticleEffects
                 tick % 4 == 0 ? Color.White : new Color(205, 164, 255),
                 new Vector2(Main.rand.NextFloat(34f, 58f), Main.rand.NextFloat(4f, 7f)), new Vector2(8f, 1.5f),
                 Main.rand.Next(8, 14), back.ToRotation()));
-            Spawn(new FranHeavySmokeParticle(center - direction * Main.rand.NextFloat(18f, 36f) +
-                Main.rand.NextVector2Circular(8f, 8f), back.RotatedByRandom(0.40f) * Main.rand.NextFloat(1.2f, 3.4f),
-                new Color(18, 7, 29), Main.rand.NextFloat(0.24f, 0.40f), Main.rand.Next(18, 28), 0.76f));
         }
 
         // Together with the authored wake particles this keeps vanilla Dust close to the project's
@@ -423,11 +406,6 @@ internal static class FranParticleEffects
                 i % 4 == 0 ? Color.White : edge, Main.rand.NextFloat(24f, 52f), Main.rand.NextFloat(1.2f, 2.8f),
                 Main.rand.Next(9, 16)));
         }
-
-        for (int i = 0; i < 3; i++)
-            Spawn(new FranHeavySmokeParticle(center - direction * Main.rand.NextFloat(4f, 22f) +
-                Main.rand.NextVector2Circular(9f, 9f), back.RotatedByRandom(0.65f) * Main.rand.NextFloat(0.8f, 2.8f),
-                new Color(22, 8, 35), Main.rand.NextFloat(0.26f, 0.44f), Main.rand.Next(20, 32), 0.80f));
 
         FranVanillaDustEffects.Impact(center, direction, FranSkill.None, edge, 15, 0.9f);
     }
@@ -491,6 +469,121 @@ internal static class FranParticleEffects
                 new Vector2(Main.rand.NextFloat(0.4f, 0.75f), Main.rand.NextFloat(1.1f, 1.8f)), Main.rand.Next(9, 17)));
         }
         Spawn(new FranGlowOrbParticle(center, Vector2.Zero, color, 0.58f * scale, 0.04f, 14, true));
+    }
+
+    public static void ThorsHammerDetonation(Vector2 center, float scale = 1f)
+    {
+        if (Main.dedServ)
+            return;
+
+        scale = MathHelper.Clamp(scale, 0.65f, 1.8f);
+        Color deepBlue = new(46, 66, 188);
+        Color electricBlue = new(92, 155, 255);
+        Color cyan = new(132, 232, 255);
+        Color pale = new(224, 250, 255);
+        Color violet = new(138, 112, 255);
+        float phase = Main.rand.NextFloat(MathHelper.TwoPi);
+
+        // Ordered pressure structure: concentric flashes and two synchronized rings make the
+        // detonation readable before the chaotic ejecta fills the surrounding space.
+        Spawn(new FranBloomCirclePulseParticle(center, Vector2.Zero, Color.White,
+            18f * scale, 132f * scale, 7, 1.28f, 0.78f));
+        Spawn(new FranBloomCirclePulseParticle(center, Vector2.Zero, cyan,
+            28f * scale, 224f * scale, 11, 1.12f, 0.84f));
+        Spawn(new FranBloomCirclePulseParticle(center, Vector2.Zero, deepBlue,
+            42f * scale, 286f * scale, 17, 0.82f, 0.88f));
+        Spawn(new FranRingPulseParticle(center, Vector2.Zero, pale,
+            Vector2.One * 24f * scale, Vector2.One * 250f * scale, 11,
+            phase, 0f, 1.16f));
+        Spawn(new FranRingPulseParticle(center, Vector2.Zero, electricBlue,
+            new Vector2(34f, 20f) * scale, new Vector2(318f, 178f) * scale, 15,
+            phase + MathHelper.PiOver2, 0f, 0.96f));
+        Spawn(new FranDirectionalRingParticle(center, Vector2.Zero, cyan,
+            new Vector2(0.10f, 0.16f), new Vector2(2.15f, 0.72f) * scale,
+            phase, 12));
+
+        const int orderedRayCount = 18;
+        for (int i = 0; i < orderedRayCount; i++)
+        {
+            float angle = phase + MathHelper.TwoPi * i / orderedRayCount;
+            Vector2 direction = angle.ToRotationVector2();
+            float speed = (i % 3 == 0 ? 29f : i % 2 == 0 ? 24f : 19f) * scale;
+            Color rayColor = i % 6 == 0 ? Color.White : i % 3 == 0 ? pale :
+                i % 2 == 0 ? cyan : electricBlue;
+            float length = (i % 3 == 0 ? 92f : i % 2 == 0 ? 72f : 56f) * scale;
+            float width = (i % 3 == 0 ? 10f : 7f) * scale;
+
+            Spawn(new FranNeedleParticle(center + direction * 10f, direction * speed, rayColor,
+                new Vector2(length, width), new Vector2(length * 0.18f, width * 0.24f),
+                8 + i % 4, angle, 0.90f));
+            Spawn(new FranLineParticle(center + direction * 18f, direction * speed * 0.72f,
+                rayColor, length * 0.84f, Math.Max(2f, width * 0.34f), 7 + i % 3, 0.88f));
+        }
+
+        // Chaotic ejecta: short lives and very high initial velocity keep this layer explosive.
+        // It scatters across the ordered rays without turning the blast into a slowly drifting cloud.
+        for (int i = 0; i < 48; i++)
+        {
+            Vector2 direction = Main.rand.NextVector2Unit();
+            Vector2 velocity = direction * Main.rand.NextFloat(14f, 36f) * scale;
+            Color particleColor = i % 9 == 0 ? Color.White : i % 4 == 0 ? pale :
+                i % 3 == 0 ? violet : cyan;
+            Spawn(new FranBoltParticle(center + Main.rand.NextVector2Circular(14f, 14f), velocity,
+                particleColor, Main.rand.NextFloat(0.22f, 0.42f) * scale,
+                new Vector2(Main.rand.NextFloat(0.46f, 0.82f), Main.rand.NextFloat(1.45f, 2.35f)),
+                Main.rand.Next(7, 13)));
+        }
+
+        for (int i = 0; i < 34; i++)
+        {
+            Vector2 direction = Main.rand.NextVector2Unit();
+            Vector2 velocity = direction * Main.rand.NextFloat(10f, 29f) * scale;
+            Color particleColor = i % 7 == 0 ? Color.White : i % 2 == 0 ? pale : electricBlue;
+            Spawn(new FranLightParticle(center + Main.rand.NextVector2Circular(12f, 12f), velocity,
+                Main.rand.NextFloat(0.38f, 0.78f) * scale, particleColor, Main.rand.Next(7, 14),
+                Main.rand.NextFloat(0.88f, 1.24f), 1.35f, 4.6f));
+        }
+
+        for (int i = 0; i < 30; i++)
+        {
+            Vector2 direction = Main.rand.NextVector2Unit();
+            Vector2 velocity = direction * Main.rand.NextFloat(12f, 33f) * scale;
+            Color particleColor = i % 6 == 0 ? Color.White : i % 2 == 0 ? cyan : violet;
+            Spawn(new FranBarrierShardParticle(center + direction * Main.rand.NextFloat(2f, 22f), velocity,
+                particleColor, new Vector2(Main.rand.NextFloat(22f, 48f), Main.rand.NextFloat(3.5f, 9f)) * scale,
+                Main.rand.Next(8, 16)));
+        }
+
+        for (int i = 0; i < 12; i++)
+        {
+            Vector2 direction = Main.rand.NextVector2Unit();
+            Vector2 velocity = direction * Main.rand.NextFloat(9f, 22f) * scale;
+            Color bloomColor = i % 4 == 0 ? Color.White : i % 2 == 0 ? cyan : electricBlue;
+            Spawn(new FranBloomParticle(center + direction * Main.rand.NextFloat(6f, 36f), velocity,
+                bloomColor, Main.rand.NextFloat(34f, 64f) * scale,
+                Main.rand.NextFloat(4f, 12f) * scale, Main.rand.Next(8, 14),
+                Main.rand.NextFloat(0.72f, 1.08f), 0.86f, hardCenter: i % 3 == 0));
+        }
+
+        for (int i = 0; i < 8; i++)
+        {
+            Vector2 direction = Main.rand.NextVector2Unit();
+            Vector2 velocity = direction * Main.rand.NextFloat(6f, 15f) * scale;
+            Color bloomColor = i % 3 == 0 ? pale : i % 2 == 0 ? cyan : violet;
+            Spawn(new FranBloomCirclePulseParticle(center + direction * Main.rand.NextFloat(4f, 24f),
+                velocity, bloomColor, Main.rand.NextFloat(12f, 24f) * scale,
+                Main.rand.NextFloat(42f, 82f) * scale, Main.rand.Next(9, 15),
+                Main.rand.NextFloat(0.68f, 0.98f), 0.88f));
+        }
+
+        for (int i = 0; i < 14; i++)
+        {
+            Vector2 direction = Main.rand.NextVector2Unit();
+            Vector2 velocity = direction * Main.rand.NextFloat(8f, 22f) * scale;
+            Spawn(new FranGlowOrbParticle(center + direction * Main.rand.NextFloat(4f, 24f), velocity,
+                i % 4 == 0 ? Color.White : i % 2 == 0 ? cyan : electricBlue,
+                Main.rand.NextFloat(0.24f, 0.52f) * scale, 0.02f, Main.rand.Next(8, 15), true));
+        }
     }
 
     public static void WaterBurst(Vector2 center, Vector2 direction, Color color, int count, float scale)

@@ -42,7 +42,9 @@ public sealed class FranModMain : Mod
         SkillWheelKey = KeybindLoader.RegisterKeybind(this, "SkillWheel", "V");
         UltimateKey = KeybindLoader.RegisterKeybind(this, "PotentialRelease", "G");
         DashKey = KeybindLoader.RegisterKeybind(this, "FranDash", "LeftShift");
-        EvolutionKey = KeybindLoader.RegisterKeybind(this, "MagicStoneCorridor", "J");
+        EvolutionKey = FranEvolutionInfo.SystemEnabled
+            ? KeybindLoader.RegisterKeybind(this, "MagicStoneCorridor", "J")
+            : null;
 
         if (!Main.dedServ)
         {
@@ -67,6 +69,8 @@ public sealed class FranModMain : Mod
     {
         FranBladeTrailRenderer.Unload();
         FranProjectileTrailRenderer.Unload();
+        FranSkillTakerOrbitRenderer.Unload();
+        FranLightningTrailRenderer.Unload();
         FranBarrierRenderer.Unload();
         SkillWheelKey = null;
         UltimateKey = null;

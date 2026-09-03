@@ -1,5 +1,7 @@
 Mods: {
 	Fran: {
+		Rarities.TeacherPrismaticRarity.DisplayName: 师徒棱彩
+
 		Items: {
 			FransHeadwear: {
 				DisplayName: 弗兰的头饰
@@ -8,8 +10,9 @@ Mods: {
 					将本物品放在背包中并标记为收藏，
 					即可进入“弗兰人物模式”
 					效果与把角色命名为“Fran / フラン / 弗兰”完全相同
-					开启弗兰外观框架、黑猫族战士本能、
-					冲刺、黑天虎大招与师父系统
+					开启弗兰外观、师父系统、冲刺与黑天虎大招
+					人物被动：免疫摔落并获得夜视，
+					并强化近战伤害与攻击速度
 					测试版暂时使用原版猫耳图标
 					'''
 			}
@@ -18,25 +21,9 @@ Mods: {
 				DisplayName: 师父
 				Tooltip:
 					'''
-					与弗兰绑定的传奇智慧武器
-					持续左键：循环使用横向扫斩、反身上挑、
-					突进刺击与沉重斩落
-					按住右键打开术式轮盘，
-					在目标扇区松开右键即可把术式嵌入四段剑术
-					按[c/C3B2F5:魔石回廊]（默认J）分配通过Boss战获得的自我进化点
-					在轮盘中央松开右键可卸下术式；
-					未装备术式时使用纯粹四段剑术
-					大招能量会在三分钟内自动充满；
-					满值后按[c/8CDFFF:大招]（默认G）立即发动连续斩杀
-					手持其他武器时，师父会漂浮在弗兰身后，
-					不会禁用其他职业
-					非弗兰人物只要实际持有师父，
-					也可以使用左键连段和右键技能；
-					人物被动仍只属于弗兰模式
-					师父不能丢弃、出售、研究，
-					不能放入垃圾桶或留在仓库；
-					建立绑定后会永久召回
-					武器伤害与可用技能会随世界流程成长
+					【左键】持续攻击，循环施展横扫、上挑、突刺与沉重斩落
+					【右键】打开术式轮盘，左键点击图标装配或卸下战术
+					【大招】能量充满后按[c/8CDFFF:大招]（默认G），发动黑天虎连续斩杀
 					'''
 			}
 
@@ -67,7 +54,12 @@ Mods: {
 		}
 
 		ToolProgression: {
-			Current: 当前阶段：{0} | 镐力 {1} · 斧力 {2}% · 锤力 {3} · 距离 +{4} · 使用时间 {5}
+			Current:
+				'''
+				当前阶段：{0}
+				镐力 {1} · 斧力 {2}% · 锤力 {3}
+				距离 +{4} · 使用时间 {5}
+				'''
 			Next: 下一次成长：{0}
 			FinalStage: 已达到最终开拓形态
 
@@ -111,10 +103,21 @@ Mods: {
 			UltimateCharge: 黑天虎：{0}%
 			UltimateReady: 黑天虎·绝闪 READY
 			PureSwordsmanship: 纯剑术核心
-			PureSwordsmanshipDescription: "下方槽位全部卸下后即为纯剑术；\n四段师父剑术始终保留，\n战术只会叠加到剑术之上"
+			PureSwordsmanshipDescription:
+				'''
+				下方槽位全部卸下后即为纯剑术；
+				四段师父剑术始终保留，
+				战术只会叠加到剑术之上
+				'''
+			PureSwordsmanshipLine1: 卸下全部战术后启用纯剑术
+			PureSwordsmanshipLine2: 四段师父剑术始终保留
 			TacticSlots: 战术槽位：{0}/{1}
-			TacticControls: "左键星轮图标装配｜\n左键轮盘下方已装配图标卸下｜\n再次右键或打开背包关闭"
-			TacticLayerDetails: 当前已装备 {0} 层｜第一层：{1}｜后续每层：{2}
+			TacticControls:
+				'''
+				左键星轮图标装配｜
+				左键轮盘下方已装配图标卸下｜
+				再次右键或打开背包关闭
+				'''
 			TacticEquipped: 已装配：{0} ×{1}
 			TacticUnequipped: 已卸下：{0}（剩余×{1}）
 		}
@@ -165,44 +168,72 @@ Mods: {
 
 		Notices: {
 			IntroTitle: 【弗兰人物模式已启动：师父已经回到你身边】
-			IntroCombat: "持续左键使用四段大剑连击；\n手持其他武器时，师父会浮在身后"
-			IntroSkills: "右键打开或关闭战术轮盘；\n左键上方图标可重复装配，\n左键下方槽位卸下；\n背包打开时轮盘自动关闭"
-			IntroEvolution: "实际参与Boss击杀可吸收独立魔石；\n按J打开魔石回廊，\n决定师父、弗兰与师徒共鸣的长期进化方向"
-			IntroDash: "已绑定弗兰冲刺键时仅按该键冲刺；\n未绑定时双击左右方向键冲刺；\n其他装备冲刺优先"
-			IntroPotential: "大招能量会随在线时间自动积攒三分钟；\n满值后按G立即发动黑天虎连续斩杀"
+			IntroCombat:
+				'''
+				持续左键使用四段大剑连击；
+				手持其他武器时，师父会浮在身后
+				'''
+			IntroSkills:
+				'''
+				右键打开或关闭战术轮盘；
+				左键上方图标可重复装配，
+				左键下方槽位卸下；
+				背包打开时轮盘自动关闭
+				'''
+			IntroEvolution:
+				'''
+				实际参与Boss击杀可吸收独立魔石；
+				按J打开魔石回廊，
+				决定师父、弗兰与师徒共鸣的长期进化方向
+				'''
+			IntroDash:
+				'''
+				已绑定弗兰冲刺键时仅按该键冲刺；
+				未绑定时双击左右方向键冲刺；
+				其他装备冲刺优先
+				'''
+			IntroPotential:
+				'''
+				大招能量会随在线时间自动积攒三分钟；
+				满值后按G立即发动黑天虎连续斩杀
+				'''
 		}
 
 		Abilities: {
 			Dash: {
-				Line: 【冲刺】当前进度：{0}｜{1}｜效果：{2}
+				Line: 【冲刺】{0}
 				Progress: 开局解锁
-				Effect: 速度16、持续12帧、基础冷却50帧；冲刺期间人物翻滚两圈
+				Effect:
+					'''
+					直接冲刺，不再翻滚；
+					黑天虎灵随身扑杀
+					'''
 
 				States: {
-					Enabled: 已开启：未装备其他冲刺
-					Overridden: 已关闭：检测到外部冲刺，外部装备优先
-					InactiveFranMode: 已关闭：当前未进入弗兰人物模式
+					Enabled: 按绑定键发动；未绑定时双击左右方向键
+					Overridden: 已由装备冲刺接管
+					InactiveFranMode: 仅弗兰人物模式可用
 				}
 			}
 
 			Flight: {
-				Line: 【念动飞行】当前进度：{0}｜{1}｜效果：{2}
+				Line: 【念动飞行】{0}，{1}
 
 				Progress: {
-					Locked: 肉山前·尚未解锁
-					Tier1: 困难模式·念动起飞
-					Tier2: 三机械首领后·动力重构
-					Tier3: 世纪之花后·悬停掌握
-					Tier4: 石巨人后·念动终型
-					Infinite: 光之女皇后·无限飞行
+					Locked: 肉山前未解锁
+					Tier1: 困难模式起飞
+					Tier2: 机械三王后强化
+					Tier3: 世纪之花后强化
+					Tier4: 石巨人后终型
+					Infinite: 光女后无限飞行
 				}
 
 				States: {
-					Enabled: 已开启：未装备功能翅膀
-					Overridden: 已关闭：检测到功能翅膀，装备翅膀优先
-					Mounted: 已暂停：坐骑状态不叠加念动飞行
-					Locked: 未解锁：进入困难模式后自动获得
-					InactiveFranMode: 已关闭：当前未进入弗兰人物模式
+					Enabled: 可用
+					Overridden: 装备翅膀优先
+					Mounted: 坐骑时暂停
+					Locked: 困难模式后解锁
+					InactiveFranMode: 仅弗兰人物模式可用
 				}
 
 				Effects: {
@@ -218,9 +249,15 @@ Mods: {
 		Evolution: {
 			Title: 魔石回廊·自我进化
 			OpenHint: 打开魔石回廊（默认J）
-			Tooltip: 魔石回廊：{0}点可用 / 累计{1}点；按J展开三组星座
+			Tooltip: 【魔石成长】按[c/C3B2F5:魔石回廊]（默认J）开启
 			PointSummary: 可用 {0}　已投入 {1}　累计 {2}　当前阶段上限 {3}
-			Overview: "点数由当前世界的Boss进度自动决定。\n中央核心向上、左下、右下展开师父、\n弗兰与师徒共鸣三组星座；\n指向星点查看效果。"
+			Overview:
+				'''
+				点数由当前世界的Boss进度自动决定。
+				中央核心向上、左下、右下展开师父、
+				弗兰与师徒共鸣三组星座；
+				指向星点查看效果。
+				'''
 			MagicStoneAcquired: 获得魔石刻印·自我进化点 +{0}
 			NodeUnlocked: 自我进化：{0}
 			ResetFree: ✦ 单击免费重置 ✦
@@ -247,42 +284,77 @@ Mods: {
 			Nodes: {
 				EdgeCalibration: {
 					DisplayName: 锋刃校准
-					Description: "师父本体剑刃的攻击距离与判定范围提高6%；\n不强化技能弹幕。"
+					Description:
+						'''
+						师父本体剑刃的攻击距离与判定范围提高6%；
+						不强化技能弹幕。
+						'''
 				}
 
 				ComboCalculation: {
 					DisplayName: 连击演算
-					Description: "按顺序命中四段基础剑术时，\n下一段剑刃直击伤害依次提高3%、6%、9%；\n中断后重置。"
+					Description:
+						'''
+						按顺序命中四段基础剑术时，
+						下一段剑刃直击伤害依次提高3%、6%、9%；
+						中断后重置。
+						'''
 				}
 
 				MagicStoneAnalysis: {
 					DisplayName: 魔石解析
-					Description: "6秒内以四段基础剑术依次命中同一Boss，\n使其被解析8秒；剑刃直击获得12点护甲穿透。"
+					Description:
+						'''
+						6秒内以四段基础剑术依次命中同一Boss，
+						使其被解析8秒；剑刃直击获得12点护甲穿透。
+						'''
 				}
 
 				SelfEvolution: {
 					DisplayName: 自我进化
-					Description: "完成四段剑刃直击后储存一次进化回响；\n下一轮第一剑追加50%伤害的近距离剑影，\n且不会触发战术术式。"
+					Description:
+						'''
+						完成四段剑刃直击后储存一次进化回响；
+						下一轮第一剑追加50%伤害的近距离剑影，
+						且不会触发战术术式。
+						'''
 				}
 
 				CatStep: {
 					DisplayName: 猫步
-					Description: "弗兰冲刺冷却由50帧降至42帧；\n冲刺期间暂停基础连击的中断计时。"
+					Description:
+						'''
+						弗兰冲刺冷却由50帧降至42帧；
+						冲刺期间暂停基础连击的中断计时。
+						'''
 				}
 
 				AerialHunt: {
 					DisplayName: 立体狩猎
-					Description: "主动冲刺键支持八方向冲刺：\n优先采用方向输入，无输入时指向鼠标；\n双击方向键仍保持水平冲刺。"
+					Description:
+						'''
+						主动冲刺键支持八方向冲刺：
+						优先采用方向输入，无输入时指向鼠标；
+						双击方向键仍保持水平冲刺。
+						'''
 				}
 
 				HuntingTempo: {
 					DisplayName: 猎场连携
-					Description: "冲刺接触敌人后储存一次猎手节奏；\n下一次师父本体挥砍的持续时间缩短12%。"
+					Description:
+						'''
+						冲刺接触敌人后储存一次猎手节奏；
+						下一次师父本体挥砍的持续时间缩短12%。
+						'''
 				}
 
 				EvolvedFootwork: {
 					DisplayName: 进化之足
-					Description: "冲刺命中新目标时返还当前剩余冷却的60%；\n同一敌人180帧内只能触发一次。"
+					Description:
+						'''
+						冲刺命中新目标时返还当前剩余冷却的60%；
+						同一敌人180帧内只能触发一次。
+						'''
 				}
 
 				MindSync: {
@@ -292,42 +364,78 @@ Mods: {
 
 				SharedRhythm: {
 					DisplayName: 共同步调
-					Description: "按顺序进入第四段基础剑术时，\n该段挥剑持续时间缩短12%。"
+					Description:
+						'''
+						按顺序进入第四段基础剑术时，
+						该段挥剑持续时间缩短12%。
+						'''
 				}
 
 				ResonantPull: {
 					DisplayName: 共鸣牵引
-					Description: "师父本体剑刃命中普通敌人时，\n将其小幅拉向剑锋；\nBoss和完全抗击退目标不受影响。"
+					Description:
+						'''
+						师父本体剑刃命中普通敌人时，
+						将其小幅拉向剑锋；
+						Boss和完全抗击退目标不受影响。
+						'''
 				}
 
 				OneAsSword: {
 					DisplayName: 人剑一体
-					Description: "不受伤完成四段剑刃直击后，\n基础挥剑速度与剑刃范围提高10%，持续5秒；\n受伤立即结束。"
+					Description:
+						'''
+						不受伤完成四段剑刃直击后，
+						基础挥剑速度与剑刃范围提高10%，持续5秒；
+						受伤立即结束。
+						'''
 				}
 
 				ArcaneCirculation: {
 					DisplayName: 术式循环
-					Description: "携带师父时魔力消耗降低8%；\n师父本体剑刃的距离在锋刃校准基础上\n再提高4%。"
+					Description:
+						'''
+						携带师父时魔力消耗降低8%；
+						师父本体剑刃的距离在锋刃校准基础上
+						再提高4%。
+						'''
 				}
 
 				DeeperAnalysis: {
 					DisplayName: 深层解析
-					Description: "已解析Boss承受剑刃直击时的护甲穿透\n由12提高至18；进化回响伤害由50%提高至70%。"
+					Description:
+						'''
+						已解析Boss承受剑刃直击时的护甲穿透
+						由12提高至18；进化回响伤害由50%提高至70%。
+						'''
 				}
 
 				SwordSaintReasoning: {
 					DisplayName: 剑圣演算
-					Description: "师父本体剑刃直击伤害提高6%；\n连击演算的三段增幅由3%/6%/9%\n提高至4%/8%/12%。"
+					Description:
+						'''
+						师父本体剑刃直击伤害提高6%；
+						连击演算的三段增幅由3%/6%/9%
+						提高至4%/8%/12%。
+						'''
 				}
 
 				FelineReflex: {
 					DisplayName: 猫之反射
-					Description: "弗兰冲刺冷却由42帧进一步降至38帧；\n携带师父时移动速度提高5%。"
+					Description:
+						'''
+						弗兰冲刺冷却由42帧进一步降至38帧；
+						携带师父时移动速度提高5%。
+						'''
 				}
 
 				SkyHunter: {
 					DisplayName: 天空猎手
-					Description: "弗兰主动冲刺速度提高10%，\n八方向冲刺更适合空中追击与脱离。"
+					Description:
+						'''
+						弗兰主动冲刺速度提高10%，
+						八方向冲刺更适合空中追击与脱离。
+						'''
 				}
 
 				PredatorSight: {
@@ -337,12 +445,22 @@ Mods: {
 
 				PhantomStep: {
 					DisplayName: 幻影步
-					Description: "每次主动冲刺额外获得4帧碰撞伤害免疫，\n使贴身穿越敌人更加稳定。"
+					Description:
+						'''
+						每次主动冲刺额外获得4帧碰撞伤害免疫，
+						使贴身穿越敌人更加稳定。
+						'''
 				}
 
 				BlackCatAwakening: {
 					DisplayName: 黑猫觉醒
-					Description: "冲刺冷却降至34帧、总速度增幅提高至15%、\n接触伤害提高至150%；\n进化之足返还75%冷却，\n猎手节奏缩短下一剑18%。"
+					Description:
+						'''
+						冲刺冷却降至34帧、总速度增幅提高至15%、
+						接触伤害提高至150%；
+						进化之足返还75%冷却，
+						猎手节奏缩短下一剑18%。
+						'''
 				}
 
 				SharedMana: {
@@ -367,7 +485,11 @@ Mods: {
 
 				SynchronizedVolley: {
 					DisplayName: 同步齐射
-					Description: "携带师父时魔法伤害提高6%，\n强化师父释放的战术术式与弹幕。"
+					Description:
+						'''
+						携带师父时魔法伤害提高6%，
+						强化师父释放的战术术式与弹幕。
+						'''
 				}
 
 				LimitResonance: {
@@ -377,12 +499,20 @@ Mods: {
 
 				MutualGrowth: {
 					DisplayName: 共同成长
-					Description: "人剑一体的挥剑速度与剑刃范围增幅\n由10%提高至12%，持续时间由5秒延长至7秒。"
+					Description:
+						'''
+						人剑一体的挥剑速度与剑刃范围增幅
+						由10%提高至12%，持续时间由5秒延长至7秒。
+						'''
 				}
 
 				EternalContract: {
 					DisplayName: 永恒契约
-					Description: "携带师父时所有伤害提高5%，\n并额外获得20最大魔力与3点防御。"
+					Description:
+						'''
+						携带师父时所有伤害提高5%，
+						并额外获得20最大魔力与3点防御。
+						'''
 				}
 			}
 		}
@@ -393,17 +523,29 @@ Mods: {
 
 				EnablePlayerTextureReplacement: {
 					Label: "[i:FamiliarShirt] 启用弗兰人物贴图替换"
-					Tooltip: 默认开启；人物贴图完成后由此统一控制弗兰外观替换，当前仅预留开关
+					Tooltip:
+						'''
+						默认开启；人物贴图完成后由此统一控制
+						弗兰外观替换，当前仅预留开关
+						'''
 				}
 
 				EnableFranVoice: {
 					Label: "[i:Megaphone] 启用弗兰配音"
-					Tooltip: 默认开启；统一控制弗兰的受伤、睡眠及后续人物语音，缺少音频时自动保持静默
+					Tooltip:
+						'''
+						默认开启；统一控制弗兰的受伤、睡眠
+						及后续人物语音，缺少音频时自动保持静默
+						'''
 				}
 
 				EnableCustomMainMenu: {
 					Label: "[i:WorldGlobe] 启用弗兰主菜单界面"
-					Tooltip: 默认开启；允许在主菜单主题切换中使用弗兰横屏主视觉与下落火焰粒子
+					Tooltip:
+						'''
+						默认开启；允许在主菜单主题切换中使用
+						弗兰横屏主视觉与下落火焰粒子
+						'''
 				}
 
 				EnableCustomFont: {
@@ -418,28 +560,53 @@ Mods: {
 
 				EnableVideoPlayback: {
 					Label: "[i:MusicBox] 启用剧情视频播放"
-					Tooltip: 默认开启；后续加入视频资源后由此允许客户端播放，当前没有视频时不会执行任何操作
+					Tooltip:
+						'''
+						默认开启；后续加入视频资源后由此允许
+						客户端播放，当前没有视频时
+						不会执行任何操作
+						'''
 				}
 
 				HideUltimateGauge: {
 					Label: "[i:InvisibilityPotion] 隐藏黑天虎大招能量条"
-					Tooltip: 大招能量条默认显示在屏幕最顶端中央；仅在不想显示时开启此项
+					Tooltip:
+						'''
+						大招能量条默认显示在屏幕最顶端中央；
+						仅在不想显示时开启此项
+						'''
 				}
 
 				AllowUltimateGaugeDragging: {
 					Label: "[i:Toolbox] 允许拖动大招能量条"
-					Tooltip: 默认关闭；开启后可用鼠标左键直接拖动能量条，位置会随角色存档保存
+					Tooltip:
+						'''
+						默认关闭；开启后可用鼠标左键
+						直接拖动能量条，位置会随角色存档保存
+						'''
 				}
 			}
 		}
 
 		Stages: {
-			Current: 当前成长：{0}
-			Next: 下一成长（{0}）：{1}
+			Current:
+				'''
+				当前成长：
+				{0}
+				'''
+			Next:
+				'''
+				下一成长（{0}）：
+				{1}
+				'''
 
 			Stage1: {
 				Unlock: 开局即可使用
-				Summary: 第一阶段·相遇与成型：四段近战、念动弹射、技能夺取与魔力屏障
+				Summary:
+					'''
+					第一阶段·相遇与成型：
+					四段近战、念动弹射、技能夺取与魔力屏障
+					'''
 			}
 
 			Stage2: {
@@ -461,58 +628,116 @@ Mods: {
 		Skills: {
 			TelekineticCatapult: {
 				DisplayName: 念动弹射
-				Description: 四段剑术完整保留；前三刀分别平行射出2、3、4枚念动炮弹，第四刀改为无限穿透的指向激光。困难模式后每刀额外从上空投下2至3颗星球；星球先减速再逐渐加速，命中敌人或物块后爆炸
-				FirstLayer: 前三刀射出2/3/4枚平行气针，第四刀释放无限穿透激光；困难模式后每刀追加2至3颗星球
-				AdditionalLayer: 前三刀各增加1枚气针，第四刀激光伤害提高25%，困难模式星球增加1颗
+				Description:
+					'''
+					四段剑术始终完整保留；
+					根据当前世界进度，
+					重新编排念压核、折念刃、
+					高速激光与天降星球
+					'''
+				FirstLayer: 单层：按当前时期运行四刀弹幕编排
+				AdditionalLayer: 叠层：每层增加一枚念压核
+
+				CurrentState: {
+					Stage0: 单层：一念核｜二延核｜三双核｜四重核
+					Stage1: 单层：一念核｜二折刃｜三双核折刃｜四双折刃
+					Stage2: 单层：一激光｜二光折刃｜三双光念核｜四重光
+					Stage3: 单层：一光念核｜二光双刃｜三双光双核｜四重光双刃
+					Stage4: 单层：一光念核｜二光双刃｜三双光双核｜四三星球
+				}
 			}
 
 			SkillTaker: {
 				DisplayName: 技能夺取者
-				Description: 仅剑击命中时触发紫色术式爆发并叠加夺取层数；每次额外分裂两枚先散开、再追敌的紫色灵弹，最多四层，每层使后续剑击伤害提高10%
-				FirstLayer: 剑击施加最多4层夺取印记，每层使后续剑击伤害提高10%，并分裂2枚追踪灵弹
-				AdditionalLayer: 每次命中增加1枚追踪灵弹，夺取印记每层的增伤额外提高3%
+				Description:
+					'''
+					剑击命中时施加夺取印记；
+					持续攻击会逐渐提高目标易伤，
+					停手后易伤与印记缓慢衰减
+					'''
+				FirstLayer: 单层：持续攻击标记敌人会提高易伤
+				AdditionalLayer: 叠层：易伤提升更快，标记维持更久
 			}
 
 			MagicBarrier: {
 				DisplayName: 魔力屏障
-				Description: 自动生成环绕自身的球形魔力屏障；每个装配层提供10%伤害减免，受击消耗一次耐久并释放反击冲击，五次后破裂并短暂重构
-				FirstLayer: 生成5点耐久的球形屏障，并提供10%伤害减免
-				AdditionalLayer: 伤害减免再提高10%，四层合计40%
+				Description:
+					'''
+					自动生成环绕自身的球形魔力屏障；
+					第一层提供10%伤害减免与10点防御，
+					后续每层增加5%伤害减免与5点防御；
+					当全部可用槽位均装配魔力屏障时，
+					敌人接触伤害直接减半；
+					受击消耗一次耐久并释放反击冲击，
+					五次后破裂并短暂重构
+					'''
+				FirstLayer: 单层：减伤10%，防御增加10点
+				AdditionalLayer: 叠层：各加5%；满槽屏障使接触伤害减半
 			}
 
 			MultipleBodyCreation: {
 				DisplayName: 多重分体
-				Description: 每次挥剑都在身后列阵两名师父幻影，短暂停驻后锁定鼠标附近目标高速突进；第四刀改为四名幻影错时齐射
-				FirstLayer: 前三刀列阵2名幻影，第四刀列阵4名；无敌人时也会冲向鼠标
-				AdditionalLayer: 前三刀增加1名幻影，第四刀增加2名，幻影总伤害提高18%
+				Description:
+					'''
+					每次挥剑都在身后列阵两名师父幻影，
+					短暂停驻后锁定鼠标附近目标高速突进；
+					第四刀改为四名幻影错时齐射
+					'''
+				FirstLayer: 单层：前三刀双分体，第四刀四分体
+				AdditionalLayer: 叠层：前三刀加一，第四刀加二
 			}
 
 			BlueResonance: {
 				DisplayName: 蓝辉共鸣
-				Description: 每次剑击命中都会留下延迟复写的蓝色共鸣剑痕，并从目标处向上散射星光针；第四刀产生三重和弦，共鸣命中可周期性恢复生命
-				FirstLayer: 普通剑击产生1道延迟共鸣，第四刀产生3道；命中向上散射星光针，并可周期性恢复生命
-				AdditionalLayer: 每次命中额外增加1道共鸣剑痕
+				Description:
+					'''
+					剑击命中时迸发蓝辉弹幕；
+					有玩家受伤时追踪玩家并治疗，
+					全员满血时追踪敌人造成伤害
+					'''
+				FirstLayer: 单层：命中释放可治疗或伤敌的蓝辉弹
+				AdditionalLayer: 叠层：每层增加一枚蓝辉弹
 			}
 
 			ThunderChain: {
 				DisplayName: 雷链
-				Description: 每次挥剑都从鼠标上空降下多道远古闪电；鼠标附近存在敌人时，还会在最多三个目标头顶追加自动雷击，第四刀进一步增加雷数
-				FirstLayer: 鼠标处降下主雷与伴随雷，并自动打击附近最多3个敌人；第四刀进一步增雷
-				AdditionalLayer: 增加1道伴随雷、1个自动雷击目标，并使整轮雷击伤害提高12%
+				Description:
+					'''
+					每次挥剑都从鼠标上空降下多道远古闪电；
+					鼠标附近存在敌人时，
+					还会在最多三个目标头顶追加自动雷击，
+					第四刀进一步增加雷数
+					'''
+				FirstLayer: 单层：挥剑召来雷链与追踪落雷
+				AdditionalLayer: 叠层：增加伴随雷和追踪目标数量
 			}
 
 			PressurizedQuickdraw: {
 				DisplayName: 压缩居合
-				Description: 每次挥剑都会释放使用泰拉刃光波形态的高压气功波；光波无限贯穿并逐渐减速，第四刀改为更小、更快、更集中的终结波
-				FirstLayer: 剑刃划过的弧线上连续引爆压缩空气爆点
-				AdditionalLayer: 爆点伤害提高15%，作用尺寸提高10%
+				Description:
+					'''
+					每次挥剑都会释放使用泰拉刃光波形态的
+					高压气功波；光波无限贯穿并逐渐减速，
+					第四刀改为更小、更快、更集中的终结波
+					'''
+				FirstLayer: 单层：剑弧沿途连续引爆压缩空气
+				AdditionalLayer: 叠层：只提高压缩爆点伤害
 			}
 
 			ThorsHammer: {
 				DisplayName: 雷神之锤
-				Description: 四段剑术完整进行两轮后，第二轮第四刀锁定鼠标附近最近的敌人；附近无敌人时法阵停留在鼠标位置。随后雷神之锤砸向法阵并引发大范围雷陨冲击
-				FirstLayer: 每完成两轮四段剑术，在目标或鼠标位置召唤一次雷神之锤
-				AdditionalLayer: 雷神之锤的直接伤害与爆炸伤害提高22%
+				Description:
+					'''
+					四段剑术完整进行两轮后，
+					第二轮第四刀锁定鼠标附近最近的敌人；
+					附近无敌人时法阵停留在鼠标位置。
+					若全部可用槽均为雷神之锤，
+					则完成一轮四刀即可释放；
+					随后雷神之锤砸向法阵
+					并引发大范围雷陨冲击
+					'''
+				FirstLayer: 单层：完成两轮四刀后召唤雷神之锤
+				AdditionalLayer: 叠层：只增伤；满槽雷锤缩为一轮
 			}
 		}
 
@@ -584,6 +809,12 @@ Mods: {
 			// FranTelekineticFlightVisual.DisplayName: Telekinetic Flight Visual
 			// FranTacticalEjecta.DisplayName: Fran Tactical Ejecta
 			// FranTelekineticHalleyBolt.DisplayName: Fran Telekinetic Halley Bolt
+			// FranBlackTigerImpactVisual.DisplayName: Fran Black Tiger Impact Visual
+			// FranThunderCircuitFinisher.DisplayName: Fran Thunder Circuit Finisher
+			// FranThunderCircuitLink.DisplayName: Fran Thunder Circuit Link
+			// FranThunderCircuitNode.DisplayName: Fran Thunder Circuit Node
+			// FranThunderStrikeProjectile.DisplayName: Fran Thunder Strike Projectile
+			// FranTelekineticFoldBlade.DisplayName: Fran Telekinetic Fold Blade
 		}
 	}
 }

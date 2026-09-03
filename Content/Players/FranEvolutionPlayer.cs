@@ -57,6 +57,13 @@ public sealed class FranEvolutionPlayer : ModPlayer
     {
         claimedBosses.Clear();
         syncedEarnedPoints = 0;
+        if (!FranEvolutionInfo.SystemEnabled)
+        {
+            nodeMask = 0;
+            ResetTransientState();
+            return;
+        }
+
         uint loadedMask = tag.ContainsKey("EvolutionNodeMaskV2")
             ? (uint)Math.Clamp(tag.GetLong("EvolutionNodeMaskV2"), 0L, uint.MaxValue)
             : (uint)Math.Clamp(tag.GetInt("EvolutionNodeMask"), 0, ushort.MaxValue);
@@ -68,6 +75,15 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     public override void OnEnterWorld()
     {
+        if (!FranEvolutionInfo.SystemEnabled)
+        {
+            claimedBosses.Clear();
+            syncedEarnedPoints = 0;
+            nodeMask = 0;
+            ResetTransientState();
+            return;
+        }
+
         if (Main.netMode == NetmodeID.MultiplayerClient && Player.whoAmI == Main.myPlayer)
             FranModMain.SendEvolutionProfile(this);
         else if (Main.netMode != NetmodeID.MultiplayerClient)
@@ -76,7 +92,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     public override void SyncPlayer(int toWho, int fromWho, bool newPlayer)
     {
-        if (Main.netMode != NetmodeID.Server || toWho == Player.whoAmI)
+        if (!FranEvolutionInfo.SystemEnabled || Main.netMode != NetmodeID.Server || toWho == Player.whoAmI)
             return;
         int ignoreClient = toWho < 0 ? Player.whoAmI : fromWho;
         FranModMain.SendEvolutionState(Player.whoAmI, nodeMask, EarnedPoints,
@@ -85,6 +101,9 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     public override void PostUpdateEquips()
     {
+        if (!FranEvolutionInfo.SystemEnabled)
+            return;
+
         FranPlayer fran = Player.GetModPlayer<FranPlayer>();
         if (!fran.FranMode && !fran.HasTeacher)
             return;
@@ -145,7 +164,8 @@ public sealed class FranEvolutionPlayer : ModPlayer
         unityTimer = 0;
     }
 
-    public bool HasNode(FranEvolutionNode node) => FranEvolutionInfo.HasNode(nodeMask, node);
+    public bool HasNode(FranEvolutionNode node) =>
+        FranEvolutionInfo.SystemEnabled && FranEvolutionInfo.HasNode(nodeMask, node);
 
     public FranEvolutionUnlockFailure GetUnlockFailure(FranEvolutionNode node)
     {
@@ -167,7 +187,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     public void RequestUnlock(FranEvolutionNode node)
     {
-        if (!FranEvolutionInfo.IsValid(node))
+        if (!FranEvolutionInfo.SystemEnabled || !FranEvolutionInfo.IsValid(node))
             return;
         if (Main.netMode == NetmodeID.MultiplayerClient)
             FranModMain.SendEvolutionUnlockRequest(node);
@@ -177,6 +197,9 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     public void RequestReset()
     {
+        if (!FranEvolutionInfo.SystemEnabled)
+            return;
+
         if (Main.netMode == NetmodeID.MultiplayerClient)
             FranModMain.SendEvolutionResetRequest();
         else
@@ -185,6 +208,9 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     internal bool TryUnlockAuthoritative(FranEvolutionNode node)
     {
+        if (!FranEvolutionInfo.SystemEnabled)
+            return false;
+
         if (GetUnlockFailure(node) != FranEvolutionUnlockFailure.None)
             return false;
         nodeMask |= FranEvolutionInfo.Bit(node);
@@ -196,6 +222,9 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     internal bool TryResetAuthoritative()
     {
+        if (!FranEvolutionInfo.SystemEnabled)
+            return false;
+
         if (nodeMask == 0 || IsEvolutionLockedByCombat())
             return false;
         nodeMask = 0;
@@ -211,6 +240,9 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     internal void MergeClientProfile(IEnumerable<string> bossKeys, uint requestedMask)
     {
+        if (!FranEvolutionInfo.SystemEnabled)
+            return;
+
         // Boss claims sent by a character are deliberately ignored. The server's current world is authoritative.
         FranEvolutionBossSystem.RefreshPlayerFromCurrentWorld(this);
         nodeMask = FranEvolutionInfo.NormalizeMask(requestedMask,
@@ -220,6 +252,9 @@ public sealed class FranEvolutionPlayer : ModPlayer
 
     internal bool ApplyWorldProgress(IEnumerable<string> worldBosses)
     {
+        if (!FranEvolutionInfo.SystemEnabled)
+            return false;
+
         uint oldMask = nodeMask;
         int oldEarnedPoints = syncedEarnedPoints;
         bool claimsChanged = !claimedBosses.SetEquals(worldBosses);
@@ -247,6 +282,9 @@ public sealed class FranEvolutionPlayer : ModPlayer
     internal void ReceiveEvolutionState(uint receivedMask, int receivedEarnedPoints,
         IReadOnlyCollection<string> receivedClaims)
     {
+        if (!FranEvolutionInfo.SystemEnabled)
+            return;
+
         uint oldMask = nodeMask;
         syncedEarnedPoints = Math.Clamp(receivedEarnedPoints, 0, ushort.MaxValue);
         if (receivedClaims is not null)
@@ -307,8 +345,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
                 FranBalance.EvolutionAwakeningDashSpeedBonus) : 0f);
 
     public float DashImpactDamageMultiplier =>
-        FranBalance.GetFloat(nameof(FranBalance.DashBaseImpactDamageMultiplier),
-            FranBalance.DashBaseImpactDamageMultiplier) +
+        1f +
         (HasNode(FranEvolutionNode.PredatorSight)
             ? FranBalance.GetFloat(nameof(FranBalance.EvolutionPredatorDashDamageBonus),
                 FranBalance.EvolutionPredatorDashDamageBonus) : 0f) +
