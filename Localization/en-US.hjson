@@ -18,16 +18,13 @@ Mods: {
 				DisplayName: Teacher
 				Tooltip:
 					'''
-					A legendary intelligent sword bound to Fran
-					[Left Click] Cycle through Sweep, Rising Slash, Lunge Thrust, and Heavy Finisher
-					[Right Click] Open the tactic wheel; left-click icons to equip or remove tactics
-					Press [c/C3B2F5:Magic-Stone Corridor] (default J) to allocate Self Evolution Points earned from boss battles
-					[Ultimate] At full charge, press [c/8CDFFF:Ultimate] (default G) to unleash Black Heavenly Tiger
-					Teacher follows behind Fran whenever another weapon is held
-					A non-Fran character who actually owns Teacher may still use its combo and skill wheel; character passives remain exclusive to Fran Mode
-					Teacher cannot be dropped, sold, researched, trashed, or left in storage; once bonded, it will always return
-					Damage and available skills grow with world progression
+					[Left Click] Cycle through multiple sword techniques; each technique acts together with your tactics
+					[Right Click] Open the tactic wheel; click a tactic to equip or remove it
+					Duplicate tactics may be equipped for a stronger effect
+					[Ultimate] When the gauge is full, press the ultimate key to unleash the Black Heavenly Tiger's power
+					Execute a single target with a continuous rush of slashes
 					'''
+				GoldenPrompt: Enter text
 			}
 
 			TeacherExcavationTool: {
@@ -50,6 +47,29 @@ Mods: {
 					Click a portrait to set or clear that world's defeated flag; footer buttons change whole phases
 					Multiplayer changes are validated and applied by the server
 					This changes progression flags only and does not undo permanent world conversion
+					'''
+			}
+
+			TeacherArrivalDebugger: {
+				DisplayName: Teacher Arrival Debugger
+				Tooltip:
+					'''
+					Cheat-only developer tool; it has no recipe
+					Left click to replay the full arrival near the cursor
+					Bypasses the delay, surface and one-time eligibility checks
+					Does not consume your character's normal arrival opportunity
+					Reusable; each use creates a Teacher that anyone can pick up
+					'''
+			}
+
+			FranDamageDebugger: {
+				DisplayName: Teacher Damage Debugger
+				Tooltip:
+					'''
+					Cheat-only developer tool; it has no recipe
+					Left click to open the base-damage panel
+					Favorite it in your inventory to enable its override
+					Only Teacher's base item damage is replaced
 					'''
 			}
 		}
@@ -152,9 +172,23 @@ Mods: {
 			}
 		}
 
+		DamageDebug: {
+			Title: Teacher Base Damage Debugger
+			Active: Damage override enabled
+			Inactive: Favorite this item to enable it
+			Apply: Apply
+			Hint: Press Enter or click Apply to save
+			Saved: Value saved to the debug item
+			Invalid: Enter a value from 1 to 99999999
+			StoredDamage: Stored damage: {0}
+			Enabled: Status: favorite override enabled
+			Disabled: Status: favorite the item to enable
+		}
+
 		Notices: {
-			IntroTitle: "[Fran Mode activated: Teacher has returned to your side]"
-			IntroCombat: Hold left click for the four-part greatsword combo; Teacher floats behind you while another weapon is held
+			TeacherArrivalPickup: Approach to pick up Teacher
+			IntroTitle: "[Fran Mode activated]"
+			IntroCombat: Hold left click for the four-part greatsword combo
 			IntroSkills: Right-click to open or close the tactic wheel; left-click upper icons to equip duplicates and lower slots to remove them; opening inventory closes the wheel
 			IntroEvolution: Participate in a boss victory to absorb its unique magic stone; press J to shape Teacher, Fran, and their long-term resonance in the Corridor
 			IntroDash: When Fran Dash is bound, only that key triggers it; when unbound, double-tap left/right instead; equipped dashes take priority
@@ -163,51 +197,21 @@ Mods: {
 
 		Abilities: {
 			Dash: {
-				Line: "[Dash] Current progress: {0} | {1} | Effect: {2}"
-				Progress: Unlocked from the beginning
-				Effect: A direct, roll-free dash wrapped in the Black Heavenly Tiger spirit
-
-				States: {
-					Enabled: Enabled: no other dash is equipped
-					Overridden: Disabled: an external dash is active and takes priority
-					InactiveFranMode: Disabled: Fran Mode is not active
-				}
+				Bound: "[Dash] Press {0} for a powerful dash"
+				Unbound: "[Dash] Double-tap Left or Right for a powerful dash"
 			}
 
 			Flight: {
-				Line: "[Telekinetic Flight] Current progress: {0} | {1} | Effect: {2}"
-
-				Progress: {
-					Locked: Pre-Hardmode — not yet unlocked
-					Tier1: Hardmode — Telekinetic Liftoff
-					Tier2: All three mechanical bosses — Power Rebuild
-					Tier3: Post-Plantera — Hover Mastery
-					Tier4: Post-Golem — Telekinetic Final Form
-					Infinite: Post-Empress of Light — Infinite Flight
-				}
-
-				States: {
-					Enabled: Enabled: no functional wings are equipped
-					Overridden: Disabled: functional wings are equipped and take priority
-					Mounted: Paused: Telekinetic Flight does not stack with mounts
-					Locked: Locked: automatically gained upon entering Hardmode
-					InactiveFranMode: Disabled: Fran Mode is not active
-				}
-
-				Effects: {
-					Locked: Counts as an innate pair of wings after entering Hardmode
-					Finite: "{0} flight ticks ({1:0.00}s), horizontal speed {2}, acceleration multiplier {3}{4}"
-					Infinite: Infinite flight, horizontal speed {2}, acceleration multiplier {3}{4}
-					Hover: ", hold Down to hover"
-					NoHover: ""
-				}
+				Locked: "[Flight] Enter Hardmode to unlock flight"
+				WingsEquipped: "[Flight] Wings equipped; telekinetic flight is disabled by default"
+				Enabled: "[Flight] Telekinetic flight is enabled automatically"
 			}
 		}
 
 		Evolution: {
 			Title: Magic-Stone Corridor — Self Evolution
 			OpenHint: Open the Magic-Stone Corridor (default J)
-			Tooltip: Magic-Stone Corridor: {0} available / {1} total; press J to unfold three constellations
+			Tooltip: "[Magic-Stone Growth] Press the Corridor key to open it"
 			PointSummary: Available {0}   Invested {1}   Total {2}   Current stage cap {3}
 			Overview: Points are derived automatically from the current world's boss progress. Three constellations extend upward, down-left, and down-right from the central core; hover a star to inspect it.
 			MagicStoneAcquired: Magic-stone imprint acquired — Self Evolution Points +{0}
@@ -410,6 +414,11 @@ Mods: {
 					Tooltip: Enabled by default. Allows future client-side videos to play; it does nothing while no video assets exist.
 				}
 
+				EnableFloatingTeacherVisual: {
+					Label: "[i:MagicMirror] Show Teacher from inventory"
+					Tooltip: Disabled by default. When enabled, Teacher floats behind the player while stored in the inventory and another item is held.
+				}
+
 				HideUltimateGauge: {
 					Label: "[i:InvisibilityPotion] Hide Black Tiger ultimate gauge"
 					Tooltip: The ultimate gauge is shown at the top center by default. Enable this only if you want to hide it.
@@ -450,9 +459,11 @@ Mods: {
 		Skills: {
 			TelekineticCatapult: {
 				DisplayName: Telekinetic Catapult
+				UnlockCondition: Unlocked by default
 				Description: Teacher's four-part sword combo always remains intact. The current world stage rearranges pressure cores, fold blades, high-speed lasers, and falling planets around those same four cuts
 				FirstLayer: One layer: uses the current four-cut projectile sequence
 				AdditionalLayer: Stack: adds one pressure core per layer
+				FullLoadout: Full: pressure cores gain long-range homing and retargeting
 
 				CurrentState: {
 					Stage0: One layer: 1 core | 2 delayed core | 3 twin cores | 4 heavy core
@@ -465,51 +476,65 @@ Mods: {
 
 			SkillTaker: {
 				DisplayName: Skill Taker
+				UnlockCondition: Unlocked by default
 				Description: Sword hits apply a theft mark. Sustained attacks gradually increase the target's vulnerability; both the vulnerability and mark decay after attacks stop
-				FirstLayer: One layer: sustained attacks raise a marked enemy's vulnerability
+				FirstLayer: One layer: sustained attacks raise vulnerability up to 1.3x
 				AdditionalLayer: Stack: vulnerability rises faster and the mark lasts longer
+				FullLoadout: Full: maximum vulnerability increases to 1.5x
 			}
 
 			MagicBarrier: {
 				DisplayName: Magic Barrier
-				Description: Maintains a spherical barrier around the player. The first layer grants 10% damage reduction and 10 defense; each later layer grants another 5% damage reduction and 5 defense. Filling every currently available tactic slot with Magic Barrier halves enemy contact damage. Taking a hit spends one of five charges and releases a retaliatory pulse before the barrier rebuilds
+				UnlockCondition: Unlock by defeating the Eye of Cthulhu
+				Description: Maintains a spherical barrier around the player. The first layer grants 10% damage reduction and 10 defense; each later layer grants another 5% damage reduction and 5 defense. Filling every currently available tactic slot with Magic Barrier halves enemy contact damage and grants 35 life regeneration. Taking a hit spends one of five charges and releases a retaliatory pulse before the barrier rebuilds
 				FirstLayer: One layer: 10% damage reduction and 10 defense
-				AdditionalLayer: Stack: adds 5% and 5 defense; a full barrier loadout halves contact damage
+				AdditionalLayer: Stack: adds 5% damage reduction and 5 defense per layer
+				FullLoadout: Full: halves contact damage and grants +35 life regeneration
 			}
 
 			MultipleBodyCreation: {
 				DisplayName: Multiple Body Creation
+				UnlockCondition: Unlock by defeating Skeletron
 				Description: Every swing arrays two Teacher phantoms behind the player; after a brief hover they lock onto the cursor area and dash, while the fourth cut launches four in sequence
-				FirstLayer: One layer: 2 phantoms on normal cuts and 4 on the fourth
-				AdditionalLayer: Stack: adds 1 phantom to normal cuts and 2 to the fourth
+				FirstLayer: One layer: every swing summons multiple blade phantoms
+				AdditionalLayer: Stack: increases the number of phantoms
+				FullLoadout: Full: phantoms dash faster
 			}
 
 			BlueResonance: {
 				DisplayName: Blue Resonance
+				UnlockCondition: Unlock by defeating the Wall of Flesh
 				Description: Sword hits burst blue resonance motes. They seek and heal injured players; when everyone is healthy they instead seek enemies and deal damage
 				FirstLayer: One layer: hits release blue motes that heal or damage
 				AdditionalLayer: Stack: adds one blue mote per layer
+				FullLoadout: Full: healing is multiplied by 1.5
 			}
 
 			ThunderChain: {
 				DisplayName: Thunder Chain
+				UnlockCondition: Unlock by defeating any mechanical boss
 				Description: Every swing calls several ancient lightning arcs down over the cursor and adds automatic strikes above up to three nearby enemies; the fourth cut calls even more bolts
 				FirstLayer: One layer: swings call a lightning chain and tracked strikes
 				AdditionalLayer: Stack: adds supporting lightning and tracked targets
+				FullLoadout: Full: greatly increases damage during rain
 			}
 
 			PressurizedQuickdraw: {
 				DisplayName: Pressurized Quickdraw
+				UnlockCondition: Unlock by defeating Plantera
 				Description: Every swing releases a high-pressure wave using the Terra Blade beam form; it pierces without limit and gradually slows, while the fourth cut fires a smaller and faster finishing wave
 				FirstLayer: One layer: detonates compressed air along the sword arc
-				AdditionalLayer: Stack: only raises compressed-burst damage
+				AdditionalLayer: Stack: raises compressed-burst damage
+				FullLoadout: Full: compression bursts last longer
 			}
 
 			ThorsHammer: {
 				DisplayName: Thor's Hammer
+				UnlockCondition: Unlock by defeating Golem
 				Description: After two complete four-cut rounds, the second round's fourth cut locks onto the enemy nearest the cursor; without a nearby enemy the seal stays at the cursor. A full loadout of Thor's Hammer needs only one round. The hammer then strikes the seal and detonates a wide lightning-meteor impact
 				FirstLayer: One layer: two complete four-cut rounds summon Thor's Hammer
-				AdditionalLayer: Stack: only adds damage; a full Hammer loadout needs one round
+				AdditionalLayer: Stack: raises Thor's Hammer damage
+				FullLoadout: Full: shortens the hammer interval
 			}
 		}
 
@@ -587,6 +612,8 @@ Mods: {
 			FranThunderCircuitNode.DisplayName: Fran Thunder Circuit Node
 			FranThunderStrikeProjectile.DisplayName: Fran Thunder Strike Projectile
 			FranTelekineticFoldBlade.DisplayName: Fran Telekinetic Fold Blade
+			FranFlatLightningVisual.DisplayName: Fran Flat Lightning Visual
+			TeacherArrivalProjectile.DisplayName: Teacher's Descent
 		}
 	}
 }

@@ -225,11 +225,22 @@ public sealed class FranPressurizedTerraWave : ModProjectile
 
 public sealed class FranCompressionAirburst : ModProjectile
 {
-    private const int Lifetime = 40;
+    private const int BaseLifetime = 40;
+    private const float FullLoadoutLifetimeFlag = 100f;
+    private bool FullLoadoutLifetime => Projectile.ai[0] >= FullLoadoutLifetimeFlag;
+    private int Lifetime => FullLoadoutLifetime
+        ? Math.Max(BaseLifetime, (int)Math.Round(BaseLifetime * FranBalance.GetFloat(
+            nameof(FranBalance.QuickdrawFullLoadoutLifetimeMultiplier),
+            FranBalance.QuickdrawFullLoadoutLifetimeMultiplier), MidpointRounding.AwayFromZero))
+        : BaseLifetime;
     private float Age => Lifetime - Projectile.timeLeft;
-    private float Delay => MathHelper.Clamp(Projectile.ai[0], 4f, 16f);
+    private float Delay => MathHelper.Clamp(Projectile.ai[0] -
+        (FullLoadoutLifetime ? FullLoadoutLifetimeFlag : 0f), 4f, 16f);
     private float BurstScale => MathHelper.Clamp(Projectile.ai[1], 0.55f, 1.25f);
     private float BlastRadius => 108f * BurstScale;
+
+    internal static float EncodeDelay(float delay, bool fullLoadout) =>
+        MathHelper.Clamp(delay, 4f, 16f) + (fullLoadout ? FullLoadoutLifetimeFlag : 0f);
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -242,12 +253,15 @@ public sealed class FranCompressionAirburst : ModProjectile
         Projectile.friendly = true;
         Projectile.DamageType = DamageClass.Melee;
         Projectile.penetrate = -1;
-        Projectile.timeLeft = Lifetime;
+        Projectile.timeLeft = BaseLifetime;
         Projectile.tileCollide = false;
         Projectile.ignoreWater = true;
         Projectile.usesLocalNPCImmunity = true;
         Projectile.localNPCHitCooldown = -1;
     }
+
+    public override void OnSpawn(Terraria.DataStructures.IEntitySource source) =>
+        Projectile.timeLeft = Lifetime;
 
     public override bool ShouldUpdatePosition() => false;
     public override bool? CanDamage() => Age >= Delay && Age <= Delay + 6f ? null : false;
@@ -349,7 +363,7 @@ public sealed class FranCompressionAirburst : ModProjectile
                 float angle = seed + i * MathHelper.TwoPi / 6f + Projectile.rotation * 0.6f;
                 Vector2 direction = angle.ToRotationVector2();
                 Vector2 position = Projectile.Center + direction * radius * 0.62f;
-                FranVfx.DrawSharedPixels("Cal_BloomLineFade", position, pale * (0.18f + charge * 0.30f),
+                FranVfx.DrawSharedPixels("BloomLineSoftEdge", position, pale * (0.18f + charge * 0.30f),
                     direction.ToRotation() + MathHelper.PiOver2,
                     new Vector2(8f, 34f + charge * 24f) * BurstScale);
             }
@@ -381,7 +395,7 @@ public sealed class FranCompressionAirburst : ModProjectile
             float rayLength = MathHelper.Lerp(32f, 104f * BurstScale, expansion) *
                 (i % 2 == 0 ? 1f : 0.72f);
             Vector2 position = Projectile.Center + direction * rayLength * 0.42f;
-            FranVfx.DrawSharedPixels("Cal_BloomLineFade", position,
+            FranVfx.DrawSharedPixels("BloomLineSoftEdge", position,
                 (i % 3 == 0 ? Color.White : pale) * (0.52f * fade),
                 direction.ToRotation() + MathHelper.PiOver2,
                 new Vector2(10f + coreFlash * 5f, rayLength));

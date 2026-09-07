@@ -46,6 +46,10 @@ public sealed class FranRicochetLightning : ModProjectile
         FranFlatLightningEffects.EmitTravel(Projectile.Center, Projectile.velocity,
             0.72f, FranFlatLightningPalette.ThunderChain, 3,
             (int)Projectile.localAI[0] + Projectile.identity * 5);
+        if ((int)Projectile.localAI[0] % 4 == 0)
+            FranFlatLightningEffects.Fracture(Projectile.Center - Projectile.velocity * 3f,
+                Projectile.Center, 0.58f, FranFlatLightningPalette.ThunderChain,
+                Projectile.identity * 397 + (int)Projectile.localAI[0], 1f, 9);
         if (!Main.dedServ && Main.rand.NextBool(2))
             FranParticleSystem.Spawn(new FranBarrierShardParticle(Projectile.Center,
                 -Projectile.velocity * 0.08f + Main.rand.NextVector2Circular(1.2f, 1.2f),
@@ -54,6 +58,8 @@ public sealed class FranRicochetLightning : ModProjectile
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
         FranLightingBoltsSystem.SpawnThunderImpact(target.Center, new Color(155, 125, 255), 0.72f);
+        FranFlatLightningEffects.Burst(target.Center, 0.60f,
+            FranFlatLightningPalette.ThunderChain, 4, 62f);
         SoundEngine.PlaySound(SoundID.Item93 with { Volume = 0.33f, Pitch = 0.25f + Projectile.ai[0] * 0.08f }, target.Center);
         Projectile.ai[0]++;
         NPC next = FindBounceTarget(target.whoAmI, 470f);

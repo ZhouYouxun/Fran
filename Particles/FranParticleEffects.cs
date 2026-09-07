@@ -58,13 +58,13 @@ internal static class FranParticleEffects
         if (Main.dedServ)
             return;
 
-        // 大剑命中只围绕一个焦点生成少量定向切痕，避免随机小星点削弱打击方向。
+        // 大剑命中的小型冲击波保持等比圆形，外侧切痕继续表达入射方向。
         incomingDirection = incomingDirection.SafeNormalize(Vector2.UnitX);
         Vector2 normal = incomingDirection.RotatedBy(MathHelper.PiOver2);
         float intensity = combo == 2 ? 1.22f : combo == 3 ? 1.08f : 0.94f;
         Spawn(new FranDirectionalRingParticle(center, Vector2.Zero, color,
-            new Vector2(0.07f, 0.13f), new Vector2(0.76f, 0.27f) * intensity,
-            incomingDirection.ToRotation(), combo == 2 ? 15 : 12));
+            Vector2.One * 0.10f, Vector2.One * 0.52f * intensity,
+            incomingDirection.ToRotation(), combo == 2 ? 15 : 12, preserveCircularShape: true));
 
         int cutCount = combo == 2 ? 4 : combo == 3 ? 3 : 2;
         float middle = (cutCount - 1f) * 0.5f;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FranMod.Content.Config;
 using FranMod.Content.Players;
 using FranMod.Core;
 using FranMod.Core.Graphics;
@@ -38,7 +39,9 @@ public sealed class FloatingTeacherVisual : ModProjectile
         Player owner = Main.player[Projectile.owner];
         FranPlayer fran = owner.GetModPlayer<FranPlayer>();
         int flightVisualType = ModContent.ProjectileType<FranTelekineticFlightVisual>();
-        if (!owner.active || owner.dead || !fran.HasTeacher || fran.TelekineticFlightVisualActive ||
+        bool disabledByOwner = Projectile.owner == Main.myPlayer &&
+            !ModContent.GetInstance<FranClientConfig>().EnableFloatingTeacherVisual;
+        if (disabledByOwner || !owner.active || owner.dead || !fran.HasTeacher || fran.TelekineticFlightVisualActive ||
             owner.ownedProjectileCounts[flightVisualType] > 0 ||
             owner.HeldItem.type == ModContent.ItemType<Content.Items.Teacher>() ||
             owner.HeldItem.type == ModContent.ItemType<Content.Items.TeacherExcavationTool>())

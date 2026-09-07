@@ -20,11 +20,16 @@ public sealed class FranBlueResonanceEcho : ModProjectile
     private const int Lifetime = 150;
     private const int ScatterFrames = 14;
     private const float SearchRange = 3200f;
+    private const float FullLoadoutHealingFlag = 100f;
     private bool sourceBurstSpawned;
     private bool impactBurstSpawned;
 
     private float Age => Projectile.localAI[0];
     private bool HealingMode => Projectile.localAI[1] > 0.5f;
+    private bool FullLoadoutHealing => Projectile.ai[2] >= FullLoadoutHealingFlag;
+
+    internal static float EncodeEchoCount(int echoCount, bool fullLoadout) =>
+        Math.Max(1, echoCount) + (fullLoadout ? FullLoadoutHealingFlag : 0f);
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -180,6 +185,11 @@ public sealed class FranBlueResonanceEcho : ModProjectile
             int maximum = Math.Max(minimum, FranBalance.GetInt(nameof(FranBalance.BlueResonanceHealingMaximum),
                 FranBalance.BlueResonanceHealingMaximum));
             int healing = Math.Clamp(target.statLifeMax2 / divisor, minimum, maximum);
+            if (FullLoadoutHealing)
+                healing = Math.Max(1, (int)Math.Round(healing * FranBalance.GetFloat(
+                    nameof(FranBalance.BlueResonanceFullLoadoutHealingMultiplier),
+                    FranBalance.BlueResonanceFullLoadoutHealingMultiplier),
+                    MidpointRounding.AwayFromZero));
             target.GetModPlayer<FranPlayer>().ApplyResonanceHealing(healing);
         }
         impactBurstSpawned = true;
@@ -213,7 +223,7 @@ public sealed class FranBlueResonanceEcho : ModProjectile
             if (old == Projectile.Size * 0.5f || newer == Projectile.Size * 0.5f)
                 continue;
             float fade = (1f - i / (float)Projectile.oldPos.Length) * opacity;
-            FranVfx.DrawVertical("Cal_BloomLineSoftEdge", old, newer, cyan * (0.24f * fade), 9f * fade + 2f);
+            FranVfx.DrawVertical("BloomLineSoftEdge", old, newer, cyan * (0.24f * fade), 9f * fade + 2f);
             FranVfx.DrawVertical("Cal_ThinEndedLine", old, newer, Color.White * (0.42f * fade), 2.2f);
         }
         FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,

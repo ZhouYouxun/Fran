@@ -1,3 +1,17 @@
 /bin
 /obj
 /.vs
+
+# Local source libraries and visual candidates that are not used by the mod.
+/Textures/Fran表情包/
+/Textures/OGA/
+/Textures/kenney_planets/Parts/
+/Textures/kenney_planets/Preview.png
+/Textures/kenney_planets/Sample.png
+/Textures/kenney_planets/Visit Kenney.url
+/Textures/kenney_planets/Visit Patreon.url
+/主菜单背景/候选图/
+
+# Only magic_05.png from this source library is used at runtime.
+/Textures/KsTexture/*
+!/Textures/KsTexture/magic_05.png

@@ -7,48 +7,37 @@ namespace FranMod.Core;
 public static partial class FranBalance
 {
     // 1：核心大剑进度（世界节点、核心攻击力、核心大小、冲刺面板伤害）
+    // 本表只管师父本体及其派生数值，不参与战术解锁条件的判定。
+    // 以“任意一只机械 Boss 后 75 点”为锚点，伤害统一按旧表的 1/8 缩放并取最近整数。
+    // 背包中收藏伤害调试器时，只覆盖第二列的核心攻击力。
     public static object[,] CoreProgression =
     {
-        // 世界 Boss / 条件                                      攻击力   大小    冲刺伤害
-        { FranProgressionMilestone.Initial,                         105,  1.00f,     126 }, // 开局
-        { FranProgressionMilestone.KingSlime,                       105,  1.00f,     126 }, // 史莱姆王后
-        { FranProgressionMilestone.EyeOfCthulhu,                    180,  1.00f,     126 }, // 克苏鲁之眼后
-        { FranProgressionMilestone.EaterOfWorlds,                   270,  1.00f,     126 }, // 世界吞噬者后
-        { FranProgressionMilestone.BrainOfCthulhu,                  270,  1.00f,     126 }, // 克苏鲁之脑后
-        { FranProgressionMilestone.AnyEvilBoss,                     270,  1.00f,     126 }, // 任意邪恶世界 Boss 后
-        { FranProgressionMilestone.QueenBee,                        270,  1.00f,     126 }, // 蜂王后
-        { FranProgressionMilestone.Deerclops,                       270,  1.00f,     126 }, // 独眼巨鹿后
-        { FranProgressionMilestone.Skeletron,                       300,  1.00f,     126 }, // 骷髅王后
-        { FranProgressionMilestone.DarkMage,                        300,  1.10f,     126 }, // 撒旦军队黑暗魔法师后
-        { FranProgressionMilestone.WallOfFlesh,                     495,  1.10f,     594 }, // 血肉墙后，进入困难模式
-        { FranProgressionMilestone.QueenSlime,                      495,  1.10f,     594 }, // 史莱姆皇后后
-        { FranProgressionMilestone.Destroyer,                       600,  1.10f,     594 }, // 毁灭者后
-        { FranProgressionMilestone.Twins,                           600,  1.10f,     594 }, // 双子魔眼后
-        { FranProgressionMilestone.SkeletronPrime,                  600,  1.10f,     594 }, // 机械骷髅王后
-        { FranProgressionMilestone.AnyMechanicalBoss,               600,  1.10f,     594 }, // 任意一台机械 Boss 后
-        { FranProgressionMilestone.Ogre,                            600,  1.10f,     594 }, // 撒旦军队食人魔后
-        { FranProgressionMilestone.AnyTwoMechanicalBosses,          705,  1.20f,     594 }, // 任意两台机械 Boss 后
-        { FranProgressionMilestone.AllMechanicalBosses,             870,  1.20f,     594 }, // 机械三王全部击败后
-        { FranProgressionMilestone.Plantera,                       1275,  1.20f,    1530 }, // 世纪之花后
-        { FranProgressionMilestone.DukeFishron,                    1275,  1.20f,    1530 }, // 猪龙鱼公爵后
-        { FranProgressionMilestone.EmpressOfLight,                 1275,  1.20f,    1530 }, // 光之女皇后
-        { FranProgressionMilestone.Golem,                          1935,  1.30f,    1530 }, // 石巨人后
-        { FranProgressionMilestone.Betsy,                          1935,  1.30f,    1530 }, // 撒旦军队双足翼龙后
-        { FranProgressionMilestone.LunaticCultist,                 1875,  1.30f,    1530 }, // 拜月教邪教徒后
-        { FranProgressionMilestone.MoonLord,                       2850,  1.40f,    3420 }  // 月亮领主后
+        // 世界 Boss / 条件                              攻击力   大小   冲刺伤害
+        { FranProgressionMilestone.Initial,                          13,  1.00f,      16 }, // 刚开局
+        { FranProgressionMilestone.EyeOfCthulhu,                     23,  1.00f,      16 }, // 击败克苏鲁之眼
+        { FranProgressionMilestone.AnyEvilBoss,                      34,  1.00f,      16 }, // 击败任意一个邪恶世界 Boss
+        { FranProgressionMilestone.Skeletron,                        38,  1.00f,      16 }, // 击败骷髅王
+        { FranProgressionMilestone.WallOfFlesh,                      62,  1.10f,      74 }, // 击败血肉墙
+        { FranProgressionMilestone.AnyMechanicalBoss,                75,  1.10f,      74 }, // 击败任意一只机械 Boss
+        { FranProgressionMilestone.AnyTwoMechanicalBosses,           88,  1.20f,      74 }, // 击败任意两只机械 Boss
+        { FranProgressionMilestone.AllMechanicalBosses,             109,  1.20f,      74 }, // 机械三王全部击败
+        { FranProgressionMilestone.Plantera,                        159,  1.20f,     191 }, // 击败世纪之花
+        { FranProgressionMilestone.Golem,                           242,  1.30f,     191 }, // 击败石巨人
+        { FranProgressionMilestone.LunaticCultist,                  234,  1.30f,     191 }, // 击败拜月教邪教徒
+        { FranProgressionMilestone.MoonLord,                        356,  1.40f,     428 }  // 击败月亮领主
     };
 
     // 2：八种战术的解锁条件（战术、世界节点）
     public static object[,] TacticUnlockProgression =
     {
-        { FranSkill.TelekineticCatapult,   FranProgressionMilestone.Initial },              // 念动弹射：开局解锁
-        { FranSkill.SkillTaker,            FranProgressionMilestone.Initial },              // 技能夺取者：开局解锁
-        { FranSkill.MagicBarrier,          FranProgressionMilestone.Initial },              // 魔力屏障：开局解锁
-        { FranSkill.MultipleBodyCreation,  FranProgressionMilestone.Skeletron },            // 多重分体：骷髅王后解锁
-        { FranSkill.BlueResonance,         FranProgressionMilestone.Skeletron },            // 蓝辉共鸣：骷髅王后解锁
-        { FranSkill.ThunderChain,          FranProgressionMilestone.WallOfFlesh },          // 雷链：血肉墙后解锁
-        { FranSkill.PressurizedQuickdraw,  FranProgressionMilestone.AllMechanicalBosses }, // 压缩居合：机械三王后解锁
-        { FranSkill.ThorsHammer,           FranProgressionMilestone.AllMechanicalBosses }  // 雷神之锤：机械三王后解锁
+        { FranSkill.TelekineticCatapult,   FranProgressionMilestone.Initial },             // 念动弹射：默认解锁
+        { FranSkill.SkillTaker,            FranProgressionMilestone.Initial },             // 技能夺取者：默认解锁
+        { FranSkill.MagicBarrier,          FranProgressionMilestone.EyeOfCthulhu },        // 魔力屏障：克苏鲁之眼后解锁
+        { FranSkill.MultipleBodyCreation,  FranProgressionMilestone.Skeletron },           // 多重分体：骷髅王后解锁
+        { FranSkill.BlueResonance,         FranProgressionMilestone.WallOfFlesh },         // 蓝辉共鸣：血肉墙后解锁
+        { FranSkill.ThunderChain,          FranProgressionMilestone.AnyMechanicalBoss },   // 雷链：任意机械 Boss 后解锁
+        { FranSkill.PressurizedQuickdraw,  FranProgressionMilestone.Plantera },            // 压缩居合：世纪之花后解锁
+        { FranSkill.ThorsHammer,           FranProgressionMilestone.Golem }                // 雷神之锤：石巨人后解锁
     };
 
     // 3：战术槽位成长（世界节点、可用槽位）
@@ -58,6 +47,19 @@ public static partial class FranBalance
         { FranProgressionMilestone.WallOfFlesh,   3 }, // 血肉墙后开放第三个战术槽
         { FranProgressionMilestone.MoonLord,      4 }  // 月亮领主后开放第四个战术槽
     };
+
+    // =====================================================================
+    // 黑天虎大招：普通斩、终结斩及命中裂隙统一使用师父当前面板伤害的固定倍率。
+    // 每刀开始时重新读取面板；不叠加普通四刀倍率或旧终结斩的额外倍率。
+    // =====================================================================
+    public static float UltimateStrikeDamageMultiplier = 8f;
+    public static int UltimateNormalStrikeCount = 36;         // 保持 36 次高速斩，之后仍接一次终结斩
+    public static int UltimateStartingStrikeFrames = 6;       // 原 9 帧 × 0.70，取整为 6 帧
+    public static int UltimateStartingDriftFrames = 4;        // 原 6 帧 × 0.70，取整为 4 帧；起始整轮 10 帧
+    public static int UltimateEndingStrikeFrames = 1;         // 末段以完整出刀间隔 2 帧为优先目标
+    public static int UltimateEndingDriftFrames = 1;          // 1 帧穿斩 + 1 帧漂移 = 2 帧一次
+    public static int UltimateFinalPauseFrames = 20;          // 保留终结斩前的停顿
+    public static int UltimateFinalStrikeFrames = 9;          // 保留独立终结斩的动作时长，不是高速连斩间隔
 
     // =====================================================================
     // 4：八种战术的固定倍率与重复叠层
@@ -93,13 +95,9 @@ public static partial class FranBalance
     public static float TelekineticPressureCoreInitialSpeedMultiplier = 1.70f; // 念压核实际起飞速度提升为原来的 1.70 倍
     public static float TelekineticPressureCoreAcceleration = 1.035f; // 念压核加速阶段内每个正常帧的速度倍率
     public static int TelekineticPressureCoreAccelerationFrames = 20; // 起飞二十帧后停止加速并保持最高速度
-    public static float TelekineticPressureCoreHomingRange = 920f; // 全槽念动弹射时，念压核的柔和索敌半径
-    public static int TelekineticPressureCoreHomingDelayFrames = 9; // 参照弹幕18次子更新，换算为念压核的9个正常帧
-    public static float TelekineticPressureCoreHomingInertia = 27f; // 追踪初期的转向惯性
-    public static float TelekineticPressureCoreFinalHomingInertia = 5.4f; // 追踪成熟后的转向惯性
-    public static int TelekineticPressureCoreHomingRampFrames = 48; // 追踪由柔和转向成长至完全咬合所需时间
-    public static float TelekineticPressureCoreInitialAngleTolerance = 0.30f; // 追踪初期允许保留的方向误差，单位为弧度
-    public static float TelekineticPressureCoreFinalAngleTolerance = 0.03f; // 追踪成熟后允许保留的方向误差，单位为弧度
+    public static float TelekineticPressureCoreHomingRange = 920f; // 全槽念动弹射时，念压核的首次锁敌/失敌补锁半径
+    public static int TelekineticPressureCoreHomingDelayFrames = 9; // 散射基准帧数；侧翼按层级错峰，最终限制在 8～12 帧
+    // 掠近、弧扫、切入和一次回勾的运动参数集中在 FranTelekineticSkirmishMotion 中。
     public static int TelekineticFoldBladeHitLimit = 10; // 折念刃冲击波最多造成十次伤害
     public static float TelekineticFoldBladeLaunchSpeed = 60f; // 泰拉刃式高速起步
     public static float TelekineticFoldBladeFlightDeceleration = 0.94f; // 高于最低速度时每帧保留的速度
@@ -121,6 +119,7 @@ public static partial class FranBalance
     // ---------------------------------------------------------------------
     public static float SkillTakerMinimumDamageMultiplier = 1.10f;   // 标记刚建立时，目标受到 1.10 倍伤害
     public static float SkillTakerMaximumDamageMultiplier = 1.30f;   // 无论装配几层，易伤上限始终固定为 1.30 倍
+    public static float SkillTakerFullLoadoutMaximumDamageMultiplier = 1.50f; // 全选：易伤上限提升至 1.50 倍，成长时间仍由普通叠层规则决定
     public static int SkillTakerBaseRampFrames = 420;                // 第一层 A：持续攻击约 7 秒达到易伤上限
     public static int SkillTakerExtraLayerRampReductionFrames = 60;  // 重复层 B：每层使达到上限所需时间缩短 1 秒
     public static int SkillTakerBaseDecayFrames = 180;               // 第一层 A：停手后约 3 秒缓慢衰减并消失
@@ -132,7 +131,7 @@ public static partial class FranBalance
     // ---------------------------------------------------------------------
     // 战术三：魔力屏障（开局解锁）
     // 第一层 A 创建屏障并提供基础防护；重复层 B 只线性增加减伤与防御，不增加耐久和反击次数。
-    // 当当前全部可用战术槽都装配魔力屏障时，额外触发敌人接触伤害减半。
+    // 当当前全部可用战术槽都装配魔力屏障时，额外触发敌人接触伤害减半与生命回复 +35。
     // ---------------------------------------------------------------------
     public static int MagicBarrierMaximumIntegrity = 5;                  // 屏障固定承受 5 次攻击后破裂
     public static float MagicBarrierWeaponDamageMultiplier = 0.72f;      // 屏障记录伤害为当前武器面板伤害的 72%
@@ -141,6 +140,7 @@ public static partial class FranBalance
     public static int MagicBarrierBaseDefense = 10;                       // 第一层 A：获得 10 点防御力
     public static int MagicBarrierExtraLayerDefense = 5;                  // 重复层 B：每层再获得 5 点防御力
     public static float MagicBarrierFullLoadoutContactDamageMultiplier = 0.50f; // 当前全部可用槽位均为屏障时，敌人接触伤害减半
+    public static int MagicBarrierFullLoadoutLifeRegen = 35;              // 全选：屏障生效期间生命回复增加 35
     public static float MagicBarrierCounterDamageMultiplier = 0.86f;     // 每次受击反击为屏障记录伤害的 86%
     public static int MagicBarrierHitImmunityFrames = 18;                // 屏障成功抵挡后给予 18 帧受击保护
 
@@ -155,6 +155,7 @@ public static partial class FranBalance
     public static int MultipleBodyFinisherExtraLayerCount = 2;           // 重复层 B：第四刀每层增加 2 个分身
     public static float MultipleBodyNormalDamageMultiplier = 0.86f;      // 普通三刀：整组分身总伤害为当前剑击的 86%
     public static float MultipleBodyFinisherDamageMultiplier = 1.24f;    // 第四刀：整组分身总伤害为当前剑击的 124%
+    public static float MultipleBodyFullLoadoutSpeedMultiplier = 1.15f;  // 全选：分体突进速度为普通状态的 1.15 倍
 
     // ---------------------------------------------------------------------
     // 战术五：蓝辉共鸣（骷髅王后解锁）
@@ -168,6 +169,7 @@ public static partial class FranBalance
     public static int BlueResonanceHealingLifeDivisor = 80;              // 每枚治疗弹基础值为目标最大生命除以 80
     public static int BlueResonanceHealingMinimum = 2;                   // 单次治疗最少恢复 2 点生命
     public static int BlueResonanceHealingMaximum = 7;                   // 每枚治疗弹最多恢复 7 点生命；叠层只增加弹幕数量
+    public static float BlueResonanceFullLoadoutHealingMultiplier = 1.50f; // 全选：最终治疗量乘 1.50
 
     // ---------------------------------------------------------------------
     // 战术六：雷链（血肉墙后解锁）
@@ -181,6 +183,7 @@ public static partial class FranBalance
     public static int ThunderChainFinisherSupportingBoltCount = 2;       // 第四刀基础追加 2 道伴随雷
     public static int ThunderChainNormalTrackedTargetCount = 3;          // 普通阶段最多自动锁定 3 个敌人
     public static int ThunderChainFinisherTrackedTargetCount = 4;        // 第四刀最多自动锁定 4 个敌人
+    public static float ThunderChainFullLoadoutRainDamageMultiplier = 2.50f; // 全选且世界正在下雨时，每一道雷的伤害乘 2.50
 
     // ---------------------------------------------------------------------
     // 战术七：压缩居合（机械三王后解锁）
@@ -201,6 +204,7 @@ public static partial class FranBalance
         0.15f  // 第四刀：每个爆点为当前剑击的 15%，整组理论值 105%
     };
     public static float QuickdrawExtraLayerDamageMultiplier = 0.15f; // 重复层 B：每层只增加“基础爆点伤害”的 15%
+    public static float QuickdrawFullLoadoutLifetimeMultiplier = 1.70f; // 全选：原地聚合爆点的视觉持续时间乘 1.70
 
     // ---------------------------------------------------------------------
     // 战术八：雷神之锤（机械三王后解锁）

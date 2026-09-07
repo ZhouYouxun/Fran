@@ -121,7 +121,7 @@ internal static class FranSkillTakerOrbitRenderer
                     float completion = i / (float)(samples.Count - 1);
                     float opacity = MathF.Pow(1f - completion, 0.42f) * fade;
                     float width = StreakWidth(4.6f + progress * 2.2f, completion);
-                    FranVfx.DrawVertical("Cal_BloomLineSoftEdge", samples[i - 1].Position,
+                    FranVfx.DrawVertical("BloomLineSoftEdge", samples[i - 1].Position,
                         samples[i].Position, color * (opacity * 0.30f), width * 2.1f);
                     FranVfx.DrawVertical("Cal_ThinEndedLine", samples[i - 1].Position,
                         samples[i].Position, Color.Lerp(color, Color.White, 0.72f) * (opacity * 0.78f),

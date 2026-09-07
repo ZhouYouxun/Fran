@@ -46,10 +46,19 @@ public sealed class Teacher : ModItem
 
     public override bool CanResearch() => false;
 
+    public override void AddRecipes()
+    {
+        CreateRecipe()
+            .AddIngredient(ItemID.Wood, 10)
+            .AddIngredient(ItemID.StoneBlock, 20)
+            .AddIngredient(ItemID.Gel, 5)
+            .AddTile(TileID.WorkBenches)
+            .Register();
+    }
+
     public override void ModifyWeaponDamage(Player player, ref StatModifier damage)
     {
-        // Teacher grows with world progression without permanently mutating the item.
-        damage.Base += Core.FranSkillInfo.BaseDamage - Item.damage;
+        damage.Base += FranBalance.GetBaseDamage(player) - Item.damage;
     }
 
     public override bool AltFunctionUse(Player player) => true;
@@ -106,65 +115,60 @@ public sealed class Teacher : ModItem
 
     public override void ModifyTooltips(List<TooltipLine> tooltips)
     {
-        int stage = Core.FranSkillInfo.CurrentStage;
-        tooltips.Add(new TooltipLine(Mod, "Stage", Language.GetTextValue("Mods.Fran.Stages.Current",
-            Language.GetTextValue($"Mods.Fran.Stages.Stage{stage}.Summary")))
-        { OverrideColor = new Color(145, 220, 255) });
-        if (stage < 4)
-        {
-            tooltips.Add(new TooltipLine(Mod, "NextStage", Language.GetTextValue("Mods.Fran.Stages.Next",
-                Language.GetTextValue($"Mods.Fran.Stages.Stage{stage + 1}.Unlock"),
-                Language.GetTextValue($"Mods.Fran.Stages.Stage{stage + 1}.Summary")))
-            { OverrideColor = new Color(180, 190, 205) });
-        }
         if (FranEvolutionInfo.SystemEnabled)
             tooltips.Add(new TooltipLine(Mod, "Evolution", Language.GetTextValue("Mods.Fran.Evolution.Tooltip"))
             { OverrideColor = new Color(195, 178, 245) });
 
         FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
-        bool dashEnabled = fran.FranMode && !fran.HasExternalDash;
-        tooltips.Add(new TooltipLine(Mod, "FranDashStatus", BuildDashStatus(fran))
-        { OverrideColor = dashEnabled ? new Color(130, 235, 195) : new Color(165, 175, 190) });
+        tooltips.Add(new TooltipLine(Mod, "FranDashStatus", BuildDashStatus())
+        { OverrideColor = new Color(130, 235, 195) });
 
-        bool flightEnabled = fran.FranMode && Main.hardMode && !fran.HasExternalWings &&
-            !Main.LocalPlayer.mount.Active;
+        bool flightEnabled = Main.hardMode && !fran.HasExternalWings;
         tooltips.Add(new TooltipLine(Mod, "FranFlightStatus", BuildFlightStatus(fran))
         { OverrideColor = flightEnabled ? new Color(105, 205, 255) : new Color(165, 175, 190) });
 
         // Intentionally kept as the requested placeholder until its final localization is supplied.
-        tooltips.Add(new TooltipLine(Mod, GoldenPromptLineName, "请输入文本")
+        tooltips.Add(new TooltipLine(Mod, GoldenPromptLineName,
+            Language.GetTextValue("Mods.Fran.Items.Teacher.GoldenPrompt"))
         { OverrideColor = new Color(241, 190, 76) });
     }
 
-    private static string BuildDashStatus(FranPlayer fran)
+    private static string BuildDashStatus()
     {
-        string stateKey = !fran.FranMode
-            ? "InactiveFranMode"
-            : fran.HasExternalDash ? "Overridden" : "Enabled";
-        return Language.GetTextValue("Mods.Fran.Abilities.Dash.Line",
-            Language.GetTextValue($"Mods.Fran.Abilities.Dash.States.{stateKey}"));
+        if (TryGetAssignedDashKey(out string key))
+            return Language.GetTextValue("Mods.Fran.Abilities.Dash.Bound", key);
+        return Language.GetTextValue("Mods.Fran.Abilities.Dash.Unbound");
+    }
+
+    private static bool TryGetAssignedDashKey(out string assignedKey)
+    {
+        assignedKey = string.Empty;
+        if (Main.dedServ || FranModMain.DashKey is null)
+            return false;
+
+        try
+        {
+            foreach (string key in FranModMain.DashKey.GetAssignedKeys())
+            {
+                if (string.IsNullOrWhiteSpace(key) || key.Equals("None", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                assignedKey = key;
+                return true;
+            }
+        }
+        catch
+        {
+            // 按键设置面板重建输入配置的瞬间，当作未绑定处理即可。
+        }
+        return false;
     }
 
     private static string BuildFlightStatus(FranPlayer fran)
     {
-        int tier = FranTelekineticFlightSystem.CurrentTier;
-        string progressKey = tier <= 0
-            ? "Mods.Fran.Abilities.Flight.Progress.Locked"
-            : FranTelekineticFlightSystem.HasInfiniteFlight
-                ? "Mods.Fran.Abilities.Flight.Progress.Infinite"
-                : $"Mods.Fran.Abilities.Flight.Progress.Tier{tier}";
-        string progress = Language.GetTextValue(progressKey);
-
-        string stateKey = !fran.FranMode
-            ? "InactiveFranMode"
-            : !Main.hardMode
-                ? "Locked"
-                : fran.HasExternalWings
-                    ? "Overridden"
-                    : Main.LocalPlayer.mount.Active ? "Mounted" : "Enabled";
-        string state = Language.GetTextValue($"Mods.Fran.Abilities.Flight.States.{stateKey}");
-
-        return Language.GetTextValue("Mods.Fran.Abilities.Flight.Line", progress, state);
+        string stateKey = !Main.hardMode
+            ? "Locked"
+            : fran.HasExternalWings ? "WingsEquipped" : "Enabled";
+        return Language.GetTextValue($"Mods.Fran.Abilities.Flight.{stateKey}");
     }
 
     public override bool PreDrawTooltipLine(DrawableTooltipLine line, ref int yOffset)

@@ -21,10 +21,13 @@ Mods: {
 				DisplayName: 师父
 				Tooltip:
 					'''
-					【左键】持续攻击，循环施展横扫、上挑、突刺与沉重斩落
-					【右键】打开术式轮盘，左键点击图标装配或卸下战术
-					【大招】能量充满后按[c/8CDFFF:大招]（默认G），发动黑天虎连续斩杀
+					【左键】循环施展多种剑术，剑术会与战术同步进行
+					【右键】呼出战术轮盘，点击战术装配或卸下
+					相同战术可重复装备以获得更强的效果
+					【大招】能量条充满时，按下大招按键释放黑天虎之力
+					对单个目标进行连续斩杀
 					'''
+				GoldenPrompt: 请输入文本
 			}
 
 			TeacherExcavationTool: {
@@ -49,6 +52,29 @@ Mods: {
 					多人模式的修改请求由服务器校验并执行
 					本工具只修改流程标记，
 					不会逆转世界已经发生的永久地形转化
+					'''
+			}
+
+			TeacherArrivalDebugger: {
+				DisplayName: 师父降临调试器
+				Tooltip:
+					'''
+					作弊调试工具，无法合成
+					左键在鼠标附近重播完整降临演出
+					无视等待、地表和一次性机会条件
+					不消耗角色的正式降临机会
+					可反复使用，会生成可拾取的师父
+					'''
+			}
+
+			FranDamageDebugger: {
+				DisplayName: 师父伤害调试器
+				Tooltip:
+					'''
+					作弊调试工具，无法合成
+					左键打开基础伤害面板
+					放在背包并收藏时生效
+					仅覆盖师父的基础面板伤害
 					'''
 			}
 		}
@@ -166,13 +192,23 @@ Mods: {
 			}
 		}
 
+		DamageDebug: {
+			Title: 师父基础伤害调试
+			Active: 当前伤害覆盖已启用
+			Inactive: 收藏本物品后启用
+			Apply: 应用
+			Hint: 按回车或点击应用保存数值
+			Saved: 数值已经写入调试工具
+			Invalid: 请输入1至99999999
+			StoredDamage: 存储伤害：{0}
+			Enabled: 状态：收藏覆盖已启用
+			Disabled: 状态：收藏后才会启用
+		}
+
 		Notices: {
-			IntroTitle: 【弗兰人物模式已启动：师父已经回到你身边】
-			IntroCombat:
-				'''
-				持续左键使用四段大剑连击；
-				手持其他武器时，师父会浮在身后
-				'''
+			TeacherArrivalPickup: 靠近，拾起师父
+			IntroTitle: 【弗兰人物模式已启动】
+			IntroCombat: 持续左键使用四段大剑连击
 			IntroSkills:
 				'''
 				右键打开或关闭战术轮盘；
@@ -201,55 +237,21 @@ Mods: {
 
 		Abilities: {
 			Dash: {
-				Line: 【冲刺】{0}
-				Progress: 开局解锁
-				Effect:
-					'''
-					直接冲刺，不再翻滚；
-					黑天虎灵随身扑杀
-					'''
-
-				States: {
-					Enabled: 按绑定键发动；未绑定时双击左右方向键
-					Overridden: 已由装备冲刺接管
-					InactiveFranMode: 仅弗兰人物模式可用
-				}
+				Bound: 【冲刺】单击{0}键进行强力冲刺
+				Unbound: 【冲刺】双击左右键进行强力冲刺
 			}
 
 			Flight: {
-				Line: 【念动飞行】{0}，{1}
-
-				Progress: {
-					Locked: 肉山前未解锁
-					Tier1: 困难模式起飞
-					Tier2: 机械三王后强化
-					Tier3: 世纪之花后强化
-					Tier4: 石巨人后终型
-					Infinite: 光女后无限飞行
-				}
-
-				States: {
-					Enabled: 可用
-					Overridden: 装备翅膀优先
-					Mounted: 坐骑时暂停
-					Locked: 困难模式后解锁
-					InactiveFranMode: 仅弗兰人物模式可用
-				}
-
-				Effects: {
-					Locked: 进入困难模式后视为自带一对翅膀
-					Finite: 飞行{0}帧（{1:0.00}秒），水平速度{2}，加速度倍率{3}{4}
-					Infinite: 无限飞行，水平速度{2}，加速度倍率{3}{4}
-					Hover: ，按住下键可悬停
-					NoHover: ""
-				}
+				Locked: 【飞行】进入困难模式来解锁飞行
+				WingsEquipped: 【飞行】玩家已装备翅膀，默认关闭念动飞行
+				Enabled: 【飞行】已自动启用念动飞行
 			}
 		}
 
 		Evolution: {
 			Title: 魔石回廊·自我进化
 			OpenHint: 打开魔石回廊（默认J）
-			Tooltip: 【魔石成长】按[c/C3B2F5:魔石回廊]（默认J）开启
+			Tooltip: 【魔石成长】按魔石回廊键开启
 			PointSummary: 可用 {0}　已投入 {1}　累计 {2}　当前阶段上限 {3}
 			Overview:
 				'''
@@ -568,6 +570,15 @@ Mods: {
 						'''
 				}
 
+				EnableFloatingTeacherVisual: {
+					Label: "[i:MagicMirror] 显示背包中的师傅"
+					Tooltip:
+						'''
+						默认关闭；开启后，当师傅位于背包中
+						且当前手持其他物品时，师傅会浮在玩家身后
+						'''
+				}
+
 				HideUltimateGauge: {
 					Label: "[i:InvisibilityPotion] 隐藏黑天虎大招能量条"
 					Tooltip:
@@ -628,6 +639,7 @@ Mods: {
 		Skills: {
 			TelekineticCatapult: {
 				DisplayName: 念动弹射
+				UnlockCondition: 默认解锁
 				Description:
 					'''
 					四段剑术始终完整保留；
@@ -637,6 +649,7 @@ Mods: {
 					'''
 				FirstLayer: 单层：按当前时期运行四刀弹幕编排
 				AdditionalLayer: 叠层：每层增加一枚念压核
+				FullLoadout: 全选：念压核获得远距离追踪与重新锁敌
 
 				CurrentState: {
 					Stage0: 单层：一念核｜二延核｜三双核｜四重核
@@ -649,46 +662,53 @@ Mods: {
 
 			SkillTaker: {
 				DisplayName: 技能夺取者
+				UnlockCondition: 默认解锁
 				Description:
 					'''
 					剑击命中时施加夺取印记；
 					持续攻击会逐渐提高目标易伤，
 					停手后易伤与印记缓慢衰减
 					'''
-				FirstLayer: 单层：持续攻击标记敌人会提高易伤
+				FirstLayer: 单层：持续攻击使目标易伤最高提升至1.3倍
 				AdditionalLayer: 叠层：易伤提升更快，标记维持更久
+				FullLoadout: 全选：易伤倍率上限提升至1.5倍
 			}
 
 			MagicBarrier: {
 				DisplayName: 魔力屏障
+				UnlockCondition: 击败克苏鲁之眼后解锁
 				Description:
 					'''
 					自动生成环绕自身的球形魔力屏障；
 					第一层提供10%伤害减免与10点防御，
 					后续每层增加5%伤害减免与5点防御；
 					当全部可用槽位均装配魔力屏障时，
-					敌人接触伤害直接减半；
+					敌人接触伤害直接减半并获得35点生命回复；
 					受击消耗一次耐久并释放反击冲击，
 					五次后破裂并短暂重构
 					'''
 				FirstLayer: 单层：减伤10%，防御增加10点
-				AdditionalLayer: 叠层：各加5%；满槽屏障使接触伤害减半
+				AdditionalLayer: 叠层：每层增加5%减伤与5点防御
+				FullLoadout: 全选：接触伤害减半，生命回复增加35
 			}
 
 			MultipleBodyCreation: {
 				DisplayName: 多重分体
+				UnlockCondition: 击败骷髅王后解锁
 				Description:
 					'''
 					每次挥剑都在身后列阵两名师父幻影，
 					短暂停驻后锁定鼠标附近目标高速突进；
 					第四刀改为四名幻影错时齐射
 					'''
-				FirstLayer: 单层：前三刀双分体，第四刀四分体
-				AdditionalLayer: 叠层：前三刀加一，第四刀加二
+				FirstLayer: 单层：每次挥刀都会召唤多重剑体分身
+				AdditionalLayer: 叠层：增加分体的数量
+				FullLoadout: 全选：分体突进速度更快
 			}
 
 			BlueResonance: {
 				DisplayName: 蓝辉共鸣
+				UnlockCondition: 击败血肉墙后解锁
 				Description:
 					'''
 					剑击命中时迸发蓝辉弹幕；
@@ -697,10 +717,12 @@ Mods: {
 					'''
 				FirstLayer: 单层：命中释放可治疗或伤敌的蓝辉弹
 				AdditionalLayer: 叠层：每层增加一枚蓝辉弹
+				FullLoadout: 全选：治疗效果×1.5
 			}
 
 			ThunderChain: {
 				DisplayName: 雷链
+				UnlockCondition: 击败任意一个机械Boss后解锁
 				Description:
 					'''
 					每次挥剑都从鼠标上空降下多道远古闪电；
@@ -710,10 +732,12 @@ Mods: {
 					'''
 				FirstLayer: 单层：挥剑召来雷链与追踪落雷
 				AdditionalLayer: 叠层：增加伴随雷和追踪目标数量
+				FullLoadout: 全选：雷雨天大幅增加伤害
 			}
 
 			PressurizedQuickdraw: {
 				DisplayName: 压缩居合
+				UnlockCondition: 击败世纪之花后解锁
 				Description:
 					'''
 					每次挥剑都会释放使用泰拉刃光波形态的
@@ -721,11 +745,13 @@ Mods: {
 					第四刀改为更小、更快、更集中的终结波
 					'''
 				FirstLayer: 单层：剑弧沿途连续引爆压缩空气
-				AdditionalLayer: 叠层：只提高压缩爆点伤害
+				AdditionalLayer: 叠层：提高压缩爆点伤害
+				FullLoadout: 全选：聚合体持续时间提升
 			}
 
 			ThorsHammer: {
 				DisplayName: 雷神之锤
+				UnlockCondition: 击败石巨人后解锁
 				Description:
 					'''
 					四段剑术完整进行两轮后，
@@ -737,7 +763,8 @@ Mods: {
 					并引发大范围雷陨冲击
 					'''
 				FirstLayer: 单层：完成两轮四刀后召唤雷神之锤
-				AdditionalLayer: 叠层：只增伤；满槽雷锤缩为一轮
+				AdditionalLayer: 叠层：提高雷神之锤伤害
+				FullLoadout: 全选：缩短锤击间隔
 			}
 		}
 
@@ -815,6 +842,8 @@ Mods: {
 			// FranThunderCircuitNode.DisplayName: Fran Thunder Circuit Node
 			// FranThunderStrikeProjectile.DisplayName: Fran Thunder Strike Projectile
 			// FranTelekineticFoldBlade.DisplayName: Fran Telekinetic Fold Blade
+			// FranFlatLightningVisual.DisplayName: Fran Flat Lightning Visual
+			TeacherArrivalProjectile.DisplayName: 师父·雷霆降临
 		}
 	}
 }

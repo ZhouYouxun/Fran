@@ -47,7 +47,8 @@ internal static class TeacherImprintCombat
                     : FranBalance.GetInt(nameof(FranBalance.MultipleBodyNormalExtraLayerCount),
                         FranBalance.MultipleBodyNormalExtraLayerCount);
                 SpawnMultipleBodies(owner, swing, direction,
-                    bodyBaseCount + (tacticLayers - 1) * bodyExtraCount, bodyBaseCount, combo);
+                    bodyBaseCount + (tacticLayers - 1) * bodyExtraCount, bodyBaseCount, combo,
+                    fran.IsFullTacticLoadout(FranSkill.MultipleBodyCreation));
                 break;
 
             case FranSkill.ThunderChain:
@@ -55,18 +56,16 @@ internal static class TeacherImprintCombat
                 break;
 
             case FranSkill.ThorsHammer when combo == 3 && fran.AdvanceHammerRound(tacticLayers):
-                Vector2 hammerCursor = Main.MouseWorld;
-                if (!float.IsFinite(hammerCursor.X) || !float.IsFinite(hammerCursor.Y))
-                    hammerCursor = owner.MountedCenter;
-                NPC hammerNpc = FindNearestTarget(hammerCursor, 720f);
-                Vector2 hammerTarget = hammerNpc?.Center ?? hammerCursor;
+                NPC hammerNpc = FranHammerTargeting.Select(owner,
+                    (swing.ModProjectile as TeacherSwingRebuild)?.HammerHitTargets);
+                Vector2 hammerTarget = hammerNpc?.Center ?? owner.Center;
                 Projectile.NewProjectile(swing.GetSource_FromThis(), hammerTarget, Vector2.Zero,
                     ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(swing.damage *
                         FranBalance.GetFloat(nameof(FranBalance.ThorsHammerDropDamageMultiplier),
                             FranBalance.ThorsHammerDropDamageMultiplier) *
                         (1f + FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExtraLayerDamageMultiplier),
                             FranBalance.ThorsHammerExtraLayerDamageMultiplier) * (tacticLayers - 1)))),
-                    7f, owner.whoAmI, EncodeOptionalNpc(hammerNpc), tacticLayers);
+                    7f, owner.whoAmI, EncodeOptionalNpc(hammerNpc), tacticLayers, swing.identity + 1f);
                 SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.58f, Pitch = -0.18f }, hammerTarget);
                 break;
         }
@@ -126,6 +125,8 @@ internal static class TeacherImprintCombat
         switch (skill)
         {
             case FranSkill.BlueResonance:
+                bool fullBlueResonance = owner.GetModPlayer<FranPlayer>()
+                    .IsFullTacticLoadout(FranSkill.BlueResonance);
                 int echoCount = (combo == 3
                     ? FranBalance.GetInt(nameof(FranBalance.BlueResonanceFinisherBaseCount),
                         FranBalance.BlueResonanceFinisherBaseCount)
@@ -147,7 +148,7 @@ internal static class TeacherImprintCombat
                             : FranBalance.GetFloat(nameof(FranBalance.BlueResonanceNormalDamageMultiplier),
                                 FranBalance.BlueResonanceNormalDamageMultiplier)))),
                         swing.knockBack * 0.3f, owner.whoAmI, target.whoAmI + 1f,
-                        i, echoCount);
+                        i, FranBlueResonanceEcho.EncodeEchoCount(echoCount, fullBlueResonance));
                 }
                 break;
         }
@@ -290,15 +291,12 @@ internal static class TeacherImprintCombat
     }
 
     private static void SpawnTelekineticPressureCore(Player owner, Projectile swing, Vector2 direction,
-        float lateralOffset, float releaseDelay, float scale, float damageScale)
+        float lateralOffset, float releaseDelay, float scale, float damageScale, int? formationLane = null)
     {
         Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
         Vector2 spawn = owner.MountedCenter + direction * 28f + normal * lateralOffset;
         FranPlayer fran = owner.GetModPlayer<FranPlayer>();
-        int availableSlots = Math.Min(fran.AvailableTacticSlots, FranPlayer.MaximumTacticSlots);
-        bool fullTelekineticLoadout = availableSlots > 0 &&
-            fran.GetActiveTacticCount() == availableSlots &&
-            fran.GetSkillStacks(FranSkill.TelekineticCatapult) == availableSlots;
+        bool fullTelekineticLoadout = fran.IsFullTacticLoadout(FranSkill.TelekineticCatapult);
         float initialSpeed = (scale >= 1.15f ? 8.4f : 7.2f) * FranBalance.GetFloat(
             nameof(FranBalance.TelekineticPressureCoreInitialSpeedMultiplier),
             FranBalance.TelekineticPressureCoreInitialSpeedMultiplier);
@@ -314,6 +312,11 @@ internal static class TeacherImprintCombat
         core.scale = scale;
         int hitboxSize = Math.Max(18, (int)MathF.Round(26f * scale));
         core.Resize(hitboxSize, hitboxSize);
+        if (fullTelekineticLoadout && core.ModProjectile is FranTelekineticShell shell)
+        {
+            int lane = formationLane ?? Math.Sign(lateralOffset) * (Math.Abs(lateralOffset) >= 40f ? 2 : 1);
+            shell.ConfigureFormation(lane);
+        }
         core.netUpdate = true;
     }
 
@@ -370,7 +373,7 @@ internal static class TeacherImprintCombat
         {
             float side = (i % 2 == 0 ? 1f : -1f) * (i / 2 + 1) * spacing * owner.direction;
             SpawnTelekineticPressureCore(owner, swing, direction, side, 3f + i * 2f,
-                combo == 3 ? 0.76f : 0.70f, damageScale);
+                combo == 3 ? 0.76f : 0.70f, damageScale, Math.Sign(side) * (i / 2 + 3));
         }
     }
 
@@ -378,23 +381,29 @@ internal static class TeacherImprintCombat
     {
         NPC lockedTarget = FindNearestTarget(target, 1000f);
         Vector2 focus = lockedTarget?.Center ?? target;
-        Vector2 spawn = FranPlanetVisuals.RandomSpawnAround(focus);
-        int variant = Math.Abs(swing.identity * 3 + 15 + (int)(Main.GameUpdateCount % 10)) % 10;
         float damageScale = FranBalance.GetFloat(nameof(FranBalance.TelekineticFinisherPlanetDamageMultiplier),
             FranBalance.TelekineticFinisherPlanetDamageMultiplier);
-        int planetIndex = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, Vector2.Zero,
-            ModContent.ProjectileType<FranTelekineticPlanet>(),
-            Math.Max(1, (int)(swing.damage * damageScale)), swing.knockBack * 0.46f,
-            owner.whoAmI, variant, EncodeOptionalNpc(lockedTarget), 5f);
-        if (Main.projectile.IndexInRange(planetIndex))
+        int damage = Math.Max(1, (int)(swing.damage * damageScale));
+        int baseVariant = Math.Abs(swing.identity * 3 + 15 + (int)(Main.GameUpdateCount % 10)) % 10;
+        for (int orbitSlot = 0; orbitSlot < FranTelekineticPlanet.PlanetCount; orbitSlot++)
         {
+            int variant = (baseVariant + orbitSlot * 7) % 10;
+            Vector2 spawn = FranTelekineticPlanet.InitialOrbitPosition(focus, lockedTarget,
+                owner.whoAmI, orbitSlot);
+            int planetIndex = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, Vector2.Zero,
+                ModContent.ProjectileType<FranTelekineticPlanet>(), damage, swing.knockBack * 0.46f,
+                owner.whoAmI, FranTelekineticPlanet.EncodeAppearance(variant, orbitSlot),
+                EncodeOptionalNpc(lockedTarget), 0f);
+            if (!Main.projectile.IndexInRange(planetIndex))
+                continue;
+
             Main.projectile[planetIndex].scale = 1.08f;
             Main.projectile[planetIndex].netUpdate = true;
         }
     }
 
     private static void SpawnMultipleBodies(Player owner, Projectile swing, Vector2 direction, int count,
-        int firstLayerCount, int combo)
+        int firstLayerCount, int combo, bool fullLoadout)
     {
         Vector2 requestedTarget = Main.MouseWorld;
         if (!float.IsFinite(requestedTarget.X) || !float.IsFinite(requestedTarget.Y))
@@ -417,7 +426,8 @@ internal static class TeacherImprintCombat
                         FranBalance.MultipleBodyFinisherDamageMultiplier)
                     : FranBalance.GetFloat(nameof(FranBalance.MultipleBodyNormalDamageMultiplier),
                         FranBalance.MultipleBodyNormalDamageMultiplier)) / Math.Max(1, firstLayerCount))),
-                swing.knockBack * 0.48f, owner.whoAmI, hasEnemy ? delay : -delay,
+                swing.knockBack * 0.48f, owner.whoAmI,
+                FranTeacherPhantomBlade.EncodeLaunchDelay(delay, hasEnemy, fullLoadout),
                 lockedTarget.X, lockedTarget.Y);
         }
     }
@@ -426,9 +436,9 @@ internal static class TeacherImprintCombat
         Vector2 swingDirection)
     {
         Vector2 mouseTarget = ClampTarget(owner, Main.MouseWorld, 780f);
-        float layerDamage = 1f +
+        float layerDamage = GetThunderWeatherDamageMultiplier(owner, tacticLayers) * (1f +
             FranBalance.GetFloat(nameof(FranBalance.ThunderChainExtraLayerDamageMultiplier),
-                FranBalance.ThunderChainExtraLayerDamageMultiplier) * (tacticLayers - 1);
+                FranBalance.ThunderChainExtraLayerDamageMultiplier) * (tacticLayers - 1));
         float mainDamage = FranBalance.GetFloat(nameof(FranBalance.ThunderChainMainDamageMultiplier),
             FranBalance.ThunderChainMainDamageMultiplier);
         float trackedDamage = FranBalance.GetFloat(nameof(FranBalance.ThunderChainTrackedDamageMultiplier),
@@ -585,9 +595,9 @@ internal static class TeacherImprintCombat
         int tacticLayers, bool includeMainStrike)
     {
         bool finisher = combo == 3;
-        float layerDamage = 1f +
+        float layerDamage = GetThunderWeatherDamageMultiplier(owner, tacticLayers) * (1f +
             FranBalance.GetFloat(nameof(FranBalance.ThunderChainExtraLayerDamageMultiplier),
-                FranBalance.ThunderChainExtraLayerDamageMultiplier) * (tacticLayers - 1);
+                FranBalance.ThunderChainExtraLayerDamageMultiplier) * (tacticLayers - 1));
         float mainDamage = FranBalance.GetFloat(nameof(FranBalance.ThunderChainMainDamageMultiplier),
             FranBalance.ThunderChainMainDamageMultiplier);
         if (includeMainStrike)
@@ -646,6 +656,17 @@ internal static class TeacherImprintCombat
         Projectile.NewProjectile(swing.GetSource_FromThis(), impact, Vector2.Zero,
             ModContent.ProjectileType<FranThunderDropVisual>(), 0, 0f, owner.whoAmI,
             spawn.X, spawn.Y, visualSeed);
+    }
+
+    private static float GetThunderWeatherDamageMultiplier(Player owner, int tacticLayers)
+    {
+        FranPlayer fran = owner.GetModPlayer<FranPlayer>();
+        return Main.raining && tacticLayers == fran.AvailableTacticSlots &&
+               fran.IsFullTacticLoadout(FranSkill.ThunderChain)
+            ? Math.Max(0f, FranBalance.GetFloat(
+                nameof(FranBalance.ThunderChainFullLoadoutRainDamageMultiplier),
+                FranBalance.ThunderChainFullLoadoutRainDamageMultiplier))
+            : 1f;
     }
 
     private static NPC FindNearestTarget(Vector2 center, float distance)

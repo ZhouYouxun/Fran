@@ -2,6 +2,7 @@ using System;
 using FranMod.Content.Players;
 using FranMod.Core.Graphics;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.Audio;
 using Terraria.ID;
@@ -15,7 +16,13 @@ namespace FranMod.Content.Projectiles;
 /// </summary>
 public sealed class FranThunderCircuitNode : ModProjectile
 {
+    private FranFissionArc[] corona;
     private const int Lifetime = 180;
+    private const int StableVisualFrames = 15;
+    private const int UnstableVisualFrames = 10;
+    private const float UnstableVisualOffset = 5f;
+    private const string StarTexture = "Fran/Textures/Particles/KsTexture/star_09";
+    private const string TwirlTexture = "Fran/Textures/Particles/KsTexture/twirl_01";
     private float Age => Projectile.localAI[0];
     private int AttachedTargetIndex => (int)Projectile.ai[0] - 1;
     private int Order => Math.Max(0, (int)Projectile.ai[1]);
@@ -82,43 +89,69 @@ public sealed class FranThunderCircuitNode : ModProjectile
     {
         float deploy = FranMotion.EaseOutBack(FranMotion.Segment(Age, 0f, 11f));
         float ending = FranMotion.Smooth(FranMotion.Segment(Projectile.timeLeft, 0f, 18f));
-        float pulse = 0.82f + 0.18f * MathF.Sin(Main.GlobalTimeWrappedHourly * 9f + Order * 1.31f);
         float opacity = deploy * ending;
-        float radius = (21f + 2.5f * TacticLayers) * Projectile.scale * pulse;
-        Color darkBody = Order % 2 == 0 ? new Color(35, 27, 78) : new Color(24, 43, 82);
-        Color color = Order % 2 == 0 ? new Color(156, 112, 255) : new Color(103, 213, 255);
+        float rotation = Main.GlobalTimeWrappedHourly * 3.2f;
+        // DragonRageC 的原始脉动幅度是 0.12；雷链球只保留一半，也就是 0.06。
+        float pulse = 1f + 0.06f * MathF.Sin(Main.GlobalTimeWrappedHourly * MathHelper.TwoPi);
+        float scale = 0.2f * Projectile.scale * pulse;
+        Vector2 visualCenter = Projectile.Center + GetUnstableVisualOffset();
+        Color lightningColor = Order % 2 == 0 ? new Color(156, 112, 255) : new Color(103, 213, 255);
+        Texture2D star = ModContent.Request<Texture2D>(StarTexture).Value;
+        Texture2D twirl = ModContent.Request<Texture2D>(TwirlTexture).Value;
 
-        FranVfx.DrawRing(Projectile.Center, darkBody, radius * 1.18f, opacity * 0.72f,
-            -Projectile.rotation, "Cal_HighResHollowCircle");
+        // 完整保留 DragonRageC 能量火球的 star_09 橙色星核与两层 twirl_01；
+        // 只按需求把大小脉动幅度减半，并沿用本弹幕自身的出现/消失透明度。
+        Color starColor = Color.Orange * opacity;
+        starColor.A = 0;
+        Main.EntitySpriteDraw(star, visualCenter - Main.screenPosition, null, starColor, rotation,
+            star.Size() * 0.5f, scale, SpriteEffects.None, 0f);
 
-        FranVfx.BeginAdditive();
-        FranVfx.DrawRing(Projectile.Center, color, radius, opacity * 0.64f,
-            Projectile.rotation, "Cal_BloomRing");
-        FranVfx.DrawRing(Projectile.Center, Color.White, radius * 0.56f, opacity * 0.38f,
-            -Projectile.rotation * 1.4f, "Cal_FadedStarRing");
-
-        // 两条交织电流与短横向支路共同组成稳定导体，并保持弗兰的蓝紫配色。
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 2; i++)
         {
-            float angle = Projectile.rotation * (i % 2 == 0 ? 1f : -1f) + MathHelper.TwoPi * i / 4f;
-            Vector2 tangent = angle.ToRotationVector2();
-            Vector2 normal = tangent.RotatedBy(MathHelper.PiOver2);
-            Vector2 start = Projectile.Center + tangent * radius * 0.24f + normal * 4f;
-            Vector2 end = Projectile.Center + tangent * radius * 1.20f - normal * 4f;
-            if (!FranLightningTrailRenderer.TryDrawBolt(start, end, darkBody, color,
-                    2.2f + TacticLayers * 0.18f, 6,
-                    Projectile.identity * 0.77f + i * 3.19f, opacity * 0.72f,
-                    Main.GlobalTimeWrappedHourly * 7f))
-                FranVfx.DrawTexturedLightning(start, end, color, 2.2f + TacticLayers * 0.18f,
-                    5, Projectile.identity * 0.77f + i * 3.19f, opacity * 0.72f);
+            float offsetAngle = rotation * (i == 0 ? 1.8f : -1.2f);
+            float ringScale = scale * (i == 0 ? 0.8f : 0.7f);
+            Color ringColor = (i == 0 ? Color.OrangeRed : Color.White) * (0.6f * opacity);
+            ringColor.A = 0;
+            Main.EntitySpriteDraw(twirl, visualCenter - Main.screenPosition, null, ringColor, offsetAngle,
+                twirl.Size() * 0.5f, ringScale, SpriteEffects.None, 0f);
         }
 
-        FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-            color * (opacity * 0.74f), Projectile.rotation, new Vector2(radius * 1.26f));
-        FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
-            Color.White * (opacity * 0.58f), Projectile.rotation, new Vector2(radius * 1.68f, radius * 0.72f));
+        // Small independent fractures blink around the electrode instead of rotating solid wires.
+        FranVfx.BeginAdditive();
+        if (corona is null)
+        {
+            corona = new FranFissionArc[4];
+            for (int i = 0; i < corona.Length; i++)
+                corona[i] = new FranFissionArc((MathHelper.TwoPi * i / 4f + Projectile.identity).ToRotationVector2()
+                    * (32f + TacticLayers * 2f), Projectile.identity * 397 + i, 1.1f, 1);
+        }
+        for (int i = 0; i < 4; i++)
+        {
+            corona[i].Draw(Main.spriteBatch, visualCenter, lightningColor,
+                (Age + i * 4) % 22f, 15f, 2f, opacity * 0.78f);
+        }
         FranVfx.EndAdditive();
         return false;
+    }
+
+    private Vector2 GetUnstableVisualOffset()
+    {
+        int cycleLength = StableVisualFrames + UnstableVisualFrames;
+        int cycleFrame = Math.Max(0, (int)Age - 1) % cycleLength;
+        if (cycleFrame < StableVisualFrames)
+            return Vector2.Zero;
+
+        // 不插值：不稳定阶段每帧直接跳到中心上下左右的一个 5 像素位置。
+        uint hash = unchecked((uint)(Projectile.identity * 374761393 +
+            (int)Age * 668265263 + Order * 1442695041));
+        hash ^= hash >> 13;
+        return (hash & 3u) switch
+        {
+            0u => new Vector2(UnstableVisualOffset, 0f),
+            1u => new Vector2(-UnstableVisualOffset, 0f),
+            2u => new Vector2(0f, UnstableVisualOffset),
+            _ => new Vector2(0f, -UnstableVisualOffset)
+        };
     }
 }
 
@@ -128,6 +161,7 @@ public sealed class FranThunderCircuitNode : ModProjectile
 /// </summary>
 public sealed class FranThunderCircuitLink : ModProjectile
 {
+    private FranFissionArc conductor;
     private const int BaseLifetime = 34;
     private float Age => Projectile.localAI[0];
     private float Delay => Math.Max(0f, Projectile.ai[0]);
@@ -178,6 +212,9 @@ public sealed class FranThunderCircuitLink : ModProjectile
         float activeAge = Age - Delay;
         if (activeAge == 1f)
         {
+            if (!Main.dedServ)
+                conductor = new FranFissionArc(End - Start, Projectile.identity * 397 ^ Projectile.owner,
+                    (Returning ? 2.6f : 2.1f) * Intensity);
             SoundEngine.PlaySound(SoundID.Item93 with
             {
                 Volume = Returning ? 0.34f : 0.25f,
@@ -186,8 +223,17 @@ public sealed class FranThunderCircuitLink : ModProjectile
             }, End);
         }
 
-        float travel = FranMotion.Smooth(FranMotion.Segment(activeAge, 0f, 8f));
+        float travel = FranMotion.Smooth(FranMotion.Segment(activeAge, 0f, 5f));
         Vector2 pulsePoint = Vector2.Lerp(Start, End, travel);
+        if (activeAge is >= 1f and <= 5f)
+        {
+            float previous = FranMotion.Smooth(FranMotion.Segment(activeAge - 1f, 0f, 5f));
+            FranFlatLightningEffects.EmitSpan(Vector2.Lerp(Start, End, previous), pulsePoint,
+                Intensity, FranFlatLightningPalette.ThunderChain, (int)activeAge * 22);
+        }
+        else if (activeAge is >= 6f and <= 12f && (int)activeAge % 2 == 0)
+            FranFlatLightningEffects.EmitSpan(Start, End, Intensity * 0.68f,
+                FranFlatLightningPalette.ThunderChain, (int)activeAge * 22);
         if (activeAge is >= 0f and <= 12f)
             Lighting.AddLight(pulsePoint, 0.12f, 0.19f, 0.55f);
     }
@@ -197,6 +243,8 @@ public sealed class FranThunderCircuitLink : ModProjectile
         FranLightingBoltsSystem.SpawnThunderImpact(target.Center,
             Returning ? new Color(188, 125, 255) : new Color(112, 205, 255),
             0.58f * Intensity);
+        FranFlatLightningEffects.Burst(target.Center, Intensity * 0.55f,
+            FranFlatLightningPalette.ThunderChain, 3, 45f * Intensity);
     }
 
     public override bool PreDraw(ref Color lightColor)
@@ -205,53 +253,9 @@ public sealed class FranThunderCircuitLink : ModProjectile
         if (activeAge <= 0f)
             return false;
 
-        float growth = FranMotion.Smooth(FranMotion.Segment(activeAge, 0f, 8f));
-        float fade = 1f - FranMotion.Smooth(FranMotion.Segment(activeAge, 15f, 29f));
-        float opacity = Math.Max(0f, fade);
-        Vector2 growingEnd = Vector2.Lerp(Start, End, growth);
-        Vector2 direction = (growingEnd - Start).SafeNormalize(Vector2.UnitX);
-        Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
-        float phase = Main.GlobalTimeWrappedHourly * (Returning ? -15f : 12f) + Projectile.identity * 0.71f;
-        Color body = Returning ? new Color(54, 25, 88) : new Color(30, 43, 96);
         Color violet = Returning ? new Color(187, 110, 255) : new Color(144, 112, 255);
-        Color azure = new(103, 218, 255);
-
         FranVfx.BeginAdditive();
-        float weaveOffset = MathF.Sin(phase) * 5f * Intensity;
-        bool firstStrand = FranLightningTrailRenderer.TryDrawBolt(
-            Start + normal * weaveOffset, growingEnd - normal * weaveOffset,
-            body, violet, 5.4f * Intensity, 14, Projectile.identity * 0.83f + 2.4f,
-            opacity, phase);
-        bool secondStrand = FranLightningTrailRenderer.TryDrawBolt(
-            Start - normal * weaveOffset, growingEnd + normal * weaveOffset,
-            new Color(22, 46, 82), azure, 3.7f * Intensity, 13,
-            Projectile.identity * 1.13f + 8.2f, opacity * 0.90f, -phase * 0.82f);
-        if (!firstStrand)
-            FranVfx.DrawTexturedLightning(Start + normal * weaveOffset,
-                growingEnd - normal * weaveOffset, violet, 5.4f * Intensity, 14,
-                Projectile.identity * 0.83f + 2.4f, opacity);
-        if (!secondStrand)
-            FranVfx.DrawTexturedLightning(Start - normal * weaveOffset,
-                growingEnd + normal * weaveOffset, azure, 3.7f * Intensity, 13,
-                Projectile.identity * 1.13f + 8.2f, opacity * 0.90f);
-
-        for (int i = 1; i <= 4; i++)
-        {
-            float completion = i / 5f * growth;
-            Vector2 center = Vector2.Lerp(Start, growingEnd, completion);
-            float rung = MathF.Sin(phase + i * 1.77f) * 6f * Intensity;
-            Vector2 rungStart = center - normal * (5f + rung);
-            Vector2 rungEnd = center + normal * (5f + rung);
-            if (!FranLightningTrailRenderer.TryDrawBolt(rungStart, rungEnd,
-                    new Color(31, 35, 82), Color.White, 1.45f * Intensity, 4,
-                    Projectile.identity + i * 5.13f, opacity * 0.64f, phase + i))
-                FranVfx.DrawTexturedLightning(rungStart, rungEnd, Color.White,
-                    1.45f * Intensity, 3, Projectile.identity + i * 5.13f, opacity * 0.64f);
-        }
-
-        FranVfx.DrawOriginalPixels("FranFlashFourPoint", growingEnd,
-            Color.White * (opacity * (0.56f + 0.22f * growth)), direction.ToRotation(),
-            new Vector2(38f, 18f) * Intensity);
+        conductor?.Draw(Main.spriteBatch, Start, violet, activeAge, 23f, 5f);
         FranVfx.EndAdditive();
         return false;
     }
@@ -305,6 +309,18 @@ public sealed class FranThunderCircuitFinisher : ModProjectile
         }
 
         float charge = FranMotion.Smooth(FranMotion.Segment(Age, 0f, FireDelay));
+        if (!Fired && (int)Age % 5 == 0 && !Main.dedServ)
+        {
+            float radius = MathHelper.Lerp(140f + TacticLayers * 10f, 28f, charge);
+            for (int i = 0; i < 3; i++)
+            {
+                Vector2 outer = Projectile.Center + (Age * 0.37f + MathHelper.TwoPi * i / 3f)
+                    .ToRotationVector2() * radius;
+                FranFlatLightningEffects.Fracture(outer, Projectile.Center, 0.6f,
+                    FranFlatLightningPalette.ThunderChain, Projectile.identity * 397 + (int)Age + i,
+                    2f, 10);
+            }
+        }
         Lighting.AddLight(Projectile.Center, 0.13f + charge * 0.32f, 0.16f + charge * 0.38f,
             0.42f + charge * 0.55f);
     }
@@ -346,28 +362,6 @@ public sealed class FranThunderCircuitFinisher : ModProjectile
             rotation, "Cal_BloomRing");
         FranVfx.DrawRing(Projectile.Center, Color.White, collapseRadius * 0.62f, opacity * 0.48f,
             -rotation * 1.35f, "Cal_FadedStarRing");
-
-        // 分支电冠在落雷前向内汇聚，命中后反向裂解，使蓄力与爆发阶段清楚分离。
-        int branchCount = 6 + TacticLayers;
-        for (int i = 0; i < branchCount; i++)
-        {
-            float angle = MathHelper.TwoPi * i / branchCount + rotation * (i % 2 == 0 ? 0.22f : -0.17f);
-            Vector2 direction = angle.ToRotationVector2();
-            float branchLength = (Fired ? 118f : collapseRadius * 0.76f) * (0.84f + (i % 3) * 0.10f);
-            Vector2 outer = Projectile.Center + direction * branchLength;
-            Vector2 start = Fired ? Projectile.Center : outer;
-            Vector2 end = Fired ? outer : Projectile.Center;
-            Color branchColor = i % 2 == 0 ? violet : azure;
-            if (!FranLightningTrailRenderer.TryDrawBolt(start, end,
-                    new Color(33, 24, 78), branchColor,
-                    (Fired ? 4.7f : 3.2f) + TacticLayers * 0.16f, 8,
-                    Projectile.identity * 0.67f + i * 4.13f,
-                    opacity * (Fired ? 0.86f : 0.72f), Age * (Fired ? 0.82f : -0.34f)))
-                FranVfx.DrawTexturedLightning(start, end, branchColor,
-                    (Fired ? 4.7f : 3.2f) + TacticLayers * 0.16f, 7,
-                    Projectile.identity * 0.67f + i * 4.13f + (Fired ? Age : 0f),
-                    opacity * 0.72f);
-        }
 
         if (!Fired)
         {

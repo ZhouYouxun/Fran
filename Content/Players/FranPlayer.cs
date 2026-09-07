@@ -51,7 +51,7 @@ public sealed class FranPlayer : ModPlayer
     private bool networkFranMode;
     private bool teacherBonded;
     private bool teacherToolGranted;
-    private bool restoreTeacherAfterRespawn;
+    private int restoreTeacherAfterRespawnCount;
     private bool dashStartedThisTick;
     private int teacherRecoveryCooldown;
     private float screenShakePower;
@@ -143,6 +143,8 @@ public sealed class FranPlayer : ModPlayer
             tag["TeacherBonded"] = true;
         if (teacherToolGranted)
             tag["TeacherToolGranted"] = true;
+        if (restoreTeacherAfterRespawnCount > 0)
+            tag["TeacherRespawnCount"] = restoreTeacherAfterRespawnCount;
     }
 
     public override void LoadData(TagCompound tag)
@@ -185,6 +187,7 @@ public sealed class FranPlayer : ModPlayer
         introShown = tag.GetBool("IntroShown");
         teacherBonded = tag.GetBool("TeacherBonded");
         teacherToolGranted = tag.GetBool("TeacherToolGranted");
+        restoreTeacherAfterRespawnCount = Math.Clamp(tag.GetInt("TeacherRespawnCount"), 0, 59);
     }
 
     public override void ResetEffects()
@@ -211,6 +214,10 @@ public sealed class FranPlayer : ModPlayer
                 FranBalance.GetInt(nameof(FranBalance.MagicBarrierExtraLayerDefense),
                     FranBalance.MagicBarrierExtraLayerDefense) * (barrierLayers - 1);
             Player.statDefense += Math.Max(0, defense);
+            if (IsFullTacticLoadout(FranSkill.MagicBarrier))
+                Player.lifeRegen += Math.Max(0, FranBalance.GetInt(
+                    nameof(FranBalance.MagicBarrierFullLoadoutLifeRegen),
+                    FranBalance.MagicBarrierFullLoadoutLifeRegen));
         }
 
         if (!Main.hardMode || Player.mount.Active || HasExternalWings)
@@ -360,7 +367,7 @@ public sealed class FranPlayer : ModPlayer
             return;
         }
 
-        if (FranMode || HasTeacher)
+        if (HasTeacher)
             teacherBonded = true;
         if (Player.whoAmI == Main.myPlayer && teacherBonded)
         {
@@ -463,8 +470,7 @@ public sealed class FranPlayer : ModPlayer
     public override void ModifyHitByNPC(NPC npc, ref Player.HurtModifiers modifiers)
     {
         int barrierLayers = GetActiveMagicBarrierLayers();
-        int availableSlots = Math.Min(AvailableTacticSlots, MaximumTacticSlots);
-        if (availableSlots > 0 && barrierLayers == availableSlots)
+        if (barrierLayers > 0 && IsFullTacticLoadout(FranSkill.MagicBarrier))
             modifiers.FinalDamage *= FranBalance.GetFloat(
                 nameof(FranBalance.MagicBarrierFullLoadoutContactDamageMultiplier),
                 FranBalance.MagicBarrierFullLoadoutContactDamageMultiplier);
@@ -487,13 +493,13 @@ public sealed class FranPlayer : ModPlayer
             {
                 if (Player.inventory[i].type != teacherType)
                     continue;
+                restoreTeacherAfterRespawnCount += Player.inventory[i].stack;
                 Player.inventory[i].TurnToAir();
-                restoreTeacherAfterRespawn = true;
             }
             if (Main.mouseItem.type == teacherType)
             {
+                restoreTeacherAfterRespawnCount += Main.mouseItem.stack;
                 Main.mouseItem.TurnToAir();
-                restoreTeacherAfterRespawn = true;
             }
         }
 
@@ -539,10 +545,12 @@ public sealed class FranPlayer : ModPlayer
         if (Player.whoAmI == Main.myPlayer)
         {
             FranModMain.SendCombatState(Player.whoAmI, 0, Vector2.Zero);
-            if (restoreTeacherAfterRespawn)
+            if (restoreTeacherAfterRespawnCount > 0)
             {
-                restoreTeacherAfterRespawn = false;
-                Player.QuickSpawnItem(Player.GetSource_Misc("FranTeacherRespawn"), ModContent.ItemType<Teacher>());
+                int count = restoreTeacherAfterRespawnCount;
+                restoreTeacherAfterRespawnCount = 0;
+                for (int i = 0; i < count; i++)
+                    Player.QuickSpawnItem(Player.GetSource_Misc("FranTeacherRespawn"), ModContent.ItemType<Teacher>());
             }
         }
     }
@@ -583,6 +591,15 @@ public sealed class FranPlayer : ModPlayer
             if (equippedTactics[i] == skill)
                 count++;
         return count;
+    }
+
+    public bool IsFullTacticLoadout(FranSkill skill)
+    {
+        if (!FranSkillInfo.IsRealSkill(skill))
+            return false;
+        int availableSlots = Math.Min(AvailableTacticSlots, MaximumTacticSlots);
+        return availableSlots > 0 && GetActiveTacticCount() == availableSlots &&
+            GetSkillStacks(skill) == availableSlots;
     }
 
     private int GetActiveMagicBarrierLayers()
@@ -724,8 +741,8 @@ public sealed class FranPlayer : ModPlayer
     public bool AdvanceHammerRound(int tacticLayers)
     {
         tacticLayers = Math.Clamp(tacticLayers, 1, MaximumTacticSlots);
-        bool fullHammerLoadout = GetActiveTacticCount() == AvailableTacticSlots &&
-            tacticLayers == AvailableTacticSlots;
+        bool fullHammerLoadout = tacticLayers == AvailableTacticSlots &&
+            IsFullTacticLoadout(FranSkill.ThorsHammer);
         int requiredRounds = fullHammerLoadout ? 1 : FranBalance.GetInt(
             nameof(FranBalance.ThorsHammerRequiredComboRounds), FranBalance.ThorsHammerRequiredComboRounds);
         HammerComboRounds++;
@@ -1068,7 +1085,7 @@ public sealed class FranPlayer : ModPlayer
 
     private void EnsureTeacher()
     {
-        if ((!FranMode && !teacherBonded) || HasTeacher || Player.whoAmI != Main.myPlayer || teacherRecoveryCooldown > 0)
+        if (!teacherBonded || HasTeacher || Player.whoAmI != Main.myPlayer || teacherRecoveryCooldown > 0)
             return;
         Player.QuickSpawnItem(Player.GetSource_Misc("FranModeTeacher"), ModContent.ItemType<Teacher>());
         if (!HasTeacher)
@@ -1089,7 +1106,7 @@ public sealed class FranPlayer : ModPlayer
     private void RecallTeacherFromStorage()
     {
         int teacherType = ModContent.ItemType<Teacher>();
-        bool found = false;
+        List<Item> recalled = new();
 
         void ClearStorage(Item[] storage)
         {
@@ -1099,15 +1116,15 @@ public sealed class FranPlayer : ModPlayer
             {
                 if (storage[i].type != teacherType)
                     continue;
+                recalled.Add(storage[i].Clone());
                 storage[i].TurnToAir();
-                found = true;
             }
         }
 
         if (Player.trashItem.type == teacherType)
         {
+            recalled.Add(Player.trashItem.Clone());
             Player.trashItem.TurnToAir();
-            found = true;
         }
 
         ClearStorage(Player.bank.item);
@@ -1121,22 +1138,26 @@ public sealed class FranPlayer : ModPlayer
             {
                 if (chest.item[slot].type != teacherType)
                     continue;
+                recalled.Add(chest.item[slot].Clone());
                 chest.item[slot].TurnToAir();
-                found = true;
                 if (Main.netMode == NetmodeID.MultiplayerClient)
                     NetMessage.SendData(MessageID.SyncChestItem, -1, -1, null, Player.chest, slot);
             }
         }
 
-        if (found && !HasTeacher)
+        if (recalled.Count > 0)
         {
             teacherRecoveryCooldown = 0;
-            Player.QuickSpawnItem(Player.GetSource_Misc("FranTeacherRecall"), teacherType);
+            foreach (Item item in recalled)
+                Player.QuickSpawnItem(Player.GetSource_Misc("FranTeacherRecall"), item, item.stack);
         }
     }
 
     private void EnsureFloatingTeacher()
     {
+        if (!ModContent.GetInstance<FranClientConfig>().EnableFloatingTeacherVisual)
+            return;
+
         int flightVisualType = ModContent.ProjectileType<FranTelekineticFlightVisual>();
         if (!HasTeacher || Player.dead || TelekineticFlightVisualActive ||
             Player.ownedProjectileCounts[flightVisualType] > 0)
@@ -1192,21 +1213,7 @@ public sealed class FranPlayer : ModPlayer
         if (offset.LengthSquared() > 1800f * 1800f)
             requestedFocus = Player.Center + offset.SafeNormalize(Vector2.UnitX * Player.direction) * 1800f;
 
-        int teacherType = ModContent.ItemType<Teacher>();
-        Item teacher = Player.HeldItem.type == teacherType ? Player.HeldItem : null;
-        if (teacher is null)
-            for (int i = 0; i < Player.inventory.Length; i++)
-                if (Player.inventory[i].type == teacherType)
-                {
-                    teacher = Player.inventory[i];
-                    break;
-                }
-        int teacherDamage = teacher is null
-            ? Math.Max(1, (int)Player.GetDamage(DamageClass.Melee).ApplyTo(FranSkillInfo.BaseDamage))
-            : Math.Max(1, Player.GetWeaponDamage(teacher));
-        int strikeDamage = Math.Max(1, (int)(teacherDamage *
-            FranBalance.GetFloat(nameof(FranBalance.UltimateStrikeDamageMultiplier),
-                FranBalance.UltimateStrikeDamageMultiplier)));
+        int strikeDamage = GetUltimateStrikeDamage();
 
         if (DashTimer > 0)
             EndDash(sync: false);
@@ -1222,6 +1229,26 @@ public sealed class FranPlayer : ModPlayer
         if (Main.netMode == NetmodeID.Server)
             FranModMain.SendUltimateCharge(Player.whoAmI, 0);
         return true;
+    }
+
+    internal int GetUltimateStrikeDamage()
+    {
+        // 黑天虎仍以师父为伤害来源；切到其他物品不会借用其他武器的面板。
+        int teacherType = ModContent.ItemType<Teacher>();
+        Item teacher = Player.HeldItem.type == teacherType ? Player.HeldItem : null;
+        if (teacher is null)
+            for (int i = 0; i < Player.inventory.Length; i++)
+                if (Player.inventory[i].type == teacherType)
+                {
+                    teacher = Player.inventory[i];
+                    break;
+                }
+        int teacherDamage = teacher is null
+            ? Math.Max(1, (int)Player.GetDamage(DamageClass.Melee).ApplyTo(FranBalance.GetBaseDamage(Player)))
+            : Math.Max(1, Player.GetWeaponDamage(teacher));
+        return Math.Max(1, (int)(teacherDamage *
+            FranBalance.GetFloat(nameof(FranBalance.UltimateStrikeDamageMultiplier),
+                FranBalance.UltimateStrikeDamageMultiplier)));
     }
 
     private void AnnounceUltimateReady()

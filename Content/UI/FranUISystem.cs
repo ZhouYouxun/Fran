@@ -399,9 +399,9 @@ public sealed class FranUISystem : ModSystem
 
         FranSkill detailSkill = hoveredSkill >= 0 ? (FranSkill)hoveredSkill : hoveredEquippedSlot >= 0
             ? fran.GetEquippedTactic(hoveredEquippedSlot) : FranSkill.None;
-        // 固定三行：名称、首层效果、重复层效果。460 像素足够容纳中文短句，
-        // 同时让说明框的左右边缘明显向轮盘中心收拢，不再横跨大半个屏幕。
-        Rectangle descriptionPanel = new((int)wheelCenter.X - 230, (int)wheelCenter.Y + 228, 460, 88);
+        // 固定四行：名称、首层效果、重复层效果、满槽效果。
+        // 横向收窄、纵向延长，避免短句两侧留下过多空白。
+        Rectangle descriptionPanel = new((int)wheelCenter.X - 210, (int)wheelCenter.Y + 228, 420, 112);
         DrawRect(descriptionPanel, new Color(5, 10, 16, 230) * detailsOpacity);
         Color panelColor = FranSkillInfo.IsRealSkill(detailSkill)
             ? FranSkillInfo.Color(detailSkill) : new Color(105, 145, 164);
@@ -409,6 +409,7 @@ public sealed class FranUISystem : ModSystem
         string title;
         string firstLine;
         string secondLine;
+        string thirdLine;
         Color textColor;
         if (FranSkillInfo.IsRealSkill(detailSkill))
         {
@@ -416,6 +417,7 @@ public sealed class FranUISystem : ModSystem
             title = FranSkillInfo.Name(detailSkill);
             firstLine = unlocked ? FranSkillInfo.FirstLayerText(detailSkill) : FranSkillInfo.UnlockText(detailSkill);
             secondLine = unlocked ? FranSkillInfo.AdditionalLayerText(detailSkill) : string.Empty;
+            thirdLine = unlocked ? FranSkillInfo.FullLoadoutText(detailSkill) : string.Empty;
             panelColor = unlocked ? panelColor : new Color(160, 160, 165);
             textColor = unlocked ? Color.White : new Color(185, 185, 190);
         }
@@ -424,15 +426,18 @@ public sealed class FranUISystem : ModSystem
             title = Language.GetTextValue("Mods.Fran.UI.PureSwordsmanship");
             firstLine = Language.GetTextValue("Mods.Fran.UI.PureSwordsmanshipLine1");
             secondLine = Language.GetTextValue("Mods.Fran.UI.PureSwordsmanshipLine2");
+            thirdLine = string.Empty;
             panelColor = new Color(220, 235, 242);
             textColor = Color.White;
         }
         DrawCentered(title, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 5,
             descriptionPanel.Width - 24, 24), panelColor * detailsOpacity, 0.76f);
-        DrawCentered(firstLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 33,
-            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.62f);
-        DrawCentered(secondLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 58,
-            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.62f);
+        DrawCentered(firstLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 32,
+            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.60f);
+        DrawCentered(secondLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 56,
+            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.60f);
+        DrawCentered(thirdLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 80,
+            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.60f);
     }
 
     private static int FindHoveredSkill(Vector2 mouse)

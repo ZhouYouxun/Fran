@@ -31,7 +31,7 @@ Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存
 4. `FranDirectionalRingParticle`：带方向压缩的命中环、屏障环和释放环。
 5. `FranHeavySmokeParticle`：六阶段烟雾动画，区分普通烟与发光烟。
 6. `FranStarMoteParticle`：Leonid 风格星光，支持追踪目标与独立 Bloom。
-7. `FranBoltParticle`：三帧闪电碎片，有色外层与白色核心。
+7. `FranBoltParticle`：原有三帧闪电碎片；新雷电链和雷锤的主电弧改用下面的单帧资源。
 8. `FranBladeChipParticle`：重斩刃屑、像素碎片和电火花。
 9. `FranHeartParticle`：魔法心形粒子，可漂浮、弯曲和脉动。
 10. `FranWaterParticle`：水滴、海沫与水系切割碎液。
@@ -102,13 +102,13 @@ Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存
 - HeavySmoke、BladeChip、Bolt、Spark、Line 与强化 Dust；
 - 命中追加剑屑星阵与更强冲击层。
 
-### 第四段：突刺
+### 第四段：定向推出
 
-- 收剑、压缩、轴向伸出、短停、回收；
-- 宽能量通道、细刃心、白色中轴三层突刺轨迹；
-- ForwardSmear、轴向 Line、刀尖 Bolt 与集中命中爆点；
-- 不使用宽圆弧冒充突刺；
-- 不改变玩家或敌人的速度。
+- 参考 `Ark of the Ancients` 右键的持剑运动：出刀时锁定鼠标方向，剑沿轴线推出再收回；
+- 整段不改变剑的角度，不让玩家本体跟随位移；
+- 第二、第四段攻击距离均为第一、第三段的 `1.2` 倍；
+- 不移植参考武器的格挡、无敌帧、充能或敌对弹幕减伤；
+- 不改变玩家或敌人的速度，也不恢复箭头、突破门环等叠层特效。
 
 ## 右键能力的粒子分工
 
@@ -121,6 +121,12 @@ Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存
 - 雷鸣魔法：Bolt、Line、GlowOrb，并调用 `FranLightingBoltsSystem`。
 - 断舰：Water、DirectionalRing、Spectral Sparkle 与重斩火花。
 - 雷神之锤：Bolt、ThunderImpact、Ionizing Sparkle、DirectionalRing。
+
+## 雷电专用资源（2026-09-03）
+
+- `FranArcParticle.cs/.png`：单帧灰白透明电弧。素材由内置图像生成功能从文字描述创建，未输入或复制 Calamity 的 `Bolt.png`、`Bolt2.png`；PNG 保留生成时的透明通道。长轴为竖直方向，运行时按像素尺寸缩放、旋转、镜像和着色，不按三帧裁切。
+- `FranFissionArcParticle.cs`：短时裂变主雷，无配套 PNG。`Core/Graphics/FranFissionArc.cs` 在创建时生成有限的分叉折线，用原版 `MagicPixel` 的 1×1 区域加法绘制，不使用 Calamity 粒子、贴图或外部 shader。
+- 闪电链在导通前沿和命中窗口内补余电；雷锤落点先劈主雷，再展开地面裂纹。所有新增电弧粒子只负责视觉，伤害由原有弹幕管理。
 
 ## 原版 Dust 的 20% 辅助层
 

@@ -172,6 +172,9 @@ public sealed class FranUltimateController : ModProjectile
         else
             UpdateClientPresentation(owner);
 
+        // 终结斩结束时 OnKill 已释放玩家状态，不要在本帧又把它锁回大招状态。
+        if (!Projectile.active)
+            return;
         MaintainOwnerState(owner);
         // The controller itself remains at the execution focus.  Visual companions can therefore
         // follow one synced anchor while the owner repeatedly crosses the frame.
@@ -198,16 +201,15 @@ public sealed class FranUltimateController : ModProjectile
 
     private void UpdateAuthoritativeSequence(Player owner)
     {
-        phaseTimer++;
+        // 在下一帧才离开已完成阶段，保留本帧的碰撞线与伤害开关。
+        // 否则 1 帧穿斩会在 Terraria 执行命中检测之前就被漂移阶段清空，变成空斩。
         switch (phase)
         {
             case UltimatePhase.NormalStrike:
-                ApplyStrikeMovement(owner, GetCurrentStrikeFrames());
                 if (phaseTimer >= GetCurrentStrikeFrames())
                     BeginImpactDrift();
                 break;
             case UltimatePhase.ImpactDrift:
-                ApplyImpactDrift(owner);
                 if (phaseTimer >= GetCurrentImpactDriftFrames())
                 {
                     strikeIndex++;
@@ -218,14 +220,32 @@ public sealed class FranUltimateController : ModProjectile
                 }
                 break;
             case UltimatePhase.FinalPause:
-                HoldAt(owner, strikeEnd);
                 if (phaseTimer >= FinalPauseFrames)
                     BeginFinalStrike(owner);
                 break;
             case UltimatePhase.FinalStrike:
-                ApplyStrikeMovement(owner, FinalStrikeFrames);
                 if (phaseTimer >= FinalStrikeFrames)
+                {
                     Projectile.Kill();
+                    return;
+                }
+                break;
+        }
+
+        phaseTimer++;
+        switch (phase)
+        {
+            case UltimatePhase.NormalStrike:
+                ApplyStrikeMovement(owner, GetCurrentStrikeFrames());
+                break;
+            case UltimatePhase.ImpactDrift:
+                ApplyImpactDrift(owner);
+                break;
+            case UltimatePhase.FinalPause:
+                HoldAt(owner, strikeEnd);
+                break;
+            case UltimatePhase.FinalStrike:
+                ApplyStrikeMovement(owner, FinalStrikeFrames);
                 break;
         }
     }
@@ -265,6 +285,7 @@ public sealed class FranUltimateController : ModProjectile
         collisionStart = strikeStart;
         collisionEnd = strikeStart;
         impactDriftVelocity = Vector2.Zero;
+        Projectile.damage = owner.GetModPlayer<FranPlayer>().GetUltimateStrikeDamage();
         Projectile.friendly = true;
         ClearLocalNpcImmunity();
         WarpOwner(owner, strikeStart);
@@ -319,6 +340,7 @@ public sealed class FranUltimateController : ModProjectile
         strikeEnd = targetPoint + direction * 468f;
         collisionStart = strikeStart;
         collisionEnd = strikeStart;
+        Projectile.damage = owner.GetModPlayer<FranPlayer>().GetUltimateStrikeDamage();
         Projectile.friendly = true;
         ClearLocalNpcImmunity();
         WarpOwner(owner, strikeStart);
@@ -480,11 +502,8 @@ public sealed class FranUltimateController : ModProjectile
         Vector2 direction = (strikeEnd - strikeStart).SafeNormalize(Vector2.UnitX);
         float riftAngle = direction.ToRotation() + MathHelper.PiOver2 +
             Main.rand.NextFloat(final ? -0.12f : -0.52f, final ? 0.12f : 0.52f);
-        int riftDamage = Math.Max(1, (int)(Projectile.damage * (final
-            ? FranBalance.GetFloat(nameof(FranBalance.UltimateFinalRiftDamageMultiplier),
-                FranBalance.UltimateFinalRiftDamageMultiplier)
-            : FranBalance.GetFloat(nameof(FranBalance.UltimateNormalRiftDamageMultiplier),
-                FranBalance.UltimateNormalRiftDamageMultiplier))));
+        // 裂隙也是独立伤害攻击，继承本刀的面板 × 8，不再另乘 0.42 / 0.55。
+        int riftDamage = Projectile.damage;
         Projectile.NewProjectile(Projectile.GetSource_FromThis(), impactPoint, Vector2.Zero,
             ModContent.ProjectileType<FranUltimateBlackRiftLaser>(), riftDamage,
             Projectile.knockBack * 0.35f, Projectile.owner, riftAngle, final ? 1f : 0f, strikeIndex);
@@ -546,13 +565,6 @@ public sealed class FranUltimateController : ModProjectile
             }
         }
         return best;
-    }
-
-    public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
-    {
-        if (FinalStrike)
-            modifiers.SourceDamage *= FranBalance.GetFloat(nameof(FranBalance.UltimateFinalStrikeDamageMultiplier),
-                FranBalance.UltimateFinalStrikeDamageMultiplier);
     }
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)

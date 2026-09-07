@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using FranMod.Content.Players;
 using FranMod.Core;
 using FranMod.Core.Graphics;
@@ -26,6 +27,18 @@ public sealed class FranTelekineticShell : ModProjectile
         (FullLoadoutHoming ? FullLoadoutHomingFlag : 0f), 0f, 12f);
     private bool Dissipating => DissipationAge > 0f;
     private bool Heavy => Projectile.scale >= 1.15f;
+    private FranTelekineticSkirmishMotion skirmishMotion;
+    private FranTelekineticSkirmishMotion SkirmishMotion => skirmishMotion ??= new();
+    private int lockedTargetIndex = -1;
+    private int lockedTargetType;
+    private bool HasMotionAuthority => Main.netMode == NetmodeID.SinglePlayer || Projectile.owner == Main.myPlayer;
+
+    internal void ConfigureFormation(int lane)
+    {
+        SkirmishMotion.ConfigureLane(lane);
+        // 给一次脱靶回勾留出时间；无目标、二次脱靶或命中都会提前消散。
+        Projectile.timeLeft = FranTelekineticSkirmishMotion.MaximumLifetime;
+    }
 
     internal static float EncodeReleaseDelay(float releaseDelay, bool fullLoadoutHoming) =>
         MathHelper.Clamp(releaseDelay, 0f, 12f) + (fullLoadoutHoming ? FullLoadoutHomingFlag : 0f);
@@ -51,6 +64,8 @@ public sealed class FranTelekineticShell : ModProjectile
     public override void AI()
     {
         float age = Age++;
+        if (FullLoadoutHoming && HasMotionAuthority && Projectile.timeLeft <= 12 && !Dissipating)
+            BeginDissipation();
         if (Dissipating)
         {
             UpdateDissipation();
@@ -94,12 +109,19 @@ public sealed class FranTelekineticShell : ModProjectile
             if (flightAge <= accelerationFrames)
                 speed *= acceleration;
         }
-        Vector2 travelDirection = Projectile.velocity.SafeNormalize(direction);
-        travelDirection = FullLoadoutHoming
-            ? GetSoftHomingDirection(travelDirection, speed, flightAge)
-            : direction;
-        Projectile.velocity = travelDirection * speed;
-        Projectile.rotation = travelDirection.ToRotation();
+        if (FullLoadoutHoming)
+        {
+            float nominalSpeed = initialSpeed * MathF.Pow(acceleration,
+                MathHelper.Clamp(flightAge - 1f, 0f, Math.Max(0, accelerationFrames - 1)));
+            UpdateSkirmishMotion(direction, nominalSpeed);
+            if (Dissipating)
+                return;
+        }
+        else
+        {
+            Projectile.velocity = direction * speed;
+        }
+        Projectile.rotation = Projectile.velocity.SafeNormalize(direction).ToRotation();
         Projectile.Opacity = 1f;
         Lighting.AddLight(Projectile.Center, 0.10f, 0.36f, 0.58f);
         FranVanillaDustEffects.ProjectileTrail(Projectile.Center, Projectile.velocity,
@@ -119,6 +141,8 @@ public sealed class FranTelekineticShell : ModProjectile
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
+        if (Dissipating)
+            return;
         Color color = new(115, 225, 255);
         FranParticleEffects.SpawnImpact(target.Center, Projectile.velocity, color, Heavy ? 12 : 8,
             Heavy ? 8.2f : 6.2f, Heavy ? 1.02f : 0.78f);
@@ -138,6 +162,10 @@ public sealed class FranTelekineticShell : ModProjectile
         Vector2 launchDirection = new Vector2(Projectile.ai[0], Projectile.ai[1]).SafeNormalize(Vector2.UnitX);
         Vector2 direction = Projectile.velocity.SafeNormalize(launchDirection);
         float bodyRotation = direction.ToRotation();
+        // 沿用原念压核素材：减速横掠时略收拢，切入加速时拉长，不再始终保持同一种针形。
+        float stretch = FullLoadoutHoming ? MathHelper.Lerp(0.78f, 1.18f,
+            MathHelper.Clamp((Projectile.velocity.Length() - 5f) / 21f, 0f, 1f)) : 1f;
+        Vector2 bodyScale = new Vector2(stretch, 1f / MathF.Sqrt(stretch)) * Projectile.scale * pulse;
 
         if (Age <= ReleaseDelay)
         {
@@ -169,83 +197,91 @@ public sealed class FranTelekineticShell : ModProjectile
 
         FranVfx.DrawOriginalPixels("FranPressureNeedle", Projectile.Center,
             new Color(75, 155, 205) * (0.92f * Projectile.Opacity), bodyRotation,
-            new Vector2(Heavy ? 88f : 54f, Heavy ? 42f : 30f) * Projectile.scale * pulse);
+            new Vector2(Heavy ? 88f : 54f, Heavy ? 42f : 30f) * bodyScale);
         FranVfx.BeginAdditive();
         FranVfx.DrawOriginalPixels("FranPressureNeedle", Projectile.Center - direction * 3f,
             new Color(75, 195, 255) * (0.46f * Projectile.Opacity), bodyRotation,
-            new Vector2(Heavy ? 98f : 62f, Heavy ? 48f : 35f) * Projectile.scale * pulse);
-        FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center + direction * 28f,
+            new Vector2(Heavy ? 98f : 62f, Heavy ? 48f : 35f) * bodyScale);
+        FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center + direction * (28f * stretch),
             Color.White * (0.68f * Projectile.Opacity), bodyRotation,
-            new Vector2(Heavy ? 38f : 28f, Heavy ? 22f : 16f) * Projectile.scale * pulse);
-        FranVfx.DrawOriginalPixels("FranSmearForward", Projectile.Center - direction * 29f,
+            new Vector2(Heavy ? 38f : 28f, Heavy ? 22f : 16f) * bodyScale);
+        FranVfx.DrawOriginalPixels("FranSmearForward", Projectile.Center - direction * (29f * stretch),
             new Color(80, 205, 255) * (0.30f * Projectile.Opacity), bodyRotation,
-            new Vector2(Heavy ? 105f : 72f, Heavy ? 28f : 20f) * Projectile.scale);
+            new Vector2((Heavy ? 105f : 72f) * stretch, Heavy ? 28f : 20f) * Projectile.scale);
         FranVfx.EndAdditive();
         return false;
     }
 
-    private Vector2 GetSoftHomingDirection(Vector2 currentDirection, float currentSpeed, float flightAge)
+    private void UpdateSkirmishMotion(Vector2 launchDirection, float nominalSpeed)
     {
-        int homingDelay = Math.Max(0, FranBalance.GetInt(
-            nameof(FranBalance.TelekineticPressureCoreHomingDelayFrames),
-            FranBalance.TelekineticPressureCoreHomingDelayFrames));
-        if (flightAge <= homingDelay)
-            return ApplySoftWander(currentDirection, 0.006f);
+        TelekineticSkirmishPhase previousPhase = SkirmishMotion.Phase;
+        NPC target = ResolveSkirmishTarget();
+        if (target is null && lockedTargetIndex >= 0 && HasMotionAuthority)
+        {
+            lockedTargetIndex = -1;
+            SkirmishMotion.LoseTarget();
+            Projectile.netUpdate = true;
+        }
+        if (target is null && SkirmishMotion.WantsTarget && HasMotionAuthority && (int)Age % 6 == 0)
+        {
+            float range = Math.Max(1f, FranBalance.GetFloat(
+                nameof(FranBalance.TelekineticPressureCoreHomingRange), FranBalance.TelekineticPressureCoreHomingRange));
+            target = FindNearestHomingTarget(range);
+            if (target is not null)
+            {
+                lockedTargetIndex = target.whoAmI;
+                lockedTargetType = target.netID;
+                Projectile.netUpdate = true;
+            }
+        }
 
-        float homingRange = Math.Max(1f, FranBalance.GetFloat(
-            nameof(FranBalance.TelekineticPressureCoreHomingRange),
-            FranBalance.TelekineticPressureCoreHomingRange));
-        NPC target = FindNearestHomingTarget(homingRange);
-        if (target is null)
-            return ApplySoftWander(currentDirection, 0.006f);
-
-        Vector2 desiredDirection = (target.Center - Projectile.Center).SafeNormalize(currentDirection);
-        int homingRampFrames = Math.Max(1, FranBalance.GetInt(
-            nameof(FranBalance.TelekineticPressureCoreHomingRampFrames),
-            FranBalance.TelekineticPressureCoreHomingRampFrames));
-        float homingGrowth = FranMotion.Smooth(Utils.GetLerpValue(
-            homingDelay, homingDelay + homingRampFrames, flightAge, true));
-        float closePressure = Utils.GetLerpValue(360f, 70f, Projectile.Distance(target.Center), true);
-        float pullStrength = MathHelper.Lerp(0.35f, 1f,
-            MathHelper.Max(homingGrowth, closePressure * 0.75f));
-        float targetSpeed = MathHelper.Lerp(10.5f, 16.5f, pullStrength);
-        float initialInertia = Math.Max(1f, FranBalance.GetFloat(
-            nameof(FranBalance.TelekineticPressureCoreHomingInertia),
-            FranBalance.TelekineticPressureCoreHomingInertia));
-        float finalInertia = MathHelper.Clamp(FranBalance.GetFloat(
-            nameof(FranBalance.TelekineticPressureCoreFinalHomingInertia),
-            FranBalance.TelekineticPressureCoreFinalHomingInertia), 1f, initialInertia);
-        float inertia = MathHelper.Lerp(initialInertia, finalInertia, homingGrowth);
-
-        // 允许保留的方向误差随飞行时间收紧；超出误差的部分按成长后的转向上限修正。
-        float initialAngleTolerance = Math.Max(0f, FranBalance.GetFloat(
-            nameof(FranBalance.TelekineticPressureCoreInitialAngleTolerance),
-            FranBalance.TelekineticPressureCoreInitialAngleTolerance));
-        float finalAngleTolerance = MathHelper.Clamp(FranBalance.GetFloat(
-            nameof(FranBalance.TelekineticPressureCoreFinalAngleTolerance),
-            FranBalance.TelekineticPressureCoreFinalAngleTolerance), 0f, initialAngleTolerance);
-        float angleTolerance = MathHelper.Lerp(initialAngleTolerance, finalAngleTolerance, homingGrowth);
-        float angleDifference = MathHelper.WrapAngle(
-            desiredDirection.ToRotation() - currentDirection.ToRotation());
-        float correctionDemand = Math.Max(0f, MathF.Abs(angleDifference) - angleTolerance);
-        float maximumCorrection = MathHelper.Lerp(0.035f, 0.24f, homingGrowth);
-        float correction = MathF.Sign(angleDifference) * Math.Min(correctionDemand, maximumCorrection);
-        Vector2 correctedDirection = currentDirection.RotatedBy(correction);
-
-        // 追踪只改变方向，不覆盖念压核自身的阶段速度。
-        float steeringSpeed = MathHelper.Clamp(currentSpeed, 4f, 16.5f);
-        Vector2 steeredVelocity = (correctedDirection * steeringSpeed * inertia +
-            desiredDirection * targetSpeed) / (inertia + 1f);
-        Vector2 steeredDirection = steeredVelocity.SafeNormalize(currentDirection);
-        float sideSway = MathF.Sin((Age + Projectile.identity * 7f) * 0.075f) *
-            MathHelper.Lerp(0.012f, 0.004f, pullStrength);
-        return steeredDirection.RotatedBy(sideSway);
+        TelekineticSkirmishTarget? focus = target is null ? null : new(target.Center, target.velocity,
+            Math.Max(target.width, target.height) * 0.5f);
+        int scatterFrames = FranBalance.GetInt(nameof(FranBalance.TelekineticPressureCoreHomingDelayFrames),
+            FranBalance.TelekineticPressureCoreHomingDelayFrames);
+        Projectile.velocity = SkirmishMotion.Step(Projectile.Center, Projectile.velocity,
+            launchDirection, nominalSpeed, scatterFrames, focus);
+        // 非持有者只预测轨迹；不能因为暂未收到目标同步而提前关闭伤害。
+        if (SkirmishMotion.Finished && HasMotionAuthority)
+            BeginDissipation();
+        if (HasMotionAuthority && (previousPhase != SkirmishMotion.Phase || (int)Age % 15 == 0))
+            Projectile.netUpdate = true;
     }
 
-    private Vector2 ApplySoftWander(Vector2 direction, float strength)
+    private NPC ResolveSkirmishTarget() => Main.npc.IndexInRange(lockedTargetIndex) &&
+        Main.npc[lockedTargetIndex].netID == lockedTargetType && Main.npc[lockedTargetIndex].CanBeChasedBy(Projectile)
+        ? Main.npc[lockedTargetIndex] : null;
+
+    public override void SendExtraAI(BinaryWriter writer)
     {
-        float wander = MathF.Sin((Age + Projectile.identity * 5f) * 0.08f) * strength;
-        return direction.RotatedBy(wander);
+        writer.Write(Age);
+        writer.Write(DissipationAge);
+        writer.Write((short)lockedTargetIndex);
+        writer.Write(lockedTargetType);
+        writer.Write(Projectile.scale);
+        writer.Write((short)Projectile.timeLeft);
+        SkirmishMotion.Write(writer);
+    }
+
+    public override void ReceiveExtraAI(BinaryReader reader)
+    {
+        Age = reader.ReadSingle();
+        // 已经命中/消散的状态不可被稍早的飞行同步包回滚。
+        DissipationAge = Math.Max(DissipationAge, reader.ReadSingle());
+        lockedTargetIndex = reader.ReadInt16();
+        lockedTargetType = reader.ReadInt32();
+        Projectile.scale = MathHelper.Clamp(reader.ReadSingle(), 0.1f, 4f);
+        Projectile.timeLeft = Math.Clamp((int)reader.ReadInt16(), 1, FranTelekineticSkirmishMotion.MaximumLifetime);
+        int hitboxSize = Math.Max(18, (int)MathF.Round(26f * Projectile.scale));
+        Projectile.Resize(hitboxSize, hitboxSize);
+        SkirmishMotion.Read(reader);
+        if (Dissipating)
+        {
+            Projectile.friendly = false;
+            Projectile.damage = 0;
+            Projectile.timeLeft = Math.Min(Projectile.timeLeft, 12);
+            ReleaseDeathEffect();
+        }
     }
 
     private NPC FindNearestHomingTarget(float maximumDistance)
@@ -273,7 +309,7 @@ public sealed class FranTelekineticShell : ModProjectile
         DissipationAge = 1f;
         Projectile.friendly = false;
         Projectile.damage = 0;
-        Projectile.velocity *= 0.30f;
+        Projectile.velocity *= FullLoadoutHoming ? 0.72f : 0.30f;
         Projectile.timeLeft = Math.Min(Projectile.timeLeft, 12);
         Projectile.netUpdate = true;
     }
@@ -281,7 +317,7 @@ public sealed class FranTelekineticShell : ModProjectile
     private void UpdateDissipation()
     {
         DissipationAge++;
-        Projectile.velocity *= 0.66f;
+        Projectile.velocity *= FullLoadoutHoming ? 0.90f : 0.66f;
         Projectile.Opacity = MathHelper.Clamp(1f - DissipationAge / 12f, 0f, 1f);
         Projectile.rotation = Projectile.velocity.SafeNormalize(Projectile.rotation.ToRotationVector2()).ToRotation();
         Lighting.AddLight(Projectile.Center, 0.04f * Projectile.Opacity, 0.15f * Projectile.Opacity,
@@ -322,6 +358,8 @@ public sealed class FranTelekineticShell : ModProjectile
 /// </summary>
 public sealed class FranTelekineticFoldBlade : ModProjectile
 {
+    // 保留着色器实现，当前只显示泰拉刃式波体。
+    private static readonly bool ShaderWaveEnabled = false;
     private const float ActiveLifetime = 43f;
     private const float DamageEndTime = 34f;
     private ref float Age => ref Projectile.localAI[0];
@@ -461,8 +499,7 @@ public sealed class FranTelekineticFoldBlade : ModProjectile
         float opacity = MathHelper.Clamp(Projectile.Opacity, 0f, 1f);
         DrawTerraStyleWave(opacity);
 
-        // 泰拉刃式实体波体先提供厚度，Fran 着色器再作为最上层能量轮廓叠加。
-        if (!FranProjectileTrailRenderer.TryDrawTelekineticWave(Projectile, opacity))
+        if (ShaderWaveEnabled && !FranProjectileTrailRenderer.TryDrawTelekineticWave(Projectile, opacity))
             FranProjectileTrailRenderer.DrawFallback(Projectile, FranProjectileTrailProfile.TelekineticWave,
                 new Color(75, 195, 255), 118f * Projectile.scale, 0.72f * opacity);
         return false;

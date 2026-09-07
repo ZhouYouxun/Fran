@@ -78,6 +78,12 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
         float maximum = Math.Max(minimum, FranBalance.GetFloat(
             nameof(FranBalance.SkillTakerMaximumDamageMultiplier),
             FranBalance.SkillTakerMaximumDamageMultiplier));
+        if (Main.player.IndexInRange(skillSealOwner) && Main.player[skillSealOwner].active &&
+            Main.player[skillSealOwner].GetModPlayer<FranPlayer>()
+                .IsFullTacticLoadout(FranSkill.SkillTaker))
+            maximum = Math.Max(maximum, FranBalance.GetFloat(
+                nameof(FranBalance.SkillTakerFullLoadoutMaximumDamageMultiplier),
+                FranBalance.SkillTakerFullLoadoutMaximumDamageMultiplier));
         modifiers.FinalDamage *= MathHelper.Lerp(minimum, maximum, SkillTakerRampProgress);
     }
 

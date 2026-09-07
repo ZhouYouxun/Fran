@@ -30,6 +30,7 @@ public sealed class FranModMain : Mod
     private const byte SubmitEvolutionProfileMessage = 8;
     private const byte RequestBossProgressChangeMessage = 9;
     private const byte SyncTacticLoadoutMessage = 10;
+    internal const byte TeacherArrivalMessage = 11;
     public static ModKeybind SkillWheelKey { get; private set; }
     public static ModKeybind UltimateKey { get; private set; }
     public static ModKeybind DashKey { get; private set; }
@@ -262,6 +263,9 @@ public sealed class FranModMain : Mod
         byte messageType = reader.ReadByte();
         switch (messageType)
         {
+            case TeacherArrivalMessage:
+                TeacherArrivalSystem.HandlePacket(reader, whoAmI);
+                break;
             case SyncFranModeMessage:
             {
                 int playerIndex = reader.ReadByte();

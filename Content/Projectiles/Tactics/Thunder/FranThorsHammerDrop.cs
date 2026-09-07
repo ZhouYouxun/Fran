@@ -16,6 +16,7 @@ namespace FranMod.Content.Projectiles;
 
 public sealed class FranThorsHammerDrop : ModProjectile
 {
+    internal const int UpdatesPerTick = 2;
     private const int PackedTargetStride = 256;
     private bool Impacted => Projectile.localAI[1] > 0f;
     private float Age => Projectile.localAI[0];
@@ -26,7 +27,7 @@ public sealed class FranThorsHammerDrop : ModProjectile
 
     public override void SetStaticDefaults()
     {
-        ProjectileID.Sets.TrailCacheLength[Type] = 16;
+        ProjectileID.Sets.TrailCacheLength[Type] = 16 * UpdatesPerTick;
         ProjectileID.Sets.TrailingMode[Type] = 2;
         ProjectileID.Sets.DrawScreenCheckFluff[Type] = 900;
     }
@@ -38,7 +39,8 @@ public sealed class FranThorsHammerDrop : ModProjectile
         Projectile.friendly = true;
         Projectile.DamageType = DamageClass.Melee;
         Projectile.penetrate = 1;
-        Projectile.timeLeft = 90;
+        Projectile.extraUpdates = UpdatesPerTick - 1;
+        Projectile.timeLeft = 90 * UpdatesPerTick;
         Projectile.tileCollide = false;
         Projectile.ignoreWater = true;
         Projectile.netImportant = true;
@@ -47,41 +49,52 @@ public sealed class FranThorsHammerDrop : ModProjectile
     }
 
     public override bool? CanDamage() => Age >= 3f && !Impacted ? null : false;
+    public override bool? CanHitNPC(NPC target) => target.whoAmI == TargetIndex ? null : false;
 
     public override void AI()
     {
-        float age = Projectile.localAI[0]++;
+        float tickStep = 1f / Projectile.MaxUpdates;
+        float age = Projectile.localAI[0];
+        Projectile.localAI[0] += tickStep;
+        if (Projectile.numUpdates == 0)
+            UpdateTrackedTarget();
         Vector2 anchor = new(Projectile.ai[0], Projectile.ai[1]);
         NPC trackedTarget = GetTrackedTarget();
         Vector2 target = trackedTarget?.Center + trackedTarget.velocity * 1.2f ?? anchor;
         Vector2 fallback = Projectile.velocity.SafeNormalize(Vector2.UnitY);
         float speed = MathHelper.Lerp(30f, 68f, FranMotion.Smooth(FranMotion.Segment(age, 0f, 24f)));
-        Vector2 desired = (target - Projectile.Center).SafeNormalize(fallback) * speed;
-        Projectile.velocity = Vector2.Lerp(Projectile.velocity, desired, 0.22f);
-        Projectile.rotation += 0.42f * Math.Sign(Projectile.velocity.X == 0f ? 1f : Projectile.velocity.X);
+        Vector2 desired = (target - Projectile.Center).SafeNormalize(fallback) * speed * tickStep;
+        float turnAmount = 1f - MathF.Pow(1f - 0.22f, tickStep);
+        Projectile.velocity = Vector2.Lerp(Projectile.velocity, desired, turnAmount);
+        Projectile.rotation += 0.42f * tickStep * Math.Sign(Projectile.velocity.X == 0f ? 1f : Projectile.velocity.X);
+        Vector2 frameVelocity = Projectile.velocity * Projectile.MaxUpdates;
         const float visualIntensity = 1f;
-        Lighting.AddLight(Projectile.Center, 0.38f * visualIntensity, 0.68f * visualIntensity,
-            1.18f * visualIntensity);
-        FranVanillaDustEffects.ProjectileTrail(Projectile.Center, Projectile.velocity,
-            FranSkill.ThorsHammer, new Color(105, 185, 255),
-            0.36f * visualIntensity, 1.34f * visualIntensity);
 
-        if (!Main.dedServ)
+        // Extra updates refine steering/collision; visual emission and its velocities stay per tick.
+        if (!Main.dedServ && Projectile.numUpdates == 0)
         {
-            FranFlatLightningEffects.EmitTravel(Projectile.Center, Projectile.velocity,
+            Lighting.AddLight(Projectile.Center, 0.38f * visualIntensity, 0.68f * visualIntensity,
+                1.18f * visualIntensity);
+            FranVanillaDustEffects.ProjectileTrail(Projectile.Center, frameVelocity,
+                FranSkill.ThorsHammer, new Color(105, 185, 255),
+                0.36f * visualIntensity, 1.34f * visualIntensity);
+            FranFlatLightningEffects.EmitTravel(Projectile.Center, frameVelocity,
                 0.84f, FranFlatLightningPalette.ThorsHammer, 3,
                 (int)age + Projectile.identity * 11);
+            if ((int)age % 4 == 0)
+                FranFlatLightningEffects.Burst(Projectile.Center, 0.55f,
+                    FranFlatLightningPalette.ThorsHammer, 3, 48f);
             const int particlePasses = 1;
             for (int i = 0; i < particlePasses; i++)
             {
                 FranParticleSystem.Spawn(new FranBarrierShardParticle(
                     Projectile.Center + Main.rand.NextVector2Circular(20f, 20f) * visualIntensity,
-                    -Projectile.velocity * 0.075f + Main.rand.NextVector2Circular(2.1f, 2.1f) * visualIntensity,
+                    -frameVelocity * 0.075f + Main.rand.NextVector2Circular(2.1f, 2.1f) * visualIntensity,
                     new Color(120, 205, 255),
                     new Vector2(Main.rand.NextFloat(16f, 31f), Main.rand.NextFloat(3f, 7f)) * visualIntensity, 17));
                 FranParticleSystem.Spawn(new FranLightParticle(
                     Projectile.Center + Main.rand.NextVector2Circular(16f, 16f) * visualIntensity,
-                    -Projectile.velocity * Main.rand.NextFloat(0.055f, 0.11f) +
+                    -frameVelocity * Main.rand.NextFloat(0.055f, 0.11f) +
                     Main.rand.NextVector2Circular(1.4f, 1.4f) * visualIntensity,
                     Main.rand.NextFloat(0.44f, 0.76f) * visualIntensity,
                     Main.rand.NextBool(3) ? Color.White : new Color(105, 185, 255),
@@ -90,12 +103,12 @@ public sealed class FranThorsHammerDrop : ModProjectile
             if ((int)age % 2 == 0)
                 FranParticleSystem.Spawn(new FranGlowOrbParticle(
                     Projectile.Center + Main.rand.NextVector2Circular(18f, 18f),
-                    -Projectile.velocity * 0.045f + Main.rand.NextVector2Circular(1f, 1f),
+                    -frameVelocity * 0.045f + Main.rand.NextVector2Circular(1f, 1f),
                     new Color(105, 185, 255), Main.rand.NextFloat(0.20f, 0.34f) * visualIntensity, 0.03f,
                     Main.rand.Next(13, 20)));
             if ((int)age % 3 == 0)
                 FranParticleSystem.Spawn(new FranHeavySmokeParticle(Projectile.Center + Main.rand.NextVector2Circular(14f, 14f),
-                    -Projectile.velocity * 0.045f, new Color(28, 44, 82), Main.rand.NextFloat(0.52f, 0.86f), 27,
+                    -frameVelocity * 0.045f, new Color(28, 44, 82), Main.rand.NextFloat(0.52f, 0.86f), 27,
                     0.56f, true));
         }
 
@@ -118,7 +131,8 @@ public sealed class FranThorsHammerDrop : ModProjectile
                 ModContent.ProjectileType<ThorsHammerBolt>(), Math.Max(1, (int)(Projectile.damage *
                     FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExplosionDamageMultiplier),
                         FranBalance.ThorsHammerExplosionDamageMultiplier))),
-                Projectile.knockBack, Projectile.owner);
+                Projectile.knockBack, Projectile.owner,
+                Projectile.velocity.X * Projectile.MaxUpdates, Projectile.velocity.Y * Projectile.MaxUpdates);
         Projectile.netUpdate = true;
         Projectile.Kill();
     }
@@ -144,16 +158,36 @@ public sealed class FranThorsHammerDrop : ModProjectile
             76f * visualIntensity, 0.72f * visualIntensity, true);
         FranVfx.EndAdditive();
 
+        // A narrow blue silhouette underneath the original hammer, with no change to its trail.
+        for (int i = 0; i < 8; i++)
+        {
+            Vector2 offset = (MathHelper.TwoPi * i / 8f).ToRotationVector2() * 2f;
+            Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition + offset, null,
+                new Color(50, 135, 255), Projectile.rotation, origin, 1.05f, SpriteEffects.None, 0f);
+        }
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null, Color.White,
             Projectile.rotation, origin, 1.05f, SpriteEffects.None, 0f);
         return false;
     }
 
-    private NPC GetTrackedTarget()
+    private void UpdateTrackedTarget()
     {
-        if (TargetIndex < 0 || !Main.npc.IndexInRange(TargetIndex))
-            return null;
-        NPC target = Main.npc[TargetIndex];
-        return target.active && !target.friendly && target.life > 0 ? target : null;
+        if (Main.myPlayer != Projectile.owner)
+            return;
+        NPC target = FranHammerTargeting.Resolve(Main.player[Projectile.owner], TargetIndex);
+        int encoded = target is null ? 0 : target.whoAmI + 1;
+        if (encoded != PackedTarget)
+        {
+            int mode = (int)Projectile.ai[2] / PackedTargetStride;
+            Projectile.ai[2] = mode * PackedTargetStride + encoded;
+            if (target is not null)
+            {
+                Projectile.ai[0] = target.Center.X;
+                Projectile.ai[1] = target.Center.Y;
+            }
+            Projectile.netUpdate = true;
+        }
     }
+
+    private NPC GetTrackedTarget() => FranHammerTargeting.GetLockedTarget(TargetIndex);
 }

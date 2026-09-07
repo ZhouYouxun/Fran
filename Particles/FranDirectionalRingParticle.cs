@@ -11,9 +11,10 @@ internal sealed class FranDirectionalRingParticle : FranParticle
     private readonly Vector2 startScale;
     private readonly Vector2 endScale;
     private readonly float spin;
+    private readonly bool preserveCircularShape;
 
     public FranDirectionalRingParticle(Vector2 position, Vector2 velocity, Color color, Vector2 startScale,
-        Vector2 endScale, float rotation, int lifetime, float spin = 0f)
+        Vector2 endScale, float rotation, int lifetime, float spin = 0f, bool preserveCircularShape = false)
     {
         Position = position;
         Velocity = velocity;
@@ -23,6 +24,7 @@ internal sealed class FranDirectionalRingParticle : FranParticle
         Rotation = rotation;
         Lifetime = lifetime;
         this.spin = spin;
+        this.preserveCircularShape = preserveCircularShape;
     }
 
     protected override void Update()
@@ -39,6 +41,6 @@ internal sealed class FranDirectionalRingParticle : FranParticle
             Color * (0.70f * fade), Rotation, size);
         FranParticleAssets.DrawParticle(spriteBatch, nameof(FranDirectionalRingParticle), Position,
             Color.White * (0.38f * fade), Rotation,
-            size * new Vector2(0.72f, 0.58f));
+            size * (preserveCircularShape ? Vector2.One * 0.65f : new Vector2(0.72f, 0.58f)));
     }
 }

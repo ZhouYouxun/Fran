@@ -110,7 +110,7 @@ internal static class FranProjectileTrailRenderer
                 float completion = i / (float)(points.Count - 1);
                 float fade = MathF.Pow(1f - completion, 0.58f) * opacity;
                 float segmentWidth = WidthEnvelope(profile, width, completion);
-                FranVfx.DrawVertical("Cal_BloomLineSoftEdge", points[i], points[i - 1],
+                FranVfx.DrawVertical("BloomLineSoftEdge", points[i], points[i - 1],
                     color * (fade * 0.32f), MathHelper.Clamp(segmentWidth * 1.9f, 2f, 86f));
                 FranVfx.DrawVertical("Cal_ThinEndedLine", points[i], points[i - 1],
                     Color.Lerp(color, Color.White, 0.64f) * (fade * 0.68f),

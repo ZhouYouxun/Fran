@@ -65,7 +65,7 @@ public sealed class FranReplaySlash : ModProjectile
             if (point == Projectile.Size * 0.5f || Vector2.DistanceSquared(point, previous) > 72f * 72f)
                 continue;
             float fade = 1f - i / (float)Projectile.oldPos.Length;
-            FranVfx.DrawVertical("Cal_BloomLineSoftEdge", point, previous,
+            FranVfx.DrawVertical("BloomLineSoftEdge", point, previous,
                 new Color(220, 245, 255) * (fade * 0.38f * Projectile.Opacity), 13f * fade + 2f);
         }
         FranVfx.DrawOriginalPixels("FranSmearForward", Projectile.Center - direction * 24f,

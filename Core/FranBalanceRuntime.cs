@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
+using FranMod.Content.Items;
 using Terraria;
 using Terraria.GameContent.Events;
 
@@ -45,19 +46,7 @@ public static partial class FranBalance
     // 实际槽位由下方 TacticSlotProgression 决定，月亮领主后开放最终第四格。
     public static int TacticStorageCapacity = 4;
 
-    // 技能轮仍以四个叙事阶段展示。它只控制 UI 阶段文字；真正能否使用以上面的 Boss 条件表为准。
-    public static int[] TacticDisplayStages =
-    {
-        1, // 念动弹射
-        1, // 技能夺取者
-        1, // 魔力屏障
-        2, // 多重分体
-        2, // 蓝辉共鸣
-        3, // 雷链
-        4, // 压缩居合
-        4  // 雷神之锤
-    };
-
+    // 这四档只用于魔石回廊的人物成长判定，不再用来拼接战术解锁文字。
     public static object[,] TacticStageProgression =
     {
         { FranProgressionMilestone.Initial,                 1 }, // 第一阶段：开局
@@ -77,9 +66,9 @@ public static partial class FranBalance
     public static float[] ComboDamageMultipliers =
     {
         1.00f, // 第一剑：横斩
-        0.82f, // 第二剑：回旋
-        1.38f, // 第三剑：重斩
-        1.48f  // 第四剑：突刺终结
+        1.20f, // 第二剑：回旋
+        1.00f, // 第三剑：重斩
+        1.20f  // 第四剑：定向推出
     };
 
     public static float[] ComboBaseDurationFrames =
@@ -87,7 +76,7 @@ public static partial class FranBalance
         21f, // 第一剑
         22f, // 第二剑
         19f, // 第三剑
-        25f  // 第四剑
+        22f  // 第四剑：定向推出并收回
     };
 
     // =====================================================================
@@ -146,17 +135,7 @@ public static partial class FranBalance
     public static float EvolutionResonantPullSpeedCap = 12f;            // 共鸣牵引速度上限
 
     public static int UltimateChargeDurationFrames = 10800;    // 黑天虎自然充能：180 秒
-    public static float UltimateStrikeDamageMultiplier = 1.15f;// 大招每次普通斩的基础倍率
-    public static int UltimateNormalStrikeCount = 36;          // 普通高速斩次数（原18次整体翻倍）
-    public static int UltimateStartingStrikeFrames = 9;        // 第一轮普通斩耗时
-    public static int UltimateEndingStrikeFrames = 4;          // 最后一轮普通斩耗时
-    public static int UltimateStartingDriftFrames = 6;         // 第一轮命中漂移耗时
-    public static int UltimateEndingDriftFrames = 2;           // 最后一轮命中漂移耗时
-    public static int UltimateFinalPauseFrames = 20;           // 终结斩前停顿
-    public static int UltimateFinalStrikeFrames = 9;           // 终结斩耗时
-    public static float UltimateFinalStrikeDamageMultiplier = 5f;   // 终结斩伤害倍率
-    public static float UltimateNormalRiftDamageMultiplier = 0.42f; // 普通斩裂隙激光倍率
-    public static float UltimateFinalRiftDamageMultiplier = 0.55f;  // 终结斩裂隙激光倍率
+    // 大招伤害与出刀节奏集中在 FranBalance.cs 的黑天虎大招区域。
 
     // =====================================================================
     // 魔石回廊点数上限与念动飞行
@@ -188,6 +167,22 @@ public static partial class FranBalance
     public static FranProgressionMilestone InfiniteFlightMilestone = FranProgressionMilestone.EmpressOfLight;
 
     public static int GetBaseDamage()
+    {
+        Player player = Main.myPlayer >= 0 && Main.myPlayer < Main.maxPlayers
+            ? Main.player[Main.myPlayer]
+            : null;
+        return GetBaseDamage(player);
+    }
+
+    public static int GetBaseDamage(Player player)
+    {
+        int damage = GetProgressionBaseDamage();
+        return FranDamageDebugger.TryGetFavoritedDamage(player, out int debugDamage)
+            ? debugDamage
+            : damage;
+    }
+
+    public static int GetProgressionBaseDamage()
     {
         GetCurrentCoreProgression(out int damage, out _, out _);
         return damage;
@@ -235,6 +230,9 @@ public static partial class FranBalance
             sizeMultiplier = Math.Max(0.1f, candidateSize);
             dashDamage = Math.Max(1, candidateDashDamage);
         }
+
+        // 月亮领主后允许一个可选大型模组提供额外数值成长；战术解锁和槽位不受影响。
+        ApplyOptionalPostMoonLordProgression(ref damage, ref dashDamage);
     }
 
     private static int GetInitialBaseDamageFallback()
@@ -271,13 +269,6 @@ public static partial class FranBalance
             if (candidate == skill)
                 return IsMilestoneCompleted(milestone);
         return false;
-    }
-
-    public static int GetTacticDisplayStage(FranSkill skill)
-    {
-        int index = (int)skill;
-        int[] values = FranBalanceSource.GetIntArray(nameof(TacticDisplayStages), TacticDisplayStages);
-        return index >= 0 && index < values.Length ? Math.Clamp(values[index], 1, 4) : 1;
     }
 
     public static int GetCurrentTacticStage() =>
@@ -405,21 +396,16 @@ public static partial class FranBalance
 
     private static int GetDamageProgressionRank(FranProgressionMilestone milestone) => milestone switch
     {
-        FranProgressionMilestone.Initial or FranProgressionMilestone.KingSlime => 0,
+        FranProgressionMilestone.Initial => 0,
         FranProgressionMilestone.EyeOfCthulhu => 10,
-        FranProgressionMilestone.EaterOfWorlds or FranProgressionMilestone.BrainOfCthulhu or
-            FranProgressionMilestone.AnyEvilBoss or FranProgressionMilestone.QueenBee or
-            FranProgressionMilestone.Deerclops => 20,
-        FranProgressionMilestone.Skeletron or FranProgressionMilestone.DarkMage => 30,
-        FranProgressionMilestone.WallOfFlesh or FranProgressionMilestone.QueenSlime => 40,
-        FranProgressionMilestone.Destroyer or FranProgressionMilestone.Twins or
-            FranProgressionMilestone.SkeletronPrime or FranProgressionMilestone.AnyMechanicalBoss or
-            FranProgressionMilestone.Ogre => 50,
+        FranProgressionMilestone.AnyEvilBoss => 20,
+        FranProgressionMilestone.Skeletron => 30,
+        FranProgressionMilestone.WallOfFlesh => 40,
+        FranProgressionMilestone.AnyMechanicalBoss => 50,
         FranProgressionMilestone.AnyTwoMechanicalBosses => 60,
         FranProgressionMilestone.AllMechanicalBosses => 70,
-        FranProgressionMilestone.Plantera or FranProgressionMilestone.DukeFishron or
-            FranProgressionMilestone.EmpressOfLight => 80,
-        FranProgressionMilestone.Golem or FranProgressionMilestone.Betsy => 90,
+        FranProgressionMilestone.Plantera => 80,
+        FranProgressionMilestone.Golem => 90,
         FranProgressionMilestone.LunaticCultist => 100,
         FranProgressionMilestone.MoonLord => 110,
         _ => -1

@@ -14,11 +14,70 @@ internal enum FranFlatLightningPalette
     ThorsHammer
 }
 
-// 雷电本体不绘制贴图。它以高更新率扫过路径，并用本模组的亮色粒子留下短促电迹。
+// Shared visual-only discharge: frozen pixel fractures plus original single-frame after-arcs.
 internal static class FranFlatLightningEffects
 {
     private const int UpdatesPerTick = 11;
     private const float GoldenAngle = 2.39996323f;
+
+    public static Color BodyColor(FranFlatLightningPalette palette) =>
+        palette == FranFlatLightningPalette.ThorsHammer ? new Color(92, 196, 255) : new Color(150, 112, 255);
+
+    public static Color EdgeColor(FranFlatLightningPalette palette) =>
+        palette == FranFlatLightningPalette.ThorsHammer ? new Color(194, 242, 255) : new Color(112, 213, 255);
+
+    public static void Fracture(Vector2 start, Vector2 end, float intensity,
+        FranFlatLightningPalette palette, int seed, float growthFrames = 3f, int lifetime = 16)
+    {
+        if (Main.dedServ || Main.gameMenu || !Visible(start, end) || FranParticleSystem.FreeSlots < 12)
+            return;
+        float distance = Vector2.Distance(start, end);
+        if (!float.IsFinite(distance) || distance < 7f || distance > 2400f)
+            return;
+        FranParticleSystem.Spawn(new FranFissionArcParticle(start, end, BodyColor(palette),
+            MathHelper.Clamp(2.5f * intensity, 0.8f, 6.5f), seed, lifetime, growthFrames));
+    }
+
+    public static void Burst(Vector2 center, float intensity, FranFlatLightningPalette palette,
+        int count, float radius, bool ground = false, float innerRadius = 7f)
+    {
+        if (Main.dedServ || !Visible(center, center))
+            return;
+        float phase = Main.rand.NextFloat(MathHelper.TwoPi);
+        for (int i = 0; i < Math.Clamp(count, 1, 9); i++)
+        {
+            float angle = phase + MathHelper.TwoPi * i / count + Main.rand.NextFloat(-0.22f, 0.22f);
+            Vector2 direction = angle.ToRotationVector2();
+            Vector2 reach = direction * radius * Main.rand.NextFloat(0.65f, 1.12f);
+            if (ground)
+                reach.Y *= 0.28f;
+            Vector2 start = center + reach.SafeNormalize(Vector2.UnitX) * Math.Max(0f, innerRadius);
+            Fracture(start, center + reach, intensity, palette, Main.rand.Next(), 2.5f, 14);
+            EmitPoint(center + reach * 0.55f, reach, intensity, palette, i * 2);
+        }
+    }
+
+    // Spatial sampling keeps fast long links continuous without increasing damaging projectile updates.
+    public static void EmitSpan(Vector2 start, Vector2 end, float intensity,
+        FranFlatLightningPalette palette, int phase)
+    {
+        if (Main.dedServ || !Visible(start, end))
+            return;
+        float length = Vector2.Distance(start, end);
+        if (!float.IsFinite(length) || length < 0.5f)
+            return;
+        int samples = Math.Clamp((int)MathF.Ceiling(length / 24f), 1, 28);
+        Vector2 direction = (end - start).SafeNormalize(Vector2.UnitX);
+        for (int i = 0; i < samples; i++)
+            EmitPoint(Vector2.Lerp(start, end, (i + 0.5f) / samples), direction,
+                intensity, palette, phase + i * 2);
+    }
+
+    private static bool Visible(Vector2 start, Vector2 end) =>
+        Math.Max(start.X, end.X) >= Main.screenPosition.X - 700f &&
+        Math.Min(start.X, end.X) <= Main.screenPosition.X + Main.screenWidth + 700f &&
+        Math.Max(start.Y, end.Y) >= Main.screenPosition.Y - 700f &&
+        Math.Min(start.Y, end.Y) <= Main.screenPosition.Y + Main.screenHeight + 700f;
 
     public static void SpawnSegment(IEntitySource source, Vector2 start, Vector2 end, int owner,
         float intensity, FranFlatLightningPalette palette, float travelTicks)
@@ -40,7 +99,7 @@ internal static class FranFlatLightningEffects
     public static void EmitTravel(Vector2 center, Vector2 movement, float intensity,
         FranFlatLightningPalette palette, int sampleCount, int phase)
     {
-        if (Main.dedServ)
+        if (Main.dedServ || intensity <= 0.05f || !Visible(center, center))
             return;
 
         Vector2 direction = movement.SafeNormalize(Vector2.UnitX);
@@ -57,37 +116,27 @@ internal static class FranFlatLightningEffects
     public static void EmitPoint(Vector2 center, Vector2 direction, float intensity,
         FranFlatLightningPalette palette, int phase)
     {
-        if (Main.dedServ)
+        if (Main.dedServ || intensity <= 0.05f || FranParticleSystem.FreeSlots < 8 || !Visible(center, center))
             return;
 
         direction = direction.SafeNormalize(Vector2.UnitY);
         Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
         float oscillation = MathF.Sin(phase * GoldenAngle);
-        Color body = palette == FranFlatLightningPalette.ThorsHammer
-            ? new Color(92, 196, 255)
-            : new Color(142, 126, 255);
-        Color edge = palette == FranFlatLightningPalette.ThorsHammer
-            ? new Color(174, 241, 255)
-            : new Color(105, 220, 255);
+        Color body = BodyColor(palette);
+        Color edge = EdgeColor(palette);
         Color color = phase % 5 == 0 ? Color.White : Color.Lerp(body, edge, 0.5f + oscillation * 0.22f);
-        Vector2 offset = normal * oscillation * 3.4f * intensity;
+        Vector2 offset = normal * oscillation * 7f * intensity;
         Vector2 drift = -direction * (0.28f + intensity * 0.16f) + normal * oscillation * 0.36f;
 
-        FranParticleSystem.Spawn(new FranSparkParticle(center + offset, drift, color,
-            0.13f * intensity, new Vector2(0.42f, 1.75f), 9, 0.93f));
-
         if ((phase & 1) == 0)
-            FranParticleSystem.Spawn(new FranBoltParticle(center - offset * 0.45f,
-                -direction * 0.46f + normal * oscillation * 0.22f, color,
-                0.16f * intensity, new Vector2(0.46f, 1.48f), 9));
+            FranParticleSystem.Spawn(new FranArcParticle(center + offset, drift,
+                direction.RotatedBy(oscillation * 0.22f), color,
+                (48f + 18f * MathF.Abs(oscillation)) * intensity,
+                (30f + 8f * MathF.Abs(oscillation)) * intensity, 10 + Math.Abs(phase % 4)));
 
-        if (phase % 3 == 0)
+        if (phase % 5 == 0)
             FranParticleSystem.Spawn(new FranLineParticle(center, drift * 1.2f,
-                Color.Lerp(color, Color.White, 0.38f), 34f * intensity, 1.35f * intensity, 8, 0.90f));
-
-        if (phase % 7 == 0)
-            FranParticleSystem.Spawn(new FranSmallBloomParticle(center, Vector2.Zero, edge,
-                15f * intensity, 3f, 8));
+                Color.Lerp(color, Color.White, 0.38f), 22f * intensity, 1.1f * intensity, 6, 0.90f));
     }
 }
 
@@ -119,6 +168,13 @@ public sealed class FranFlatLightningVisual : ModProjectile
     public override void AI()
     {
         Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitY);
+        if (Projectile.localAI[1] == 0f)
+        {
+            float travelTicks = PathLength / Math.Max(1f, Projectile.velocity.Length()) / 11f;
+            FranFlatLightningEffects.Fracture(Projectile.Center, Projectile.Center + direction * PathLength,
+                Intensity, Palette, Projectile.identity * 397 ^ Projectile.owner,
+                MathHelper.Clamp(travelTicks, 0.8f, 5f));
+        }
         float remaining = PathLength - Projectile.localAI[0];
         float step = Math.Min(Math.Max(1f, Projectile.velocity.Length()), remaining);
         if (remaining <= 0.01f || step <= 0f)

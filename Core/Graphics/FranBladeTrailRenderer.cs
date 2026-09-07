@@ -11,7 +11,7 @@ namespace FranMod.Core.Graphics;
 // screen-spanning triangle. Animated radial waves provide the flowing Exoblade-like material.
 internal static class FranBladeTrailRenderer
 {
-    private const float MaximumWorldRadius = 284f;
+    private const float MaximumWorldRadius = 512f;
     private const float MaximumSegmentLength = 44f;
 
     public static bool TryDrawSlash(Vector2 pivot, float bladeAngle, float bladeReach, float swingProgress,
@@ -23,7 +23,7 @@ internal static class FranBladeTrailRenderer
 
         style = Math.Clamp(style, 0, 3);
         swingDirection = swingDirection < 0 ? -1 : 1;
-        bladeReach = MathHelper.Clamp(bladeReach, 24f, 212f);
+        bladeReach = MathHelper.Clamp(bladeReach, 24f, MaximumWorldRadius - 32f);
         visualStrength = MathHelper.Clamp(visualStrength, 0f, 1f);
         swingProgress = MathHelper.Clamp(swingProgress, 0f, 1f);
         if (visualStrength <= 0.018f)
@@ -46,7 +46,7 @@ internal static class FranBladeTrailRenderer
 
         style = Math.Clamp(style, 0, 3);
         swingDirection = swingDirection < 0 ? -1 : 1;
-        bladeReach = MathHelper.Clamp(bladeReach, 24f, 212f);
+        bladeReach = MathHelper.Clamp(bladeReach, 24f, MaximumWorldRadius - 32f);
         visualStrength = MathHelper.Clamp(visualStrength, 0f, 1f);
         int samples = style == 3 ? 15 : 24;
         float span = ArcSpan(style) * (0.70f + visualStrength * 0.30f);
@@ -80,8 +80,10 @@ internal static class FranBladeTrailRenderer
     {
         int samples = style switch { 1 => 48, 2 => 44, _ => 40 };
         float span = ArcSpan(style) * (0.70f + visualStrength * 0.30f);
-        float radius = bladeReach * (style == 1 ? 0.73f : style == 2 ? 0.76f : 0.78f);
         float baseHalfWidth = style switch { 1 => 31f, 2 => 43f, _ => 29f };
+        // bladeReach 现在同时是剑尖与碰撞终点；将弧面主体放在剑尖内侧一个半宽处，
+        // 使外缘落在同一半径，而不是只画到判定长度的约四分之三。
+        float radius = Math.Max(24f, bladeReach - baseHalfWidth * 0.82f);
         float time = Main.GlobalTimeWrappedHourly;
         Color darkBody = Color.Lerp(style == 2 ? new Color(17, 12, 31) : new Color(10, 22, 35),
             energyColor, style == 2 ? 0.24f : 0.30f);
@@ -108,7 +110,7 @@ internal static class FranBladeTrailRenderer
             {
                 float fade = MathF.Pow(1f - (previousCompletion + completion) * 0.5f, 0.54f) * visualStrength;
                 float width = MathHelper.Clamp((previousHalfWidth + halfWidth) * 1.12f, 5f, 92f);
-                DrawSafeSegment("BloomLineFade", previousCenter, center, pivot,
+                DrawSafeSegment("BloomLineSoftEdge", previousCenter, center, pivot,
                     darkBody * (0.90f * fade), width);
                 DrawSafeSegment("BloomLineSoftEdge", previousCenter, center, pivot,
                     energyColor * (0.13f * fade), width * 0.72f);
@@ -185,7 +187,7 @@ internal static class FranBladeTrailRenderer
             Vector2 center = pivot + blade * (startDistance + usableLength * completion) +
                 normal * MathF.Sin(completion * 34f - time * 5.6f) * 1.8f;
             if (i > 0)
-                DrawSafeSegment("BloomLineFade", previousCenter, center, pivot,
+                DrawSafeSegment("BloomLineSoftEdge", previousCenter, center, pivot,
                     darkBody * (0.90f * visualStrength), (previousWidth + halfWidth) * 1.16f);
             previousCenter = center;
             previousWidth = halfWidth;

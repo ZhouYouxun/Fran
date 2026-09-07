@@ -39,6 +39,9 @@ public sealed class FranClientConfig : ModConfig
     [DefaultValue(true)]
     public bool EnableVideoPlayback = true;
 
+    [DefaultValue(false)]
+    public bool EnableFloatingTeacherVisual;
+
     // The old setting was named ShowUltimateGauge and defaulted to false, which made the
     // three-minute resource invisible on a fresh install.  A negative option also migrates
     // existing config files safely: the retired false value cannot keep suppressing the HUD.

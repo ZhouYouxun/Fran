@@ -100,9 +100,9 @@ public sealed class MagicBarrierProjectile : ModProjectile
         if (Projectile.ai[2] > 0f)
             FranVfx.DrawShared("Crack", Projectile.Center, new Color(170, 225, 255) * (0.16f + Projectile.ai[2] * 0.09f),
                 Projectile.rotation, new Vector2(0.20f, 0.38f));
-        FranVfx.DrawVertical("Cal_BloomLineSoftEdge", Projectile.Center - axis - side,
+        FranVfx.DrawVertical("BloomLineSoftEdge", Projectile.Center - axis - side,
             Projectile.Center + axis - side, color * 0.58f, 15f);
-        FranVfx.DrawVertical("Cal_BloomLineThick", Projectile.Center - axis + side,
+        FranVfx.DrawVertical("BloomLineSoftEdge", Projectile.Center - axis + side,
             Projectile.Center + axis + side, Color.White * 0.72f, 5f);
         for (int i = -3; i <= 3; i++)
             FranVfx.DrawVertical("Cal_ThinEndedLine", Projectile.Center + axis * (i / 3f) - side,

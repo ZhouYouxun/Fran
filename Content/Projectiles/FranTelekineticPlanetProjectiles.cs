@@ -32,38 +32,41 @@ internal static class FranPlanetVisuals
         _ => new Color(171, 91, 245)
     };
 
-    public static Vector2 RandomSpawnAround(Vector2 focus)
-    {
-        float angle = Main.rand.NextFloat(MathHelper.TwoPi);
-        float radius = Main.rand.NextFloat(510f, 720f);
-        return focus + angle.ToRotationVector2() * radius;
-    }
 }
 
 /// <summary>
-/// 六体念动力坠落链：星体依次在目标周围显现，蓄力后高速砸向目标附近。
+/// 六体念动力引力坠落：星体高速入轨、稳定公转，再维持角速度螺旋坠向锁定目标。
 /// </summary>
 public sealed class FranTelekineticPlanet : ModProjectile
 {
-    private const int ChargingExtraUpdates = 3;
-    private const int ChargingUpdatesPerTick = ChargingExtraUpdates + 1;
-    private const int FlightExtraUpdates = 30;
-    private const int ChainDelayTicks = 9;
-    private const int ChargeTicks = 45;
+    // 蓄力附加层暂时关闭；代码保留，便于以后单独恢复。
+    private static readonly bool ChargeVisualsEnabled = false;
+    internal const int PlanetCount = 6;
+    private const int OrbitIngressTicks = 42;
+    private const int StableOrbitTicks = 18;
+    private const int CollapseStaggerTicks = 3;
+    private const int SpiralCollapseTicks = 30;
     private const int FadeOutTicks = 12;
-    private const float LaunchedMarker = 100f;
-    private int Variant => Math.Clamp((int)Projectile.ai[0], 0, 9);
+    private const float InitialRadiusOffset = 200f;
+    private const float StableAngularSpeed = 0.042f;
+    private const float InitialAngularBoost = 0.18f;
+    private int EncodedAppearance => Math.Max(0, (int)Projectile.ai[0]);
+    private int Variant => EncodedAppearance % 10;
+    private int OrbitSlot => Math.Clamp(EncodedAppearance / 10, 0, PlanetCount - 1);
     private ref float EncodedTarget => ref Projectile.ai[1];
-    private ref float State => ref Projectile.ai[2];
-    private int RemainingChain => State is > 0f and < LaunchedMarker ? Math.Clamp((int)State, 0, 5) : 0;
-    private bool Launched => State >= LaunchedMarker;
-    private bool FadingOut => State < 0f;
-    private float AgeTicks => Projectile.localAI[0];
+    private ref float StateTimer => ref Projectile.ai[2];
+    private bool FadingOut => StateTimer < 0f;
+    private float AgeTicks => Math.Max(0f, StateTimer);
+    private float SpiralStartTick => OrbitIngressTicks + StableOrbitTicks + OrbitSlot * CollapseStaggerTicks;
+    private bool Spiraling => !FadingOut && AgeTicks >= SpiralStartTick;
     private ref float FadeOutTimer => ref Projectile.localAI[1];
-    private ref float FlightAgeTicks => ref Projectile.localAI[2];
     private float Diameter => 54f + (uint)Projectile.identity % 17u;
     private float Spin => (Projectile.identity % 2 == 0 ? 1f : -1f) *
         (0.035f + (uint)Projectile.identity % 9u * 0.004f);
+    private Vector2 lastFocus;
+    private bool focusInitialized;
+    private float lockedOrbitRadius;
+    private bool orbitRadiusInitialized;
 
     public override string Texture => FranPlanetVisuals.TexturePath(0);
 
@@ -86,113 +89,140 @@ public sealed class FranTelekineticPlanet : ModProjectile
         Projectile.tileCollide = false;
         Projectile.ignoreWater = true;
         Projectile.netImportant = true;
-        Projectile.extraUpdates = ChargingExtraUpdates;
+        Projectile.extraUpdates = 0;
         Projectile.usesLocalNPCImmunity = true;
         Projectile.localNPCHitCooldown = -1;
     }
 
-    public override bool? CanDamage() => Launched && !FadingOut ? null : false;
+    public override bool ShouldUpdatePosition() => false;
+
+    public override bool? CanDamage() => Spiraling ? null : false;
+
+    public override bool? CanHitNPC(NPC target)
+    {
+        NPC lockedTarget = ResolveTarget();
+        return Spiraling && lockedTarget is not null && target.whoAmI == lockedTarget.whoAmI
+            ? null
+            : false;
+    }
 
     public override void AI()
     {
-        if (Projectile.numUpdates == 0)
-            Projectile.localAI[0]++;
-
         if (FadingOut)
         {
             UpdateFadeOut();
             return;
         }
 
-        if (!Launched)
-        {
-            Projectile.velocity = Vector2.Zero;
-            Projectile.Opacity = MathHelper.SmoothStep(0f, 1f,
-                MathHelper.Clamp(AgeTicks / 16f, 0f, 1f));
-            if (Projectile.numUpdates == 0)
-            {
-                Projectile.rotation += Spin;
-                if (AgeTicks >= ChainDelayTicks && RemainingChain > 0)
-                    SpawnNextPlanet();
-                if (AgeTicks >= ChargeTicks)
-                    LaunchAtTarget();
-                else
-                    SpawnChargeParticles();
-            }
-            return;
-        }
-
-        UpdateFlight();
+        StateTimer++;
+        UpdateOrbitalMotion();
     }
 
-    private void SpawnNextPlanet()
+    internal static int EncodeAppearance(int variant, int orbitSlot) =>
+        Math.Clamp(variant, 0, 9) + Math.Clamp(orbitSlot, 0, PlanetCount - 1) * 10;
+
+    internal static Vector2 InitialOrbitPosition(Vector2 focus, NPC target, int owner, int orbitSlot)
     {
-        int remaining = RemainingChain;
-        if (remaining <= 0 || Projectile.owner != Main.myPlayer)
-            return;
-
-        Player owner = Main.player[Projectile.owner];
-        NPC target = ResolveTarget();
-        Vector2 focus = target?.Center ?? GetFallbackAim(owner);
-        Vector2 spawn = FranPlanetVisuals.RandomSpawnAround(focus);
-        int nextVariant = (Variant + 3 + remaining * 2 + Main.rand.Next(3)) % 10;
-        int childIndex = Projectile.NewProjectile(Projectile.GetSource_FromThis(), spawn, Vector2.Zero,
-            Type, Projectile.damage, Projectile.knockBack, Projectile.owner, nextVariant,
-            target is null ? 0f : target.whoAmI + 1f, remaining - 1f);
-        if (Main.projectile.IndexInRange(childIndex))
-        {
-            Main.projectile[childIndex].scale = Projectile.scale;
-            Main.projectile[childIndex].netUpdate = true;
-        }
-
-        State = 0f;
-        Projectile.netUpdate = true;
+        float phase = InitialOrbitPhase(owner, target?.whoAmI ?? -1, orbitSlot);
+        float radius = StableOrbitRadius(target) + InitialRadiusOffset;
+        return focus + phase.ToRotationVector2() * radius;
     }
 
-    private void LaunchAtTarget()
+    private void UpdateOrbitalMotion()
     {
         Player owner = Main.player[Projectile.owner];
         NPC target = ResolveTarget();
-        Vector2 aim = target?.Center ?? GetFallbackAim(owner);
+        Vector2 focus = ResolveFocus(owner, target);
+        if (!orbitRadiusInitialized)
+        {
+            lockedOrbitRadius = StableOrbitRadius(target);
+            orbitRadiusInitialized = true;
+        }
+        float stableRadius = lockedOrbitRadius;
+        float radius;
+        if (AgeTicks < OrbitIngressTicks)
+        {
+            float ingress = MathHelper.Clamp(AgeTicks / OrbitIngressTicks, 0f, 1f);
+            radius = MathHelper.Lerp(stableRadius + InitialRadiusOffset, stableRadius,
+                MathHelper.SmoothStep(0f, 1f, ingress));
+        }
+        else if (!Spiraling)
+        {
+            radius = stableRadius;
+        }
+        else
+        {
+            float collapse = MathHelper.Clamp((AgeTicks - SpiralStartTick) / SpiralCollapseTicks, 0f, 1f);
+            float gravitationalFall = collapse * collapse;
+            radius = MathHelper.Lerp(stableRadius, 0f, gravitationalFall);
+        }
+
+        float angle = CalculateOrbitAngle(AgeTicks);
+        Vector2 previousCenter = Projectile.Center;
+        Projectile.Center = focus + angle.ToRotationVector2() * radius;
+        Projectile.velocity = Projectile.Center - previousCenter;
+        Projectile.rotation += Spin;
+        Projectile.Opacity = MathHelper.SmoothStep(0f, 1f,
+            MathHelper.Clamp(AgeTicks / 14f, 0f, 1f));
+
+        if (ChargeVisualsEnabled && !Spiraling)
+            SpawnChargeParticles();
+        if (Spiraling)
+            UpdateSpiralEffects();
+
+        if (AgeTicks >= SpiralStartTick + SpiralCollapseTicks)
+        {
+            SpawnImpactExplosion(Projectile.velocity);
+            BeginFadeOut();
+        }
+    }
+
+    private float CalculateOrbitAngle(float age)
+    {
+        float decelerationAge = Math.Min(age, OrbitIngressTicks);
+        float boostAngle = InitialAngularBoost *
+            (decelerationAge - decelerationAge * decelerationAge / (2f * OrbitIngressTicks));
+        return InitialOrbitPhase(Projectile.owner, (int)EncodedTarget - 1, OrbitSlot) +
+            StableAngularSpeed * age + boostAngle;
+    }
+
+    private Vector2 ResolveFocus(Player owner, NPC target)
+    {
         if (target is not null)
-            aim += target.velocity * 8f;
-        aim += GetImpactOffset();
+        {
+            lastFocus = target.Center;
+            focusInitialized = true;
+            return lastFocus;
+        }
 
-        Vector2 direction = (aim - Projectile.Center).SafeNormalize(Vector2.UnitY);
-        State = LaunchedMarker;
-        Projectile.extraUpdates = FlightExtraUpdates;
-        Projectile.tileCollide = true;
-        Projectile.velocity = direction * 8f;
-        Projectile.rotation = direction.ToRotation() + MathHelper.PiOver2;
-        Projectile.timeLeft = Math.Min(Projectile.timeLeft, 420);
-        Projectile.netUpdate = true;
-
-        if (Main.dedServ)
-            return;
-
-        Color color = FranPlanetVisuals.Palette(Variant);
-        FranParticleEffects.BloomPulse(Projectile.Center, color, 42f, 5f, 17, 0.88f, true);
-        FranParticleEffects.BloomPulse(Projectile.Center, Color.White, 28f, 3f, 14, 0.92f, true);
-        FranParticleEffects.RingPulse(Projectile.Center, Color.Lerp(color, Color.White, 0.38f),
-            Vector2.One * 18f, new Vector2(108f, 24f), 16,
-            direction.ToRotation(), 0f, 0.86f);
-        FranParticleEffects.LineRelease(Projectile.Center - direction * 32f,
-            Projectile.Center + direction * 92f, Color.Lerp(color, Color.White, 0.52f), 10, 1.2f);
-        SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.58f, Pitch = 0.12f }, Projectile.Center);
+        if (!focusInitialized)
+        {
+            float phase = InitialOrbitPhase(Projectile.owner, (int)EncodedTarget - 1, OrbitSlot);
+            lastFocus = Projectile.Center - phase.ToRotationVector2() *
+                (StableOrbitRadius(null) + InitialRadiusOffset);
+            if (!float.IsFinite(lastFocus.X) || !float.IsFinite(lastFocus.Y))
+                lastFocus = GetFallbackAim(owner);
+            focusInitialized = true;
+        }
+        return lastFocus;
     }
 
-    private Vector2 GetImpactOffset()
+    private static float InitialOrbitPhase(int owner, int targetIndex, int orbitSlot) =>
+        owner * 0.61f + Math.Max(0, targetIndex) * 0.37f +
+        MathHelper.TwoPi * Math.Clamp(orbitSlot, 0, PlanetCount - 1) / PlanetCount;
+
+    private static float StableOrbitRadius(NPC target)
     {
-        // 六次落点沿黄金角错开，保持可靠命中的同时避免砸在同一个像素上。
-        float angle = Projectile.identity * 2.399963f + Variant * 0.83f;
-        float radius = 34f + (uint)Projectile.identity % 4u * 8f;
-        return angle.ToRotationVector2() * radius;
+        float targetExtent = target is null
+            ? 40f
+            : Math.Max(target.width, target.height) * 0.5f;
+        return MathHelper.Clamp(targetExtent + 150f, 200f, 620f);
     }
 
     private void SpawnChargeParticles()
     {
         Color color = FranPlanetVisuals.Palette(Variant);
-        float charge = MathHelper.Clamp(AgeTicks / ChargeTicks, 0f, 1f);
+        float charge = MathHelper.Clamp(AgeTicks / OrbitIngressTicks, 0f, 1f);
         Lighting.AddLight(Projectile.Center, color.ToVector3() * (0.20f + charge * 0.54f));
         if (Main.dedServ)
             return;
@@ -213,23 +243,20 @@ public sealed class FranTelekineticPlanet : ModProjectile
                 0.30f + charge * 0.24f, 12));
     }
 
-    private void UpdateFlight()
+    private void UpdateSpiralEffects()
     {
-        Projectile.rotation = Projectile.velocity.ToRotation() + MathHelper.PiOver2;
         Projectile.Opacity = 1f;
         Color color = FranPlanetVisuals.Palette(Variant);
         Lighting.AddLight(Projectile.Center, color.ToVector3() * 0.78f);
-        if (Projectile.numUpdates == 0)
-            FlightAgeTicks++;
 
-        if (Main.dedServ || Projectile.numUpdates % 8 != 0)
+        if (Main.dedServ || (int)AgeTicks % 2 != 0)
             return;
 
-        float trailGrowth = MathHelper.Clamp(FlightAgeTicks / 7f, 0f, 1f);
-        float sine = MathF.Sin(Projectile.timeLeft * 0.475f / MathHelper.Pi);
+        float collapse = MathHelper.Clamp((AgeTicks - SpiralStartTick) / SpiralCollapseTicks, 0f, 1f);
         Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitY);
         Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
-        Vector2 offset = normal * sine * MathHelper.Lerp(16f, 50f, trailGrowth) * Projectile.scale;
+        Vector2 offset = normal * MathF.Sin(AgeTicks * 0.7f + OrbitSlot) *
+            MathHelper.Lerp(12f, 38f, collapse) * Projectile.scale;
         for (int side = -1; side <= 1; side += 2)
         {
             FranParticleSystem.Spawn(new FranSmallBloomParticle(Projectile.Center + offset * side,
@@ -266,14 +293,6 @@ public sealed class FranTelekineticPlanet : ModProjectile
         BeginFadeOut();
     }
 
-    public override bool OnTileCollide(Vector2 oldVelocity)
-    {
-        if (!FadingOut)
-            SpawnImpactExplosion(oldVelocity);
-        BeginFadeOut();
-        return false;
-    }
-
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
     {
         float nearestX = MathHelper.Clamp(Projectile.Center.X, targetHitbox.Left, targetHitbox.Right);
@@ -301,14 +320,13 @@ public sealed class FranTelekineticPlanet : ModProjectile
         if (FadingOut)
             return;
 
-        State = -1f;
+        StateTimer = -1f;
         FadeOutTimer = 0f;
         Projectile.penetrate = -1;
         Projectile.friendly = false;
         Projectile.tileCollide = false;
-        Projectile.extraUpdates = ChargingExtraUpdates;
         Projectile.velocity *= 0.18f;
-        Projectile.timeLeft = FadeOutTicks * ChargingUpdatesPerTick + 2;
+        Projectile.timeLeft = FadeOutTicks + 2;
         Projectile.netUpdate = true;
     }
 
@@ -317,6 +335,7 @@ public sealed class FranTelekineticPlanet : ModProjectile
         if (Projectile.numUpdates == 0)
         {
             FadeOutTimer++;
+            Projectile.Center += Projectile.velocity;
             Projectile.velocity *= 0.72f;
         }
 
@@ -333,14 +352,14 @@ public sealed class FranTelekineticPlanet : ModProjectile
         Texture2D texture = ModContent.Request<Texture2D>(FranPlanetVisuals.TexturePath(Variant)).Value;
         Color color = FranPlanetVisuals.Palette(Variant);
         float scale = Diameter / Math.Max(texture.Width, texture.Height) * Projectile.scale;
-        float charge = MathHelper.Clamp(AgeTicks / ChargeTicks, 0f, 1f);
+        float charge = MathHelper.Clamp(AgeTicks / OrbitIngressTicks, 0f, 1f);
         Vector2 visualCenter = Projectile.Center;
-        if (!Launched && !FadingOut)
+        if (!Spiraling && !FadingOut)
             visualCenter += Vector2.UnitY * MathF.Sin(AgeTicks * 0.22f + Projectile.identity) * 4f;
 
-        FranVfx.BeginAdditive();
-        if (!Launched && !FadingOut)
+        if (ChargeVisualsEnabled && !Spiraling && !FadingOut)
         {
+            FranVfx.BeginAdditive();
             float chargePower = charge * charge * charge;
             FranVfx.DrawBloom(visualCenter, color,
                 MathHelper.Lerp(Diameter * 0.74f, Diameter * 2.8f, chargePower),
@@ -352,9 +371,11 @@ public sealed class FranTelekineticPlanet : ModProjectile
                 MathHelper.Lerp(Diameter * 0.90f, Diameter * 0.56f, charge),
                 (0.18f + charge * 0.28f) * Projectile.Opacity,
                 -Projectile.rotation * 1.6f, "BloomRing");
+            FranVfx.EndAdditive();
         }
-        else if (Launched)
+        else if (Spiraling)
         {
+            FranVfx.BeginAdditive();
             Vector2 direction = Projectile.velocity.SafeNormalize(Vector2.UnitY);
             for (int i = 0; i < 8; i++)
             {
@@ -365,8 +386,8 @@ public sealed class FranTelekineticPlanet : ModProjectile
             }
             FranVfx.DrawBloom(Projectile.Center, color, Diameter * 1.22f,
                 0.46f * Projectile.Opacity);
+            FranVfx.EndAdditive();
         }
-        FranVfx.EndAdditive();
 
         Main.EntitySpriteDraw(texture, visualCenter - Main.screenPosition, null,
             Color.White * Projectile.Opacity, Projectile.rotation, texture.Size() * 0.5f,

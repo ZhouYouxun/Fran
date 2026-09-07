@@ -133,6 +133,9 @@ public sealed class FranThunderDropVisual : ModProjectile
     {
         Color violet = new(155, 125, 255);
         Color azure = new(125, 205, 255);
+        FranFlatLightningEffects.Burst(Projectile.Center, Finisher ? 0.95f : MainStrike ? 0.75f : 0.45f,
+            FranFlatLightningPalette.ThunderChain, Finisher ? 7 : MainStrike ? 5 : 3,
+            Finisher ? 178f : MainStrike ? 126f : 54f, ground: MainStrike);
         if (!MainStrike)
         {
             FranLightingBoltsSystem.SpawnThunderImpact(Projectile.Center, violet, 0.54f);
@@ -145,8 +148,6 @@ public sealed class FranThunderDropVisual : ModProjectile
         }
 
         float intensity = Finisher ? 1.32f : 1f;
-        FranBurst.SpawnForOwner(Projectile.GetSource_FromThis(), Projectile.Center, Projectile.owner,
-            FranBurstStyle.Lightning, Finisher ? 1.78f : 1.48f);
         FranLightingBoltsSystem.SpawnThunderImpact(Projectile.Center, violet, 1.18f * intensity);
         FranVfx.SparkBurst(Projectile.Center, azure, Finisher ? 22 : 16,
             Finisher ? 10.5f : 8.2f, Finisher ? 1.15f : 0.92f);

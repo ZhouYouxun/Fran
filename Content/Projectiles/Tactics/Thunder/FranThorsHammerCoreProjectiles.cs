@@ -1,6 +1,7 @@
 using System;
 using FranMod.Content.Players;
 using FranMod.Core;
+using FranMod.Core.Graphics;
 using FranMod.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -28,9 +29,17 @@ public sealed class ThorsHammerMarker : ModProjectile
     public override bool ShouldUpdatePosition() => false;
     public override void AI()
     {
+        UpdateTargetSelection();
         NPC trackedTarget = GetTrackedTarget();
-        if (trackedTarget is not null)
-            Projectile.Center = trackedTarget.Center;
+        if (trackedTarget is null)
+        {
+            // With no enemy there is no arbitrary cursor/ground strike. Allow the remaining windup
+            // to acquire a target, but never release an untargeted falling hammer.
+            if (Projectile.timeLeft <= 25)
+                Projectile.Kill();
+            return;
+        }
+        Projectile.Center = trackedTarget.Center;
 
         float age = 75f - Projectile.timeLeft;
         float focus = FranMotion.EaseInCubic(FranMotion.Segment(age, 10f, 49f));
@@ -62,7 +71,8 @@ public sealed class ThorsHammerMarker : ModProjectile
             if (Main.myPlayer == Projectile.owner)
             {
                 Vector2 spawn = Projectile.Center + new Vector2(Main.rand.NextFloat(-130f, 130f), -720f);
-                Vector2 velocity = (Projectile.Center - spawn).SafeNormalize(Vector2.UnitY) * 24f;
+                Vector2 velocity = (Projectile.Center - spawn).SafeNormalize(Vector2.UnitY) *
+                    (24f / FranThorsHammerDrop.UpdatesPerTick);
                 float packedTarget = Projectile.ai[0] + PackedTargetStride;
                 Projectile.NewProjectile(Projectile.GetSource_FromThis(), spawn, velocity,
                     ModContent.ProjectileType<FranThorsHammerDrop>(), Projectile.damage, Projectile.knockBack,
@@ -74,6 +84,8 @@ public sealed class ThorsHammerMarker : ModProjectile
     }
     public override bool PreDraw(ref Color lightColor)
     {
+        if (GetTrackedTarget() is null)
+            return false;
         float age = 75f - Projectile.timeLeft;
         float introduction = FranMotion.EaseOutBack(FranMotion.Segment(age, 0f, 12f));
         float focus = FranMotion.EaseInCubic(FranMotion.Segment(age, 10f, 50f));
@@ -111,17 +123,52 @@ public sealed class ThorsHammerMarker : ModProjectile
         return false;
     }
 
-    private NPC GetTrackedTarget()
+    private void UpdateTargetSelection()
     {
-        if (TargetIndex < 0 || !Main.npc.IndexInRange(TargetIndex))
-            return null;
-        NPC target = Main.npc[TargetIndex];
-        return target.active && !target.friendly && target.life > 0 ? target : null;
+        if (Main.myPlayer != Projectile.owner)
+            return;
+
+        TeacherSwingRebuild source = null;
+        if (Projectile.ai[2] > 0f)
+        {
+            int identity = (int)Projectile.ai[2] - 1;
+            foreach (Projectile candidate in Main.ActiveProjectiles)
+            {
+                if (candidate.owner == Projectile.owner && candidate.identity == identity &&
+                    candidate.ModProjectile is TeacherSwingRebuild swing)
+                {
+                    source = swing;
+                    break;
+                }
+            }
+        }
+
+        Player owner = Main.player[Projectile.owner];
+        NPC target = source is not null
+            ? FranHammerTargeting.Select(owner, source.HammerHitTargets)
+            : FranHammerTargeting.Resolve(owner, TargetIndex);
+        // Resolve once more after the final damage window so its very last hit is included.
+        if (Projectile.ai[2] > 0f && (source is null || source.HammerHitWindowEnded))
+        {
+            Projectile.ai[2] = 0f;
+            Projectile.netUpdate = true;
+        }
+        int encoded = target is null ? 0 : target.whoAmI + 1;
+        if (Projectile.ai[0] != encoded)
+        {
+            Projectile.ai[0] = encoded;
+            Projectile.netUpdate = true;
+        }
     }
+
+    private NPC GetTrackedTarget() => FranHammerTargeting.GetLockedTarget(TargetIndex);
 }
 
 public sealed class ThorsHammerBolt : ModProjectile
 {
+    // The falling hammer transmits its incoming velocity for visuals only. Beacon strikes default down.
+    private Vector2 ImpactDirection => new Vector2(Projectile.ai[0], Projectile.ai[1]).SafeNormalize(Vector2.UnitY);
+
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
     public override void SetDefaults()
     {
@@ -142,22 +189,47 @@ public sealed class ThorsHammerBolt : ModProjectile
             FranFlatLightningEffects.SpawnSegment(Projectile.GetSource_FromThis(), strikeStart,
                 strikeEnd, Projectile.owner, 1.72f,
                 FranFlatLightningPalette.ThorsHammer, 2.8f);
-            FranBurst.SpawnForOwner(Projectile.GetSource_FromThis(), Projectile.Center, Projectile.owner,
-                FranBurstStyle.ThorsHammer, 1.8f * visualIntensity);
             FranVfx.SparkBurst(Projectile.Center, new Color(120, 165, 255),
-                26, 12f * visualIntensity, 1.25f * visualIntensity);
+                18, 12f * visualIntensity, 1.05f * visualIntensity);
             FranLightingBoltsSystem.SpawnThunderImpact(Projectile.Center,
-                new Color(105, 175, 255), 1.35f * visualIntensity);
-            FranLightingBoltsSystem.SpawnLightningFragments(Projectile.Center,
-                new Color(145, 235, 255), 28, 1.15f * visualIntensity);
-            FranParticleEffects.ThorsHammerDetonation(Projectile.Center, 1.18f * visualIntensity);
+                new Color(105, 175, 255), 0.70f * visualIntensity);
+            SpawnImpactEjecta();
             SoundEngine.PlaySound(SoundID.Item122 with { Pitch = -0.3f, Volume = 1f }, Projectile.Center);
+            if (!Main.dedServ)
+            {
+                // Retain the explosion sound and spectator shake formerly supplied by FranBurst.
+                SoundEngine.PlaySound(SoundID.Item14 with { Volume = 0.48f, Pitch = -0.35f }, Projectile.Center);
+                Main.LocalPlayer.GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, 13f);
+            }
             FranSpectatorVfx.SpawnImpactPetals(Projectile.GetSource_FromThis(), Projectile.Center,
                 -Vector2.UnitY, Projectile.owner, FranSpectatorPalette.Lightning,
                 7, 1.35f * visualIntensity);
             float shakePower = FranBalance.GetFloat(nameof(FranBalance.ThorsHammerBaseScreenShakePower),
                 FranBalance.ThorsHammerBaseScreenShakePower);
             Main.player[Projectile.owner].GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, shakePower);
+        }
+        // Main sky fracture first, ground branches two ticks later, then brief independent after-arcs.
+        if (Projectile.localAI[0] == 3f)
+            FranFlatLightningEffects.Burst(Projectile.Center, 1.12f,
+                FranFlatLightningPalette.ThorsHammer, 8, 260f, ground: true, innerRadius: 28f);
+        if (Projectile.localAI[0] is 5f or 8f or 11f && !Main.dedServ)
+        {
+            float cooling = 1f - Projectile.localAI[0] / 18f;
+            float wave = (Projectile.localAI[0] - 5f) / 3f;
+            for (int i = 0; i < 9; i++)
+            {
+                // Separate angular lanes and advancing spawn bands leave the impact core readable.
+                float angle = MathHelper.TwoPi * (i + wave * 0.37f) / 9f + Projectile.identity * 0.83f +
+                    Main.rand.NextFloat(-0.12f, 0.12f);
+                Vector2 radial = angle.ToRotationVector2();
+                Vector2 offset = radial * Main.rand.NextFloat(68f + wave * 18f, 130f + wave * 18f);
+                offset.Y *= 0.58f;
+                Vector2 direction = offset.SafeNormalize(radial);
+                FranParticleSystem.Spawn(new FranArcParticle(Projectile.Center + offset,
+                    direction * Main.rand.NextFloat(3.8f, 6.4f), direction,
+                    Color.Lerp(new Color(92, 196, 255), Color.White, Main.rand.NextFloat(0.2f, 0.6f)) * cooling,
+                    Main.rand.NextFloat(45f, 90f), Main.rand.NextFloat(30f, 48f), 10));
+            }
         }
         for (int i = 0; i < 2; i++)
         {
@@ -172,58 +244,95 @@ public sealed class ThorsHammerBolt : ModProjectile
             (0.42f + sceneFlash * 0.92f) * sustainedIntensity,
             (0.88f + sceneFlash * 1.22f) * sustainedIntensity);
     }
+
+    private void SpawnImpactEjecta()
+    {
+        if (Main.dedServ)
+            return;
+
+        Color azure = new(118, 218, 255);
+        Vector2 incoming = ImpactDirection;
+        Vector2 tangent = incoming.RotatedBy(MathHelper.PiOver2);
+        float phase = Projectile.identity * 0.83f;
+
+        // Fast radial streaks visibly carry energy away from the hit, then brake and burn out.
+        for (int i = 0; i < 14; i++)
+        {
+            Vector2 direction = (phase + MathHelper.TwoPi * i / 14f +
+                Main.rand.NextFloat(-0.1f, 0.1f)).ToRotationVector2();
+            Vector2 position = Projectile.Center + direction * Main.rand.NextFloat(28f, 46f);
+            Vector2 velocity = direction * Main.rand.NextFloat(11f, 20f);
+            FranParticleSystem.Spawn(new FranLineParticle(position, velocity,
+                i % 4 == 0 ? Color.White : azure, Main.rand.NextFloat(24f, 48f),
+                Main.rand.NextFloat(1.2f, 2f), Main.rand.Next(12, 18), 0.90f));
+        }
+
+        // A narrower forward spray preserves the falling hammer's momentum through the impact.
+        for (int i = 0; i < 6; i++)
+        {
+            float spread = MathHelper.Lerp(-0.38f, 0.38f, i / 5f);
+            Vector2 direction = incoming.RotatedBy(spread);
+            Vector2 position = Projectile.Center + incoming * 26f + tangent * (i - 2.5f) * 7f;
+            FranParticleSystem.Spawn(new FranLineParticle(position, direction * Main.rand.NextFloat(18f, 26f),
+                new Color(195, 241, 255), Main.rand.NextFloat(38f, 64f), 1.7f,
+                Main.rand.Next(10, 15), 0.88f));
+        }
+    }
+
+    private void DrawPressureArcs(float age)
+    {
+        float progress = FranMotion.EaseOutCubic(FranMotion.Segment(age, 0f, 11f));
+        float fade = 1f - FranMotion.Smooth(FranMotion.Segment(age, 2f, 12f));
+        if (fade <= 0f)
+            return;
+        Vector2 incoming = ImpactDirection;
+        Vector2 tangent = incoming.RotatedBy(MathHelper.PiOver2);
+        Vector2 center = Projectile.Center - incoming * MathHelper.Lerp(12f, 30f, progress);
+        float radius = MathHelper.Lerp(32f, 158f, progress);
+        // Open at the front and back: the two side arcs sit above the wider ground pressure ring.
+        for (int i = 0; i < 40; i++)
+        {
+            float a = MathHelper.TwoPi * i / 40f;
+            float b = MathHelper.TwoPi * (i + 1) / 40f;
+            if (MathF.Abs(MathF.Cos((a + b) * 0.5f)) < 0.34f)
+                continue;
+            Vector2 p = center + (tangent * MathF.Cos(a) + incoming * MathF.Sin(a) * 0.52f) * radius;
+            Vector2 q = center + (tangent * MathF.Cos(b) + incoming * MathF.Sin(b) * 0.52f) * radius;
+            FranFissionArc.DrawLine(Main.spriteBatch, p, q, new Color(108, 210, 255) * (fade * 0.24f), 3.6f);
+            FranFissionArc.DrawLine(Main.spriteBatch, p, q, new Color(214, 245, 255) * (fade * 0.52f), 1.1f);
+        }
+    }
+
     public override bool PreDraw(ref Color lightColor)
     {
         float seed = Projectile.identity * 0.83f;
         float age = 20f - Projectile.timeLeft;
-        float coreFlash = 1f - FranMotion.Smooth(FranMotion.Segment(age, 0f, 5f));
-        float expansion = FranMotion.EaseOutCubic(FranMotion.Segment(age, 0f, 10f));
-        float blastOpacity = 1f - FranMotion.Smooth(FranMotion.Segment(age, 4f, 17f));
-        Color deep = new(38, 55, 145);
-        Color azure = Color.Lerp(new Color(70, 115, 255), new Color(170, 245, 255), coreFlash * 0.72f);
+        float coreFlash = 1f - FranMotion.Smooth(FranMotion.Segment(age, 0f, 4f));
+        float expansion = FranMotion.EaseOutCubic(FranMotion.Segment(age, 1f, 13f));
+        float blastOpacity = 1f - FranMotion.Smooth(FranMotion.Segment(age, 3f, 14f));
+        Color azure = new(108, 210, 255);
 
         FranVfx.BeginAdditive();
-        FranVfx.DrawShared("Cal_CircularSmearSmokey", Projectile.Center,
-            deep * (0.38f * blastOpacity), seed * 0.07f,
-            MathHelper.Lerp(0.54f, 1.34f, expansion));
-        FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,
-            new Color(52, 88, 255, 0) * (0.46f * blastOpacity), seed * 0.09f,
-            MathHelper.Lerp(0.42f, 1.84f, expansion));
-        FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,
-            new Color(175, 235, 255, 0) * (0.64f * blastOpacity), -seed * 0.06f,
-            MathHelper.Lerp(0.24f, 1.16f, expansion));
         FranVfx.DrawOriginalPixels("FranImpactBurst", Projectile.Center,
-            azure * (0.82f * blastOpacity + 0.64f * coreFlash), seed,
-            Vector2.Lerp(new Vector2(94f, 72f), new Vector2(430f, 244f), expansion));
+            azure * (0.58f * coreFlash), -MathHelper.PiOver2,
+            new Vector2(178f, 122f));
         FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
-            Color.White * (0.98f * coreFlash + 0.32f * blastOpacity), seed,
-            Vector2.Lerp(new Vector2(150f, 92f), new Vector2(338f, 188f), expansion));
+            Color.White * coreFlash, 0f, new Vector2(202f, 78f));
+        DrawPressureArcs(age);
 
-        int radialCount = 10;
-        for (int i = 0; i < radialCount; i++)
+        // One broken elliptical pressure front, drawn from pixels so no new ring texture is needed.
+        float radius = MathHelper.Lerp(32f, 258f, expansion);
+        for (int i = 0; i < 52; i++)
         {
-            float angle = seed * 0.11f + MathHelper.TwoPi * i / radialCount;
-            Vector2 direction = angle.ToRotationVector2();
-            float rayLength = MathHelper.Lerp(24f, 132f + (i % 2) * 68f, expansion);
-            Vector2 rayStart = Projectile.Center + direction * 18f;
-            Vector2 rayEnd = Projectile.Center + direction * rayLength;
-            Color rayColor = i % 3 == 0 ? Color.White : i % 2 == 0 ? azure : new Color(110, 135, 255);
-            FranVfx.DrawTexturedSpark(rayStart, direction, rayColor,
-                Math.Max(8f, rayLength - 18f), 4.2f + coreFlash * 2.2f, blastOpacity * 0.74f);
+            if ((i + Projectile.identity) % 13 < 3)
+                continue;
+            float a = MathHelper.TwoPi * i / 52f + seed;
+            float b = MathHelper.TwoPi * (i + 1) / 52f + seed;
+            Vector2 p = Projectile.Center + new Vector2(MathF.Cos(a), MathF.Sin(a) * 0.28f) * radius;
+            Vector2 q = Projectile.Center + new Vector2(MathF.Cos(b), MathF.Sin(b) * 0.28f) * radius;
+            FranFissionArc.DrawLine(Main.spriteBatch, p, q, azure * (blastOpacity * 0.38f), 3f);
+            FranFissionArc.DrawLine(Main.spriteBatch, p, q, Color.White * (blastOpacity * 0.5f), 0.9f);
         }
-
-        for (int i = 0; i < 3; i++)
-        {
-            float ringRadius = MathHelper.Lerp(32f + i * 12f, 122f + i * 68f, expansion);
-            FranVfx.DrawRing(Projectile.Center, i == 1 ? Color.White : azure, ringRadius,
-                blastOpacity * (0.74f - i * 0.16f), seed * (i % 2 == 0 ? 0.05f : -0.04f),
-                i == 2 ? "Cal_HighResHollowCircle" : "Cal_BloomRing");
-        }
-        FranVfx.DrawShared("Cal_ShineFlare", Projectile.Center,
-            Color.White * (0.98f * coreFlash + 0.42f * blastOpacity), seed,
-            new Vector2(0.58f, 0.105f));
-        FranVfx.DrawBloom(Projectile.Center, Color.White,
-            MathHelper.Lerp(118f, 196f, expansion), 0.74f * blastOpacity + 0.72f * coreFlash, true);
         FranVfx.EndAdditive();
         return false;
     }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using FranMod.Content.Items;
 using FranMod.Content.Players;
@@ -23,9 +24,15 @@ public sealed class TeacherSwingRebuild : ModProjectile
     private const int TrailSamples = 72;
     private const int SamplesPerTick = 4;
     private const int GhostAuraDraws = 20;
+    // 师父本体贴图从右手原点到剑尖沿出刀轴的实际长度（源贴图像素）。
+    private const float SuppliedTextureBladeLength = 193.04f;
+    private const float WeaponHiltOffset = 8f;
+    // 与 Ark of the Ancients 的右键一致：持剑起点只额外前移 8 像素，且永不随成长放大。
+    private const float FourthWeaponMaximumPush = 8f;
     private readonly Vector2[] tipHistory = new Vector2[TrailSamples];
     private readonly Vector2[] midHistory = new Vector2[TrailSamples];
     private readonly float[] trailStrength = new float[TrailSamples];
+    private readonly float[] weaponOffsetHistory = new float[TrailSamples];
     private readonly FranSkill[] tactics =
     [
         FranSkill.None, FranSkill.None, FranSkill.None, FranSkill.None
@@ -52,6 +59,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
     private float previousAngle;
     private float currentReach;
     private float previousReach;
+    private float currentWeaponOffset;
+    private float previousWeaponOffset;
     private float visualStrength;
     private int facing;
     private bool initialized;
@@ -60,6 +69,9 @@ public sealed class TeacherSwingRebuild : ModProjectile
     private bool evolutionSequenceRegistered;
     private float evolutionDamageMultiplier = 1f;
     private int quickdrawBurstStep = -1;
+    private HashSet<int> hammerHitTargets;
+    internal IReadOnlySet<int> HammerHitTargets => hammerHitTargets;
+    internal bool HammerHitWindowEnded => Progress > 0.88f;
 
     public override string Texture => FranTeacherVisuals.TexturePath;
 
@@ -117,7 +129,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
             0 => progress is >= 0.16f and <= 0.63f,
             1 => progress is >= 0.11f and <= 0.84f,
             2 => progress is >= 0.23f and <= 0.62f,
-            _ => progress is >= 0.23f and <= 0.61f
+            _ => progress is >= 0.06f and <= 0.88f
         };
         return active ? null : false;
     }
@@ -136,21 +148,23 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
         previousAngle = currentAngle;
         previousReach = currentReach;
-        ComputePose(Progress, out currentAngle, out currentReach, out visualStrength);
-        currentReach *= Owner.GetModPlayer<FranEvolutionPlayer>().BladeReachMultiplier *
-            FranTeacherVisuals.WorldSizeMultiplier;
+        previousWeaponOffset = currentWeaponOffset;
+        ComputePose(Progress, out currentAngle, out float poseReach, out visualStrength);
+        FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
+        currentWeaponOffset = Combo == 3 ? FourthWeaponPushOffset(Progress) : 0f;
+        float bladeLength = UnifiedBladeLength(poseReach, evolution);
+        currentReach = WeaponHiltOffset + currentWeaponOffset + bladeLength;
         UpdateTrail();
 
         Vector2 direction = currentAngle.ToRotationVector2();
-        Projectile.Center = Owner.MountedCenter + direction * currentReach * 0.54f;
+        Projectile.Center = Owner.MountedCenter + direction *
+            (WeaponHiltOffset + currentWeaponOffset + bladeLength * 0.54f);
         Projectile.rotation = currentAngle + MathHelper.PiOver4 + (facing < 0 ? MathHelper.PiOver2 : 0f);
         Owner.heldProj = Projectile.whoAmI;
         Owner.itemTime = Owner.itemAnimation = 2;
         Owner.itemRotation = currentAngle + (facing < 0 ? MathHelper.Pi : 0f);
         Owner.SetCompositeArmFront(true, Player.CompositeArmStretchAmount.Full,
             currentAngle - MathHelper.PiOver2);
-        Lighting.AddLight(Projectile.Center, ElementColor().ToVector3() * (0.22f + visualStrength * 0.42f));
-
         EmitSwingEffects();
         TriggerImprintRelease();
         Projectile.localAI[0]++;
@@ -171,17 +185,20 @@ public sealed class TeacherSwingRebuild : ModProjectile
             0 => aim - 2.08f * facing,
             1 => aim - 1.88f * facing,
             2 => aim - 2.44f * facing,
-            _ => aim - 0.13f * facing
+            _ => aim
         };
         previousAngle = currentAngle;
         FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
-        currentReach = previousReach = (Combo == 3 ? 58f : Combo == 2 ? 126f : 112f) *
-            evolution.BladeReachMultiplier * FranTeacherVisuals.WorldSizeMultiplier;
+        float initialPoseReach = Combo is 1 or 3 ? 132f * 1.20f : 132f;
+        float initialBladeLength = UnifiedBladeLength(initialPoseReach, evolution);
+        currentReach = previousReach = WeaponHiltOffset + initialBladeLength;
+        currentWeaponOffset = previousWeaponOffset = 0f;
         evolutionDamageMultiplier = evolution.DirectSwordDamageMultiplier(Combo);
         for (int i = 0; i < TrailSamples; i++)
         {
             tipHistory[i] = Owner.MountedCenter + currentAngle.ToRotationVector2() * currentReach;
             midHistory[i] = Owner.MountedCenter + currentAngle.ToRotationVector2() * currentReach * 0.58f;
+            weaponOffsetHistory[i] = 0f;
         }
     }
 
@@ -199,7 +216,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 offset = MathHelper.Lerp(offset, 1.38f, swing);
                 offset = MathHelper.Lerp(offset, 1.28f, recovery);
                 angle = aim + offset * facing;
-                reach = 112f + FranMotion.Pulse(progress, 0.12f, 0.24f, 0.62f, 0.83f) * 18f;
+                reach = 132f + FranMotion.Pulse(progress, 0.12f, 0.24f, 0.62f, 0.83f) * 29f;
                 strength = FranMotion.Pulse(progress, 0.13f, 0.21f, 0.64f, 0.82f);
                 break;
             }
@@ -212,7 +229,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 offset = MathHelper.Lerp(offset, -2.02f + MathHelper.TwoPi * 1.06f, spin);
                 offset = MathHelper.Lerp(offset, -2.02f + MathHelper.TwoPi * 1.06f + 0.08f, recovery);
                 angle = aim + offset * facing;
-                reach = 116f + FranMotion.Pulse(progress, 0.08f, 0.19f, 0.84f, 0.96f) * 12f;
+                reach = (132f + FranMotion.Pulse(progress, 0.08f, 0.19f, 0.84f, 0.96f) * 29f) * 1.20f;
                 strength = FranMotion.Pulse(progress, 0.09f, 0.17f, 0.85f, 0.95f);
                 break;
             }
@@ -233,21 +250,41 @@ public sealed class TeacherSwingRebuild : ModProjectile
             }
             default:
             {
-                float compress = FranMotion.Smooth(FranMotion.Segment(progress, 0f, 0.23f));
-                float thrust = FranMotion.EaseOutQuart(FranMotion.Segment(progress, 0.23f, 0.48f));
-                float hold = FranMotion.Smooth(FranMotion.Segment(progress, 0.48f, 0.62f));
-                float recovery = FranMotion.Smooth(FranMotion.Segment(progress, 0.62f, 1f));
-                angle = aim + MathHelper.Lerp(-0.13f, -0.22f, compress) * facing;
-                angle = MathHelper.Lerp(angle, aim + 0.025f * facing, thrust);
-                angle = MathHelper.Lerp(angle, aim, recovery);
-                reach = MathHelper.Lerp(62f, 43f, compress);
-                reach = MathHelper.Lerp(reach, 188f, thrust);
-                reach = MathHelper.Lerp(reach, 176f, hold);
-                reach = MathHelper.Lerp(reach, 84f, recovery);
-                strength = FranMotion.Pulse(progress, 0.20f, 0.27f, 0.61f, 0.76f);
+                // 参考 Ark of the Ancients 右键：方向在出刀时锁定，只沿该轴线推出再收回。
+                // 1.2x 剑身长度仍随武器范围成长；整把剑的推出距离固定，不随流程或进化放大。
+                angle = aim;
+                reach = 132f * 1.20f;
+                strength = FranMotion.Pulse(progress, 0.03f, 0.10f, 0.84f, 0.94f);
                 break;
             }
         }
+    }
+
+    private static float FourthWeaponPush(float progress)
+    {
+        float pushProgress = FranMotion.Segment(progress, 0.04f, 0.88f);
+        return MathF.Sin(pushProgress * MathHelper.Pi);
+    }
+
+    private static float FourthWeaponPushOffset(float progress) =>
+        FourthWeaponPush(progress) * FourthWeaponMaximumPush;
+
+    private float WeaponDrawScale() =>
+        (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranTeacherVisuals.TextureScale;
+
+    private float UnifiedBladeLength(float poseReach, FranEvolutionPlayer evolution)
+    {
+        // 132 是第一、第三剑的 1x 基准；第二、第四剑现有的 1.2x 以及前三剑的伸展脉冲
+        // 已包含在 poseReach 中。阶段尺寸只通过实际贴图缩放进入一次。
+        float poseRatio = Math.Max(0.1f, poseReach / 132f);
+        // 第二剑的 1.2x 与伸展脉冲会叠成约 1.46x，导致回旋刀光悬在实际剑尖外。
+        // 将第二剑整套共用几何收回 30%；剑光和碰撞共同读取该长度，避免二次缩放。
+        float visualAlignment = Combo == 1 ? 0.70f : 1f;
+        float visibleBladeLength = SuppliedTextureBladeLength * WeaponDrawScale();
+        float alignedLength = visibleBladeLength * poseRatio *
+            evolution.BladeReachMultiplier * visualAlignment;
+        // 即使投入额外范围进化，第二剑也不能再次越过固定不变的武器贴图尖端。
+        return Combo == 1 ? Math.Min(alignedLength, visibleBladeLength) : alignedLength;
     }
 
     private void UpdateTrail()
@@ -257,16 +294,21 @@ public sealed class TeacherSwingRebuild : ModProjectile
             float completion = sample / (float)SamplesPerTick;
             float angle = MathHelper.Lerp(previousAngle, currentAngle, completion);
             float reach = MathHelper.Lerp(previousReach, currentReach, completion);
+            float weaponOffset = MathHelper.Lerp(previousWeaponOffset, currentWeaponOffset, completion);
             for (int i = TrailSamples - 1; i > 0; i--)
             {
                 tipHistory[i] = tipHistory[i - 1];
                 midHistory[i] = midHistory[i - 1];
                 trailStrength[i] = trailStrength[i - 1];
+                weaponOffsetHistory[i] = weaponOffsetHistory[i - 1];
             }
             Vector2 direction = angle.ToRotationVector2();
             tipHistory[0] = Owner.MountedCenter + direction * reach;
-            midHistory[0] = Owner.MountedCenter + direction * reach * (Combo == 3 ? 0.28f : 0.55f);
+            midHistory[0] = Combo == 3
+                ? Owner.MountedCenter + direction * (weaponOffset + (reach - weaponOffset) * 0.28f)
+                : Owner.MountedCenter + direction * reach * 0.55f;
             trailStrength[0] = visualStrength;
+            weaponOffsetHistory[0] = weaponOffset;
         }
     }
 
@@ -286,7 +328,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
         {
             attackSoundPlayed = true;
             SoundStyle sound = Combo == 2 ? SoundID.Item71 : Combo == 3 ? SoundID.Item1 : SoundID.Item60;
-            SoundEngine.PlaySound(sound with { Volume = Combo == 2 ? 0.92f : 0.72f, Pitch = Combo == 2 ? -0.34f : Combo == 3 ? 0.2f : -0.08f }, Owner.Center);
+            SoundEngine.PlaySound(sound with { Volume = Combo == 2 ? 0.92f : 0.72f,
+                Pitch = Combo == 2 ? -0.34f : Combo == 3 ? 0.2f : -0.08f }, Owner.Center);
         }
 
         float swingActivity = SwingActivity();
@@ -306,8 +349,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     private float SwingActivity()
     {
-        float activeStart = Combo switch { 0 => 0.16f, 1 => 0.11f, 2 => 0.23f, _ => 0.23f };
-        float activeEnd = Combo switch { 0 => 0.63f, 1 => 0.84f, 2 => 0.62f, _ => 0.61f };
+        float activeStart = Combo switch { 0 => 0.16f, 1 => 0.11f, 2 => 0.23f, _ => 0.06f };
+        float activeEnd = Combo switch { 0 => 0.63f, 1 => 0.84f, 2 => 0.62f, _ => 0.88f };
         float activeProgress = FranMotion.Segment(Progress, activeStart, activeEnd);
         return MathF.Sin(activeProgress * MathHelper.Pi);
     }
@@ -323,7 +366,10 @@ public sealed class TeacherSwingRebuild : ModProjectile
         Vector2 arcPoint = tipHistory[historyIndex];
         Vector2 olderPoint = tipHistory[Math.Min(historyIndex + SamplesPerTick, TrailSamples - 1)];
         Vector2 localTangent = (arcPoint - olderPoint).SafeNormalize(tangent);
-        float alongBlade = Combo == 3 ? Main.rand.NextFloat(0.70f, 1f) : Main.rand.NextFloat(0.56f, 0.98f);
+        // 回旋剑的闪光只占据剑路内圈至接近剑尖的位置，避免粒子贴图越过本体最外缘。
+        float alongBlade = Combo == 1
+            ? Main.rand.NextFloat(0.56f, 0.88f)
+            : Main.rand.NextFloat(0.56f, 0.98f);
         Vector2 position = Vector2.Lerp(Owner.MountedCenter, arcPoint, alongBlade) +
             Main.rand.NextVector2Circular(1.8f, 1.8f);
         float speedScale = MathHelper.Lerp(0.82f, 1.08f, swingActivity);
@@ -373,8 +419,10 @@ public sealed class TeacherSwingRebuild : ModProjectile
         if (quickdrawLayers <= 0 || Main.myPlayer != Owner.whoAmI)
             return;
 
-        float activeStart = Combo switch { 0 => 0.16f, 1 => 0.11f, 2 => 0.23f, _ => 0.23f };
-        float activeEnd = Combo switch { 0 => 0.63f, 1 => 0.84f, 2 => 0.62f, _ => 0.61f };
+        float activeStart = Combo switch { 0 => 0.16f, 1 => 0.11f, 2 => 0.23f, _ => 0.06f };
+        float activeEnd = Combo switch { 0 => 0.63f, 1 => 0.84f, 2 => 0.62f, _ => 0.88f };
+        bool fullQuickdrawLoadout = Owner.GetModPlayer<FranPlayer>()
+            .IsFullTacticLoadout(FranSkill.PressurizedQuickdraw);
         int burstCount = Math.Max(1, FranBalance.GetQuickdrawAirburstCount(Combo));
         float phase = FranMotion.Segment(Progress, activeStart, activeEnd);
         int targetStep = Math.Min(burstCount - 1, (int)(phase * burstCount));
@@ -383,13 +431,14 @@ public sealed class TeacherSwingRebuild : ModProjectile
         {
             quickdrawBurstStep++;
             int step = quickdrawBurstStep;
+            int cadenceCombo = Combo;
             float completion = (step + 0.5f) / burstCount;
             float radial = Combo == 3
                 ? MathHelper.Lerp(0.30f, 0.96f, completion)
-                : 0.46f + ((step * 0.618034f + Combo * 0.17f) % 1f) * 0.50f;
+                : 0.46f + ((step * 0.618034f + cadenceCombo * 0.17f) % 1f) * 0.50f;
             float side = (step % 2 == 0 ? -1f : 1f) * (5f + 5f * MathF.Sin(completion * MathHelper.Pi));
             Vector2 position = Vector2.Lerp(Owner.MountedCenter, tip, radial) + tangent * side;
-            float scale = (Combo switch
+            float scale = (cadenceCombo switch
             {
                 2 => 0.62f + 0.14f * MathF.Sin(completion * MathHelper.Pi),
                 3 => 0.70f + 0.12f * completion,
@@ -402,7 +451,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
             float delay = 2f + step % 3;
             Projectile.NewProjectile(Projectile.GetSource_FromThis(), position, blade,
                 ModContent.ProjectileType<FranCompressionAirburst>(), burstDamage,
-                Projectile.knockBack * 0.35f, Owner.whoAmI, delay, scale,
+                Projectile.knockBack * 0.35f, Owner.whoAmI,
+                FranCompressionAirburst.EncodeDelay(delay, fullQuickdrawLoadout), scale,
                 currentAngle + step * 0.73f);
         }
     }
@@ -411,7 +461,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
     {
         if (imprintReleaseTriggered || ImprintSkill == FranSkill.None)
             return;
-        float triggerTime = Combo switch { 0 => 0.42f, 1 => 0.49f, 2 => 0.45f, _ => 0.43f };
+        float triggerTime = Combo switch { 0 => 0.42f, 1 => 0.49f, 2 => 0.45f, _ => 0.46f };
         if (Progress < triggerTime)
             return;
         imprintReleaseTriggered = true;
@@ -427,7 +477,6 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
     {
-        float collisionPoint = 0f;
         float width = Combo switch
         {
             2 => 46f,
@@ -435,8 +484,27 @@ public sealed class TeacherSwingRebuild : ModProjectile
             1 => 38f,
             _ => 32f
         };
-        return Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(), Owner.MountedCenter,
-            Owner.MountedCenter + currentAngle.ToRotationVector2() * currentReach, width, ref collisionPoint);
+        Vector2 previousTip = Owner.MountedCenter + previousAngle.ToRotationVector2() * previousReach;
+        Vector2 currentTip = Owner.MountedCenter + currentAngle.ToRotationVector2() * currentReach;
+        float tipTravel = Vector2.Distance(previousTip, currentTip);
+        int sweepSamples = Math.Clamp((int)MathF.Ceiling(tipTravel / Math.Max(10f, width * 0.55f)), 1, 24);
+
+        for (int sample = 0; sample <= sweepSamples; sample++)
+        {
+            float completion = sample / (float)sweepSamples;
+            float angle = MathHelper.Lerp(previousAngle, currentAngle, completion);
+            float reach = MathHelper.Lerp(previousReach, currentReach, completion);
+            float weaponOffset = MathHelper.Lerp(previousWeaponOffset, currentWeaponOffset, completion);
+            Vector2 blade = angle.ToRotationVector2();
+            Vector2 collisionStart = Owner.MountedCenter + blade * (WeaponHiltOffset + weaponOffset);
+            Vector2 collisionEnd = Owner.MountedCenter + blade * reach;
+            float collisionPoint = 0f;
+            if (Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(),
+                    collisionStart, collisionEnd, width, ref collisionPoint))
+                return true;
+        }
+
+        return false;
     }
 
     public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
@@ -450,6 +518,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
+        if (Combo == 3 && HasTactic(FranSkill.ThorsHammer) && Main.myPlayer == Projectile.owner)
+            (hammerHitTargets ??= new HashSet<int>()).Add(target.whoAmI);
         FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
         if (!evolutionSequenceRegistered)
         {
@@ -478,7 +548,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 TeacherImprintCombat.OnSwordHit(Owner, Projectile, target, Combo, skill, layers,
                     incoming, damageDone);
         }
-        Owner.GetModPlayer<FranPlayer>().ShakeScreen(target.Center, Combo == 2 ? 6.5f : Combo == 3 ? 4.2f : 2.8f);
+        Owner.GetModPlayer<FranPlayer>().ShakeScreen(target.Center,
+            Combo == 2 ? 6.5f : Combo == 3 ? 4.2f : 2.8f);
     }
 
     private Color ElementColor()
@@ -511,19 +582,22 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     private void DrawAdditiveTrail(Color color)
     {
-        if (!FranBladeTrailRenderer.TryDrawSlash(Owner.MountedCenter, currentAngle, currentReach, Progress,
-                color, visualStrength, Combo, facing))
+        int trailStyle = Combo;
+        int trailDirection = facing;
+        Vector2 blade = currentAngle.ToRotationVector2();
+        Vector2 trailPivot = Owner.MountedCenter + blade * (WeaponHiltOffset + currentWeaponOffset);
+        float trailReach = Math.Max(24f, currentReach - WeaponHiltOffset - currentWeaponOffset);
+        if (!FranBladeTrailRenderer.TryDrawSlash(trailPivot, currentAngle,
+                trailReach, Progress, color, visualStrength, trailStyle, trailDirection))
         {
-            FranBladeTrailRenderer.DrawSlashFallback(Owner.MountedCenter, currentAngle, currentReach,
-                color, visualStrength, Combo, facing);
+            FranBladeTrailRenderer.DrawSlashFallback(trailPivot, currentAngle, trailReach,
+                color, visualStrength, trailStyle, trailDirection);
         }
 
         if (visualStrength <= 0.012f)
             return;
 
         FranVfx.BeginAdditive();
-        Vector2 blade = currentAngle.ToRotationVector2();
-        Vector2 center = Owner.MountedCenter + blade * currentReach * 0.58f;
         switch (Combo)
         {
             case 0:
@@ -538,40 +612,58 @@ public sealed class TeacherSwingRebuild : ModProjectile
                 // The second cut is a continuous wheel. Two restrained circular smears make the rotation
                 // legible while the analytic trail remains the actual blade material.
                 FranVfx.DrawShared("CircularSmearSmokey", Owner.MountedCenter,
-                    color * (0.30f * visualStrength), currentAngle * 0.58f, 0.76f + visualStrength * 0.10f);
+                    color * (0.30f * visualStrength), currentAngle * 0.58f,
+                    (0.76f + visualStrength * 0.10f) * 2.7f);
                 FranVfx.DrawShared("CircularSmear", Owner.MountedCenter,
                     Color.Lerp(color, Color.White, 0.68f) * (0.20f * visualStrength),
-                    -currentAngle * 0.32f, 0.61f + visualStrength * 0.08f);
+                    -currentAngle * 0.32f, (0.61f + visualStrength * 0.08f) * 2.7f);
                 FranVfx.DrawShared("HalfStar", tipHistory[0], Color.White * (0.62f * visualStrength),
                     currentAngle, 0.72f);
                 break;
 
             case 2:
-                // 大型纵向挥砍纹理固定在持剑轴心，并随实时武器角度旋转，避免与剑身运动脱节。
-                Texture2D swooshTexture = FranVfx.Shared("VerticalSmearLarge");
-                float swooshDiameter = Math.Max(1f, Math.Max(swooshTexture.Width, swooshTexture.Height));
-                float swooshScale = currentReach * 2.15f / swooshDiameter;
-                float swooshRotation = currentAngle + (facing > 0 ? MathHelper.Pi : 0f);
-                FranVfx.DrawShared("VerticalSmearLarge", Owner.MountedCenter,
-                    color * (0.42f * visualStrength), swooshRotation, swooshScale);
+                // This Fran-owned arc is square and centered, so a single uniform scale keeps its
+                // circular geometry intact while it follows the heavy third swing.
+                Texture2D thirdSlashTexture = FranVfx.Shared("FranThirdSlashSmear");
+                float thirdSlashDiameter = Math.Max(1f, Math.Max(thirdSlashTexture.Width, thirdSlashTexture.Height));
+                float thirdSlashScale = currentReach * 2f / thirdSlashDiameter;
+                float thirdSlashRotation = currentAngle + (facing > 0 ? MathHelper.Pi : 0f);
+                FranVfx.DrawShared("FranThirdSlashSmear", Owner.MountedCenter,
+                    color * (0.34f * visualStrength), thirdSlashRotation, thirdSlashScale);
                 FranVfx.DrawShared("HalfStar", tipHistory[0], Color.White * (0.78f * visualStrength),
-                    currentAngle, 1.02f);
+                    tangentRotation(), 1.02f);
                 break;
 
             default:
-                // The fourth cut resolves the chain as a thrust. Its accents are collinear and capped;
-                // no random diagonal streak is allowed to dilute the forward direction.
-                Vector2 start = Owner.MountedCenter + blade * 20f;
-                Vector2 end = Owner.MountedCenter + blade * currentReach;
-                DrawSafeVertical("BloomLineSoftEdge", start, end, color * (0.31f * visualStrength), 26f);
-                DrawSafeVertical("BloomLineFade", start, end,
-                    Color.Lerp(color, Color.White, 0.68f) * (0.54f * visualStrength), 8.5f);
-                DrawSafeVertical("ThinEndedLine", start, end, Color.White * (0.76f * visualStrength), 2.8f);
-                FranVfx.DrawShared("ForwardSmear", center + blade * 8f, color * (0.28f * visualStrength),
-                    currentAngle, new Vector2(0.44f, 0.105f));
-                FranVfx.DrawShared("HalfStar", tipHistory[0], Color.White * (0.72f * visualStrength),
-                    currentAngle, 0.80f);
+                // 第四剑的能量压缩在移动剑身的前半段：短、密、同轴叠加，
+                // 不再把唯一的亮点放到最远剑尖，形成一条松散的远端光带。
+                float burst = FranMotion.Pulse(Progress, 0.04f, 0.13f, 0.48f, 0.68f);
+                float compressedReach = Math.Min(trailReach, 212f);
+                Vector2 focus = Vector2.Lerp(Owner.MountedCenter,
+                    trailPivot + blade * compressedReach * 0.68f, 0.70f);
+                Vector2 core = Vector2.Lerp(Owner.MountedCenter,
+                    trailPivot + blade * compressedReach * 0.52f, 0.70f);
+                float forwardRotation = currentAngle + MathHelper.PiOver2;
+                // 三次同位叠绘将总亮度提升到原来的 300%（即增加 200%），
+                // 但不改变任何贴图尺寸，避免增强强度时重新把覆盖区域撑大。
+                for (int intensityLayer = 0; intensityLayer < 3; intensityLayer++)
+                {
+                    FranVfx.DrawShared("ForwardSmear", core,
+                        color * ((0.38f + burst * 0.22f) * visualStrength), forwardRotation,
+                        new Vector2(0.10f, 0.10f));
+                    FranVfx.DrawShared("ForwardSmear", focus,
+                        Color.Lerp(color, Color.White, 0.54f) *
+                        ((0.34f + burst * 0.30f) * visualStrength),
+                        forwardRotation, new Vector2(0.07f, 0.060f));
+                    FranVfx.DrawSharedPixels("BloomCircle", focus,
+                        color * ((0.25f + burst * 0.32f) * visualStrength), 0f,
+                        Vector2.One * (36f + burst * 14f));
+                    FranVfx.DrawShared("HalfStar", focus,
+                        Color.White * ((0.54f + burst * 0.38f) * visualStrength), currentAngle,
+                        0.62f + burst * 0.14f);
+                }
                 break;
+
         }
 
         // Disabled by design: the 45-stamp extension read as a long, wavering laser on every swing.
@@ -605,14 +697,17 @@ public sealed class TeacherSwingRebuild : ModProjectile
         for (int i = 20; i >= 2; i -= 4)
         {
             float fade = 1f - i / 24f;
-            Vector2 center = Owner.MountedCenter + (tipHistory[i] - Owner.MountedCenter).SafeNormalize(Vector2.UnitX) * 8f - Main.screenPosition;
+            Vector2 center = Owner.MountedCenter +
+                (tipHistory[i] - Owner.MountedCenter).SafeNormalize(Vector2.UnitX) *
+                (WeaponHiltOffset + weaponOffsetHistory[i]) - Main.screenPosition;
             float angle = (tipHistory[i] - Owner.MountedCenter).ToRotation();
             Main.EntitySpriteDraw(texture, center, null, energyColor * (0.10f * fade * trailStrength[i]),
                 angle + MathHelper.PiOver4 + extra, origin,
                 (1.05f + (Combo == 2 ? 0.05f : 0f)) * FranTeacherVisuals.TextureScale, effects, 0f);
         }
 
-        Vector2 drawPosition = Owner.MountedCenter + currentAngle.ToRotationVector2() * 8f - Main.screenPosition;
+        Vector2 drawPosition = Owner.MountedCenter + currentAngle.ToRotationVector2() *
+            (WeaponHiltOffset + currentWeaponOffset) - Main.screenPosition;
         float auraRadius = (Combo == 2 ? 6.5f : 5.5f) * visualStrength;
         Color ghostColor = new(energyColor.R, energyColor.G, energyColor.B, 0);
         for (int i = 0; i < GhostAuraDraws; i++)

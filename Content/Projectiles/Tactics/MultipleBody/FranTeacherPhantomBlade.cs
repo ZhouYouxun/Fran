@@ -21,13 +21,16 @@ public sealed class FranTeacherPhantomBlade : ModProjectile
     private const float SeraphimOnHitSpeedFactor = 0.4f;
     private const float SeraphimSlowdownSpeed = 7f;
     private const int SeraphimSlowdownTime = 50;
+    private const float FullLoadoutSpeedFlag = 100f;
     private const float DissipationMarker = 1000f;
     private static readonly float SeraphimSlowdownFactor = MathF.Pow(
         SeraphimSlowdownSpeed / SeraphimInitialSpeed, 1f / SeraphimSlowdownTime);
     private bool Dissipating => Projectile.ai[0] >= DissipationMarker;
     private float DissipationAge => Projectile.ai[0] - DissipationMarker;
     private bool HasInitialEnemy => !Dissipating && Projectile.ai[0] > 0f;
-    private float StoredDelay => Math.Max(1f, MathF.Abs(Projectile.ai[0]));
+    private bool FullLoadoutSpeed => !Dissipating && MathF.Abs(Projectile.ai[0]) >= FullLoadoutSpeedFlag;
+    private float StoredDelay => Math.Max(1f, MathF.Abs(Projectile.ai[0]) -
+        (FullLoadoutSpeed ? FullLoadoutSpeedFlag : 0f));
     private float LaunchDelay => HasInitialEnemy ? StoredDelay : 1f;
     private float Age => Projectile.localAI[0];
 
@@ -86,7 +89,10 @@ public sealed class FranTeacherPhantomBlade : ModProjectile
             if (age == LaunchDelay)
             {
                 Projectile.velocity = (target - Projectile.Center).SafeNormalize(forward) *
-                    SeraphimInitialSpeed;
+                    SeraphimInitialSpeed * (FullLoadoutSpeed
+                        ? FranBalance.GetFloat(nameof(FranBalance.MultipleBodyFullLoadoutSpeedMultiplier),
+                            FranBalance.MultipleBodyFullLoadoutSpeedMultiplier)
+                        : 1f);
                 Projectile.Opacity = 1f;
                 SoundEngine.PlaySound(SoundID.Item71 with { Volume = 0.28f, Pitch = 0.24f }, Projectile.Center);
                 FranParticleEffects.LineRelease(Projectile.Center - forward * 26f,
@@ -191,6 +197,13 @@ public sealed class FranTeacherPhantomBlade : ModProjectile
             FranParticleSystem.Spawn(new FranSparkParticle(position, velocity, color,
                 0.075f + sample * 0.025f, new Vector2(0.48f, 1.32f), 11, 0.92f));
         }
+    }
+
+    internal static float EncodeLaunchDelay(float delay, bool hasEnemy, bool fullLoadout)
+    {
+        float encoded = MathHelper.Clamp(delay, 1f, 60f) +
+            (fullLoadout ? FullLoadoutSpeedFlag : 0f);
+        return hasEnemy ? encoded : -encoded;
     }
 
     public override void OnKill(int timeLeft)

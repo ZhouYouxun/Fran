@@ -22,8 +22,6 @@ public static class FranSkillInfo
 {
     public static int Count => (int)FranSkill.Count;
 
-    public static int RequiredStage(FranSkill skill) => FranBalance.GetTacticDisplayStage(skill);
-
     public static int CurrentStage => FranBalance.GetCurrentTacticStage();
 
     public static bool IsUnlocked(FranSkill skill) => FranBalance.IsTacticUnlocked(skill);
@@ -55,8 +53,11 @@ public static class FranSkillInfo
     public static string AdditionalLayerText(FranSkill skill) =>
         Language.GetTextValue($"Mods.Fran.Skills.{skill}.AdditionalLayer");
 
+    public static string FullLoadoutText(FranSkill skill) =>
+        Language.GetTextValue($"Mods.Fran.Skills.{skill}.FullLoadout");
+
     public static string UnlockText(FranSkill skill) =>
-        Language.GetTextValue($"Mods.Fran.Stages.Stage{RequiredStage(skill)}.Unlock");
+        Language.GetTextValue($"Mods.Fran.Skills.{skill}.UnlockCondition");
 
     public static int Cooldown(FranSkill skill) => FranBalance.GetTacticCooldown(skill);
 
