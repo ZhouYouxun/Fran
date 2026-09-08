@@ -686,14 +686,16 @@ internal static class FranParticleEffects
             Main.rand.NextFloat(MathHelper.TwoPi), -0.024f, 0.82f));
     }
 
-    public static void CompressionSignature(Vector2 center, Vector2 direction, float scale)
+    public static void CompressionSignature(Vector2 center, Vector2 direction, float scale,
+        float opacity = 1f)
     {
+        opacity = MathHelper.Clamp(opacity, 0f, 1f);
         Color cyan = new(75, 205, 255);
         direction = direction.SafeNormalize(Vector2.UnitX);
-        BloomPulse(center, cyan, 18f * scale, 112f * scale, 17, 0.92f, true);
+        BloomPulse(center, cyan, 18f * scale, 112f * scale, 17, 0.92f * opacity, true);
         RingPulse(center, new Color(135, 235, 255), Vector2.One * 18f * scale,
-            Vector2.One * 122f * scale, 16, direction.ToRotation(), 0.03f, 0.92f);
-        NeedleFan(center, direction, cyan, scale >= 0.9f ? 11 : 7, 8.5f * scale,
+            Vector2.One * 122f * scale, 16, direction.ToRotation(), 0.03f, 0.92f * opacity);
+        NeedleFan(center, direction, cyan * opacity, scale >= 0.9f ? 11 : 7, 8.5f * scale,
             0.82f * scale, scale >= 0.9f ? 1.08f : 0.82f);
     }
 }

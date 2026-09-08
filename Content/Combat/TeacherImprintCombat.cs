@@ -8,6 +8,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.Audio;
+using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -53,6 +54,14 @@ internal static class TeacherImprintCombat
 
             case FranSkill.ThunderChain:
                 SpawnThunderCircuit(owner, swing, combo, tacticLayers, direction);
+                break;
+
+            case FranSkill.BlueResonance when fran.IsFullTacticLoadout(FranSkill.BlueResonance):
+                // 全选蓝辉不再要求剑体先命中目标：每次挥刀固定生成一整组蓝辉弹。
+                // 后续若剑体实际命中一个或多个敌人，OnSwordHit 仍会按每个命中目标追加同等的一组。
+                SpawnBlueResonanceEchoes(owner, swing, combo, tacticLayers,
+                    owner.MountedCenter + direction.SafeNormalize(Vector2.UnitX * owner.direction) * 36f,
+                    swing.GetSource_FromThis(), encodedTarget: 0f);
                 break;
 
             case FranSkill.ThorsHammer when combo == 3 && fran.AdvanceHammerRound(tacticLayers):
@@ -125,32 +134,37 @@ internal static class TeacherImprintCombat
         switch (skill)
         {
             case FranSkill.BlueResonance:
-                bool fullBlueResonance = owner.GetModPlayer<FranPlayer>()
-                    .IsFullTacticLoadout(FranSkill.BlueResonance);
-                int echoCount = (combo == 3
-                    ? FranBalance.GetInt(nameof(FranBalance.BlueResonanceFinisherBaseCount),
-                        FranBalance.BlueResonanceFinisherBaseCount)
-                    : FranBalance.GetInt(nameof(FranBalance.BlueResonanceNormalBaseCount),
-                        FranBalance.BlueResonanceNormalBaseCount)) +
-                    (tacticLayers - 1) * FranBalance.GetInt(nameof(FranBalance.BlueResonanceExtraLayerCount),
-                        FranBalance.BlueResonanceExtraLayerCount);
-                float burstAngle = -MathHelper.PiOver2 + Main.rand.NextFloat(-0.18f, 0.18f);
-                for (int i = 0; i < echoCount; i++)
-                {
-                    float spread = echoCount <= 1 ? 0f : MathHelper.Lerp(-1.18f, 1.18f, i / (echoCount - 1f));
-                    Vector2 burstVelocity = (burstAngle + spread).ToRotationVector2() *
-                        Main.rand.NextFloat(5.8f, 8.4f);
-                    Projectile.NewProjectile(swing.GetSource_OnHit(target), target.Center,
-                        burstVelocity, ModContent.ProjectileType<FranBlueResonanceEcho>(),
-                        Math.Max(1, (int)(swing.damage * (combo == 3
-                            ? FranBalance.GetFloat(nameof(FranBalance.BlueResonanceFinisherDamageMultiplier),
-                                FranBalance.BlueResonanceFinisherDamageMultiplier)
-                            : FranBalance.GetFloat(nameof(FranBalance.BlueResonanceNormalDamageMultiplier),
-                                FranBalance.BlueResonanceNormalDamageMultiplier)))),
-                        swing.knockBack * 0.3f, owner.whoAmI, target.whoAmI + 1f,
-                        i, FranBlueResonanceEcho.EncodeEchoCount(echoCount, fullBlueResonance));
-                }
+                SpawnBlueResonanceEchoes(owner, swing, combo, tacticLayers, target.Center,
+                    swing.GetSource_OnHit(target), target.whoAmI + 1f);
                 break;
+        }
+    }
+
+    private static void SpawnBlueResonanceEchoes(Player owner, Projectile swing, int combo,
+        int tacticLayers, Vector2 center, IEntitySource source, float encodedTarget)
+    {
+        int echoCount = (combo == 3
+            ? FranBalance.GetInt(nameof(FranBalance.BlueResonanceFinisherBaseCount),
+                FranBalance.BlueResonanceFinisherBaseCount)
+            : FranBalance.GetInt(nameof(FranBalance.BlueResonanceNormalBaseCount),
+                FranBalance.BlueResonanceNormalBaseCount)) +
+            (tacticLayers - 1) * FranBalance.GetInt(nameof(FranBalance.BlueResonanceExtraLayerCount),
+                FranBalance.BlueResonanceExtraLayerCount);
+        float burstAngle = -MathHelper.PiOver2 + Main.rand.NextFloat(-0.18f, 0.18f);
+        for (int i = 0; i < echoCount; i++)
+        {
+            float spread = echoCount <= 1 ? 0f : MathHelper.Lerp(-1.18f, 1.18f, i / (echoCount - 1f));
+            Vector2 burstVelocity = (burstAngle + spread).ToRotationVector2() *
+                Main.rand.NextFloat(5.8f, 8.4f);
+            Projectile.NewProjectile(source, center, burstVelocity,
+                ModContent.ProjectileType<FranBlueResonanceEcho>(),
+                Math.Max(1, (int)(swing.damage * (combo == 3
+                    ? FranBalance.GetFloat(nameof(FranBalance.BlueResonanceFinisherDamageMultiplier),
+                        FranBalance.BlueResonanceFinisherDamageMultiplier)
+                    : FranBalance.GetFloat(nameof(FranBalance.BlueResonanceNormalDamageMultiplier),
+                        FranBalance.BlueResonanceNormalDamageMultiplier)))),
+                swing.knockBack * 0.3f, owner.whoAmI, encodedTarget,
+                i, FranBlueResonanceEcho.EncodeEchoCount(echoCount));
         }
     }
 
@@ -173,17 +187,17 @@ internal static class TeacherImprintCombat
             switch (combo)
             {
                 case 0:
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, 2f, 0.94f, single);
+                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, single);
                     break;
                 case 1:
-                    SpawnTelekineticPressureCore(owner, swing, direction, owner.direction * 12f, 5f, 0.98f, single);
+                    SpawnTelekineticPressureCore(owner, swing, direction, owner.direction * 12f, single);
                     break;
                 case 2:
-                    SpawnTelekineticPressureCore(owner, swing, direction, -17f, 1f, 0.88f, pair);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 17f, 3f, 0.88f, pair);
+                    SpawnTelekineticPressureCore(owner, swing, direction, -17f, pair);
+                    SpawnTelekineticPressureCore(owner, swing, direction, 17f, pair);
                     break;
                 default:
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, 7f, 1.36f, heavy);
+                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, heavy);
                     break;
             }
         }
@@ -192,15 +206,15 @@ internal static class TeacherImprintCombat
             switch (combo)
             {
                 case 0:
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, 2f, 0.98f, single);
+                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, single);
                     break;
                 case 1:
                     SpawnTelekineticFoldBlade(owner, swing, direction, -owner.direction * 30f,
                         -owner.direction * 0.08f, 1f, single);
                     break;
                 case 2:
-                    SpawnTelekineticPressureCore(owner, swing, direction, -19f, 1f, 0.86f, triple);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 19f, 3f, 0.86f, triple);
+                    SpawnTelekineticPressureCore(owner, swing, direction, -19f, triple);
+                    SpawnTelekineticPressureCore(owner, swing, direction, 19f, triple);
                     SpawnTelekineticFoldBlade(owner, swing, direction, 0f, 0f, 0.90f, triple);
                     break;
                 default:
@@ -224,7 +238,7 @@ internal static class TeacherImprintCombat
                 case 2:
                     SpawnTelekineticLaser(owner, swing, direction, -26f, 0.90f, triple, false);
                     SpawnTelekineticLaser(owner, swing, direction, 26f, 0.90f, triple, true);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, 6f, 0.84f, triple);
+                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, triple);
                     break;
                 default:
                     SpawnTelekineticLaser(owner, swing, direction, 0f, 1.34f, heavy, false);
@@ -237,7 +251,7 @@ internal static class TeacherImprintCombat
             {
                 case 0:
                     SpawnTelekineticLaser(owner, swing, direction, 0f, 0.98f, pair, false);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, 7f, 0.86f, pair);
+                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, pair);
                     break;
                 case 1:
                     SpawnTelekineticLaser(owner, swing, direction, 0f, 0.98f, triple, false);
@@ -247,8 +261,8 @@ internal static class TeacherImprintCombat
                 case 2:
                     SpawnTelekineticLaser(owner, swing, direction, -32f, 0.92f, quartet, false);
                     SpawnTelekineticLaser(owner, swing, direction, 32f, 0.92f, quartet, true);
-                    SpawnTelekineticPressureCore(owner, swing, direction, -62f, 5f, 0.78f, quartet);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 62f, 8f, 0.78f, quartet);
+                    SpawnTelekineticPressureCore(owner, swing, direction, -62f, quartet);
+                    SpawnTelekineticPressureCore(owner, swing, direction, 62f, quartet);
                     break;
                 default:
                     if (stage == 3)
@@ -290,33 +304,20 @@ internal static class TeacherImprintCombat
             (combo switch { 0 => 1.0f, 1 => 1.35f, 2 => 1.8f, _ => 2.8f }) + stage * 0.08f);
     }
 
-    private static void SpawnTelekineticPressureCore(Player owner, Projectile swing, Vector2 direction,
-        float lateralOffset, float releaseDelay, float scale, float damageScale, int? formationLane = null)
+    private static void SpawnTelekineticPressureCore(Player owner, Projectile swing, Vector2 direction, float lateralOffset, float damageScale)
     {
         Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
         Vector2 spawn = owner.MountedCenter + direction * 28f + normal * lateralOffset;
-        FranPlayer fran = owner.GetModPlayer<FranPlayer>();
-        bool fullTelekineticLoadout = fran.IsFullTacticLoadout(FranSkill.TelekineticCatapult);
-        float initialSpeed = (scale >= 1.15f ? 8.4f : 7.2f) * FranBalance.GetFloat(
-            nameof(FranBalance.TelekineticPressureCoreInitialSpeedMultiplier),
-            FranBalance.TelekineticPressureCoreInitialSpeedMultiplier);
-        int index = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, direction * initialSpeed,
-            ModContent.ProjectileType<FranTelekineticShell>(),
+        // Terratomere: shootSpeed 60 / 2, with a circular-edge velocity offset of 20%.
+        // Formation counts, spawn offsets and base damage remain the tactic's own values.
+        Vector2 launchVelocity = direction * 30f + Main.rand.NextVector2CircularEdge(6f, 6f);
+        int index = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, launchVelocity,
+            ModContent.ProjectileType<Telekinetic_CondensedMindCore>(),
             Math.Max(1, (int)(swing.damage * damageScale)), swing.knockBack * 0.52f,
-            owner.whoAmI, direction.X, direction.Y,
-            FranTelekineticShell.EncodeReleaseDelay(releaseDelay, fullTelekineticLoadout));
+            owner.whoAmI);
         if (!Main.projectile.IndexInRange(index))
             return;
-
         Projectile core = Main.projectile[index];
-        core.scale = scale;
-        int hitboxSize = Math.Max(18, (int)MathF.Round(26f * scale));
-        core.Resize(hitboxSize, hitboxSize);
-        if (fullTelekineticLoadout && core.ModProjectile is FranTelekineticShell shell)
-        {
-            int lane = formationLane ?? Math.Sign(lateralOffset) * (Math.Abs(lateralOffset) >= 40f ? 2 : 1);
-            shell.ConfigureFormation(lane);
-        }
         core.netUpdate = true;
     }
 
@@ -331,7 +332,7 @@ internal static class TeacherImprintCombat
             nameof(FranBalance.TelekineticFoldBladeLaunchSpeed),
             FranBalance.TelekineticFoldBladeLaunchSpeed));
         int index = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, direction * launchSpeed,
-            ModContent.ProjectileType<FranTelekineticFoldBlade>(),
+            ModContent.ProjectileType<Telekinetic_DestructiveWave>(),
             Math.Max(1, (int)(swing.damage * damageScale)), swing.knockBack * 0.56f,
             owner.whoAmI, curveSign, 0f, scale);
         if (Main.projectile.IndexInRange(index))
@@ -347,7 +348,7 @@ internal static class TeacherImprintCombat
         Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
         Vector2 spawn = owner.MountedCenter + direction * 26f + normal * lateralOffset;
         int index = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, direction * 11.8f,
-            ModContent.ProjectileType<FranTelekineticHalleyBolt>(),
+            ModContent.ProjectileType<Telekinetic_Flash>(),
             Math.Max(1, (int)(swing.damage * damageScale)), swing.knockBack * 0.64f,
             owner.whoAmI, 0f, 0f, suppressLaunchBurst ? -1f : 0f);
         if (!Main.projectile.IndexInRange(index))
@@ -372,8 +373,7 @@ internal static class TeacherImprintCombat
         for (int i = 0; i < extraLayers; i++)
         {
             float side = (i % 2 == 0 ? 1f : -1f) * (i / 2 + 1) * spacing * owner.direction;
-            SpawnTelekineticPressureCore(owner, swing, direction, side, 3f + i * 2f,
-                combo == 3 ? 0.76f : 0.70f, damageScale, Math.Sign(side) * (i / 2 + 3));
+            SpawnTelekineticPressureCore(owner, swing, direction, side, damageScale);
         }
     }
 
@@ -385,14 +385,14 @@ internal static class TeacherImprintCombat
             FranBalance.TelekineticFinisherPlanetDamageMultiplier);
         int damage = Math.Max(1, (int)(swing.damage * damageScale));
         int baseVariant = Math.Abs(swing.identity * 3 + 15 + (int)(Main.GameUpdateCount % 10)) % 10;
-        for (int orbitSlot = 0; orbitSlot < FranTelekineticPlanet.PlanetCount; orbitSlot++)
+        for (int orbitSlot = 0; orbitSlot < Telekinetic_GravityStarfall.PlanetCount; orbitSlot++)
         {
             int variant = (baseVariant + orbitSlot * 7) % 10;
-            Vector2 spawn = FranTelekineticPlanet.InitialOrbitPosition(focus, lockedTarget,
+            Vector2 spawn = Telekinetic_GravityStarfall.InitialOrbitPosition(focus, lockedTarget,
                 owner.whoAmI, orbitSlot);
             int planetIndex = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, Vector2.Zero,
-                ModContent.ProjectileType<FranTelekineticPlanet>(), damage, swing.knockBack * 0.46f,
-                owner.whoAmI, FranTelekineticPlanet.EncodeAppearance(variant, orbitSlot),
+                ModContent.ProjectileType<Telekinetic_GravityStarfall>(), damage, swing.knockBack * 0.46f,
+                owner.whoAmI, Telekinetic_GravityStarfall.EncodeAppearance(variant, orbitSlot),
                 EncodeOptionalNpc(lockedTarget), 0f);
             if (!Main.projectile.IndexInRange(planetIndex))
                 continue;

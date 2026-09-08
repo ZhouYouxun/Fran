@@ -560,7 +560,7 @@ public sealed class FranUISystem : ModSystem
 
     // Bind by skill identity rather than enum/array position. This mapping is shared by the wheel
     // and equipped slots, so a later enum reorder cannot silently swap two authored icons.
-    private static string SkillIconPath(FranSkill skill) => skill switch
+    internal static string SkillIconPath(FranSkill skill) => skill switch
     {
         FranSkill.TelekineticCatapult => SkillIconRoot + "FranSkill_01_TelekineticCatapult",
         FranSkill.SkillTaker => SkillIconRoot + "FranSkill_02_SkillTaker",

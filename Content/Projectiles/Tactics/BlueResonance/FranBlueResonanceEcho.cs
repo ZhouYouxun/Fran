@@ -20,16 +20,13 @@ public sealed class FranBlueResonanceEcho : ModProjectile
     private const int Lifetime = 150;
     private const int ScatterFrames = 14;
     private const float SearchRange = 3200f;
-    private const float FullLoadoutHealingFlag = 100f;
     private bool sourceBurstSpawned;
     private bool impactBurstSpawned;
 
     private float Age => Projectile.localAI[0];
     private bool HealingMode => Projectile.localAI[1] > 0.5f;
-    private bool FullLoadoutHealing => Projectile.ai[2] >= FullLoadoutHealingFlag;
 
-    internal static float EncodeEchoCount(int echoCount, bool fullLoadout) =>
-        Math.Max(1, echoCount) + (fullLoadout ? FullLoadoutHealingFlag : 0f);
+    internal static float EncodeEchoCount(int echoCount) => Math.Max(1, echoCount);
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -185,11 +182,6 @@ public sealed class FranBlueResonanceEcho : ModProjectile
             int maximum = Math.Max(minimum, FranBalance.GetInt(nameof(FranBalance.BlueResonanceHealingMaximum),
                 FranBalance.BlueResonanceHealingMaximum));
             int healing = Math.Clamp(target.statLifeMax2 / divisor, minimum, maximum);
-            if (FullLoadoutHealing)
-                healing = Math.Max(1, (int)Math.Round(healing * FranBalance.GetFloat(
-                    nameof(FranBalance.BlueResonanceFullLoadoutHealingMultiplier),
-                    FranBalance.BlueResonanceFullLoadoutHealingMultiplier),
-                    MidpointRounding.AwayFromZero));
             target.GetModPlayer<FranPlayer>().ApplyResonanceHealing(healing);
         }
         impactBurstSpawned = true;

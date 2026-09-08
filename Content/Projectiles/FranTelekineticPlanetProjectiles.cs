@@ -37,7 +37,7 @@ internal static class FranPlanetVisuals
 /// <summary>
 /// 六体念动力引力坠落：星体高速入轨、稳定公转，再维持角速度螺旋坠向锁定目标。
 /// </summary>
-public sealed class FranTelekineticPlanet : ModProjectile
+public sealed class Telekinetic_GravityStarfall : ModProjectile
 {
     // 蓄力附加层暂时关闭；代码保留，便于以后单独恢复。
     private static readonly bool ChargeVisualsEnabled = false;
@@ -306,7 +306,7 @@ public sealed class FranTelekineticPlanet : ModProjectile
         if (Projectile.owner == Main.myPlayer)
         {
             Projectile.NewProjectile(Projectile.GetSource_FromThis(), Projectile.Center, Vector2.Zero,
-                ModContent.ProjectileType<FranTelekineticPlanetExplosion>(),
+                ModContent.ProjectileType<Telekinetic_GravityStarfallExplosion>(),
                 Math.Max(1, (int)(Projectile.damage * FranBalance.GetFloat(
                     nameof(FranBalance.TelekineticPlanetExplosionDamageMultiplier),
                     FranBalance.TelekineticPlanetExplosionDamageMultiplier))), Projectile.knockBack,
@@ -397,7 +397,7 @@ public sealed class FranTelekineticPlanet : ModProjectile
 }
 
 /// <summary>Short-lived synchronized area hit and coloured impact for a telekinetic planet.</summary>
-public sealed class FranTelekineticPlanetExplosion : ModProjectile
+public sealed class Telekinetic_GravityStarfallExplosion : ModProjectile
 {
     private const int Lifetime = 12;
     private int Variant => Math.Clamp((int)Projectile.ai[0], 0, 9);

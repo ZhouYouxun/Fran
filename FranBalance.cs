@@ -92,12 +92,6 @@ public static partial class FranBalance
     public static float TelekineticManyShellDamageMultiplier = 0.24f;  // 齐射达到 4 枚以上：每枚光弹为当前剑击的 24%
     public static float TelekineticHeavyProjectileDamageMultiplier = 0.88f; // 单一重型念压核或重型激光为当前剑击的 88%
     public static float TelekineticExtraLayerProjectileDamageMultiplier = 0.24f; // 每层 B 新增的单枚侧翼念压核为当前剑击的 24%
-    public static float TelekineticPressureCoreInitialSpeedMultiplier = 1.70f; // 念压核实际起飞速度提升为原来的 1.70 倍
-    public static float TelekineticPressureCoreAcceleration = 1.035f; // 念压核加速阶段内每个正常帧的速度倍率
-    public static int TelekineticPressureCoreAccelerationFrames = 20; // 起飞二十帧后停止加速并保持最高速度
-    public static float TelekineticPressureCoreHomingRange = 920f; // 全槽念动弹射时，念压核的首次锁敌/失敌补锁半径
-    public static int TelekineticPressureCoreHomingDelayFrames = 9; // 散射基准帧数；侧翼按层级错峰，最终限制在 8～12 帧
-    // 掠近、弧扫、切入和一次回勾的运动参数集中在 FranTelekineticSkirmishMotion 中。
     public static int TelekineticFoldBladeHitLimit = 10; // 折念刃冲击波最多造成十次伤害
     public static float TelekineticFoldBladeLaunchSpeed = 60f; // 泰拉刃式高速起步
     public static float TelekineticFoldBladeFlightDeceleration = 0.94f; // 高于最低速度时每帧保留的速度
@@ -119,7 +113,7 @@ public static partial class FranBalance
     // ---------------------------------------------------------------------
     public static float SkillTakerMinimumDamageMultiplier = 1.10f;   // 标记刚建立时，目标受到 1.10 倍伤害
     public static float SkillTakerMaximumDamageMultiplier = 1.30f;   // 无论装配几层，易伤上限始终固定为 1.30 倍
-    public static float SkillTakerFullLoadoutMaximumDamageMultiplier = 1.50f; // 全选：易伤上限提升至 1.50 倍，成长时间仍由普通叠层规则决定
+    public static float SkillTakerFullLoadoutMaximumDamageMultiplier = 1.70f; // 全选：易伤上限提升至 1.70 倍，成长时间仍由普通叠层规则决定
     public static int SkillTakerBaseRampFrames = 420;                // 第一层 A：持续攻击约 7 秒达到易伤上限
     public static int SkillTakerExtraLayerRampReductionFrames = 60;  // 重复层 B：每层使达到上限所需时间缩短 1 秒
     public static int SkillTakerBaseDecayFrames = 180;               // 第一层 A：停手后约 3 秒缓慢衰减并消失
@@ -160,6 +154,7 @@ public static partial class FranBalance
     // ---------------------------------------------------------------------
     // 战术五：蓝辉共鸣（骷髅王后解锁）
     // 倍率是“单枚蓝辉弹”的伤害；重复层每次固定增加一枚，因此天然是 A+B+B。
+    // 全选时每次挥刀先无条件生成一整组；剑体每命中一个敌人，仍会再追加一整组。
     // ---------------------------------------------------------------------
     public static int BlueResonanceNormalBaseCount = 3;                  // 第一层 A：普通三刀命中时迸发 3 枚蓝辉弹
     public static int BlueResonanceFinisherBaseCount = 5;                // 第一层 A：第四刀命中时迸发 5 枚蓝辉弹
@@ -169,7 +164,6 @@ public static partial class FranBalance
     public static int BlueResonanceHealingLifeDivisor = 80;              // 每枚治疗弹基础值为目标最大生命除以 80
     public static int BlueResonanceHealingMinimum = 2;                   // 单次治疗最少恢复 2 点生命
     public static int BlueResonanceHealingMaximum = 7;                   // 每枚治疗弹最多恢复 7 点生命；叠层只增加弹幕数量
-    public static float BlueResonanceFullLoadoutHealingMultiplier = 1.50f; // 全选：最终治疗量乘 1.50
 
     // ---------------------------------------------------------------------
     // 战术六：雷链（血肉墙后解锁）
@@ -186,7 +180,7 @@ public static partial class FranBalance
     public static float ThunderChainFullLoadoutRainDamageMultiplier = 2.50f; // 全选且世界正在下雨时，每一道雷的伤害乘 2.50
 
     // ---------------------------------------------------------------------
-    // 战术七：压缩居合（机械三王后解锁）
+    // 战术七：压缩居合（世纪之花后解锁）
     // 数组从左到右依次对应第一、第二、第三、第四刀；倍率是“单个空气爆点”的伤害。
     // ---------------------------------------------------------------------
     public static int[] QuickdrawAirburstCounts =
@@ -204,7 +198,17 @@ public static partial class FranBalance
         0.15f  // 第四刀：每个爆点为当前剑击的 15%，整组理论值 105%
     };
     public static float QuickdrawExtraLayerDamageMultiplier = 0.15f; // 重复层 B：每层只增加“基础爆点伤害”的 15%
-    public static float QuickdrawFullLoadoutLifetimeMultiplier = 1.70f; // 全选：原地聚合爆点的视觉持续时间乘 1.70
+    public static float QuickdrawFullLoadoutLifetimeMultiplier = 3f; // 全选：原地聚合爆点的持续时间乘 3.00
+    public static float QuickdrawNonFullEmissionMultiplier = 0.60f; // 非全选：四段剑术沿途生成的压缩爆点数量降至 60%
+    public static float QuickdrawNonFullDamageMultiplier = 0.80f;   // 非全选：每一阶段单个压缩爆点的伤害降至 80%
+    public static float QuickdrawFullDiscMaximumAngularVelocity = 0.245f; // 全选刀盘的基础最高角速度（弧度/帧）
+    public static float QuickdrawFullDiscSpinAcceleration = 0.026f;       // 按住左键时每帧增加的基础角速度
+    public static float QuickdrawFullDiscReleaseVelocityRetention = 0.91f; // 松键后每帧保留的角速度，形成惯性停转
+    public static float QuickdrawFullDiscStopAngularVelocity = 0.009f;     // 低于该角速度后结束刀盘
+    public static int QuickdrawFullDiscAirburstInterval = 4;              // 全选刀盘每 4 帧沿当前刀刃留下一个聚合旋风
+    public static float QuickdrawFullDiscAirburstDamageMultiplier = 0.15f; // 刀盘单个聚合旋风为武器伤害的 15%
+    public static int QuickdrawFullDiscLocalHitCooldown = 15;             // 同一目标每 15 帧最多受到一次旋转剑身伤害
+    public static float QuickdrawFullDiscAirburstOpacityMultiplier = 0.70f; // 刀盘生成的小旋风视觉强度降至 70%
 
     // ---------------------------------------------------------------------
     // 战术八：雷神之锤（机械三王后解锁）

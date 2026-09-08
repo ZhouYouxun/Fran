@@ -24,7 +24,20 @@ Mods: {
 					[Ultimate] When the gauge is full, press the ultimate key to unleash the Black Heavenly Tiger's power
 					Execute a single target with a continuous rush of slashes
 					'''
+				TacticSelection: "[Tactics] Selected: {0}/{1}"
+				FullLoadoutActive: "[Full Loadout] Active: {0}"
+				FullLoadoutInactive: "[Full Loadout] Inactive"
 				GoldenPrompt: Enter text
+			}
+
+			StrategyGuideBook: {
+				DisplayName: Strategy Guide
+				Tooltip:
+					'''
+					Left-click to open Teacher's tactic loadout guide
+					Browse recommended setups for two, three, or four available tactic slots
+					Right-click inside the guide or click the top-right button to close it
+					'''
 			}
 
 			TeacherExcavationTool: {
@@ -126,6 +139,134 @@ Mods: {
 			TacticControls: Left-click a wheel icon to equip | left-click an equipped icon below the wheel to remove | right-click again or open inventory to close
 			TacticEquipped: Equipped: {0} x{1}
 			TacticUnequipped: Removed: {0} (x{1} remaining)
+		}
+
+		StrategyGuide: {
+			Title: Teacher Tactic Loadout Guide
+			Subtitle: Full loadouts pursue a transformation; mixed loadouts run several first-layer mechanics together
+			CurrentStatus: Current capacity: {0} slots | Viewing: {1}-slot loadouts
+			CloseHint: Click a tab to preview another stage | Right-click inside the guide or click X to close
+			FullLoadoutTitle: Full-loadout value at a glance
+			FullLoadoutSummary: Major transformations: Telekinetic Catapult, Skill Taker, Magic Barrier, Blue Resonance, Pressurized Quickdraw, and Thor's Hammer | Thunder Chain is exceptional in rain | Multiple Body Creation has a gentler full bonus and mixes well
+
+			Tabs: {
+				Slots2: 2 slots
+				Slots3: 3 slots
+				Slots4: 4 slots
+				Current: "{0} · current"
+			}
+
+			Page2: {
+				Structure: Two slots offer two structures: a 2-slot full loadout for its transformation, or 1+1 for two first-layer mechanics. Full-loadout effects are cheapest here.
+
+				Entry1: {
+					Title: Telekinetic x2 | Effortless tracking
+					Body: Mind cores gain persistent tracking and retargeting. This is the safest, least demanding route for stable ranged pressure.
+				}
+
+				Entry2: {
+					Title: Skill Taker x2 | Melee reward
+					Body: Teacher's blade must hit to launch the wisps. Sustained close combat can eventually raise vulnerability to 1.7x.
+				}
+
+				Entry3: {
+					Title: Barrier x2 | Maximum forgiveness
+					Body: Gain 15% damage reduction and 15 defense, then halve contact damage and add 35 life regeneration for a survival-first style.
+				}
+
+				Entry4: {
+					Title: Blue x2 | Active sustain
+					Body: Every swing creates a group of blue motes without a hit; blade hits still add more, so recovery no longer needs an initial target.
+				}
+
+				Entry5: {
+					Title: Telekinetic + Taker | Balanced offense
+					Body: Telekinesis pressures at range while Skill Taker amplifies damage after closing in. Both full-loadout transformations are sacrificed for flexibility.
+				}
+
+				Entry6: {
+					Title: Barrier + Blue | Two safety nets
+					Body: One layer reduces incoming damage and the other restores life. Neither is extreme, but the combination covers more kinds of danger.
+				}
+			}
+
+			Page3: {
+				Structure: Three slots allow a full 3, a focused 2+1, or a broad 1+1+1. In most situations, 2+1 is the best balance between strength and coverage.
+
+				Entry1: {
+					Title: Skill Taker x3 | Sustained pressure
+					Body: The full loadout reaches the 1.7x ceiling, while two added layers accelerate growth and keep the mark alive longer.
+				}
+
+				Entry2: {
+					Title: Blue x3 | Resonance on every swing
+					Body: Each swing starts with a full mote group, and every enemy struck adds another group for active healing and strong crowd value.
+				}
+
+				Entry3: {
+					Title: Taker x2 + Telekinetic | Range switching
+					Body: Skill Taker grows faster while Telekinetic Catapult keeps its ranged sequence. It loses the 1.7x ceiling but does not demand constant proximity.
+				}
+
+				Entry4: {
+					Title: Barrier x2 + Blue | Reliable sustain
+					Body: Pair 15% damage reduction and 15 defense with healing motes. You trade Barrier's full bonus for recovery against non-contact damage.
+				}
+
+				Entry5: {
+					Title: Multiple x2 + Quickdraw | Projectile offense
+					Body: Add another phantom and lay compressed bursts at 60% of full frequency; non-full burst damage is also reduced to 80%, trading specialization for coverage.
+				}
+
+				Entry6: {
+					Title: Telekinetic + Taker + Barrier | All-range
+					Body: Ranged projectiles, close-range vulnerability, and basic defense all run together. No capstone, but every combat distance has an answer.
+				}
+			}
+
+			Page4: {
+				Structure: With four slots, favor a full 4, a 2+2, or a 2+1+1. A 3+1 is often awkward: it invests three slots in one tactic while losing its defining full-loadout transformation.
+
+				Entry1: {
+					Title: Telekinetic x4 | Tracking fire net
+					Body: All three added cores gain long-range tracking and retargeting, creating the most stable sustained ranged route with minimal input demands.
+				}
+
+				Entry2: {
+					Title: Skill Taker x4 | Melee limit
+					Body: Vulnerability reaches its 1.7x ceiling in about four seconds and lasts longest, but repeated blade hits are required to earn that peak.
+				}
+
+				Entry3: {
+					Title: Barrier x4 | Survival limit
+					Body: Gain 25% damage reduction, 25 defense, halved contact damage, and 35 life regeneration by trading away ranged tactic support.
+				}
+
+				Entry4: {
+					Title: Quickdraw x4 | Endless blade disc
+					Body: The four-cut chain becomes a continuous blade disc. Hold left-click to spin and leave triple-duration compression vortices along the true blade path; release to coast to a stop.
+				}
+
+				Entry5: {
+					Title: Taker x2 + Telekinetic + Blue | General offense
+					Body: Faster vulnerability, ranged projectiles, and healing run together. It loses the 1.7x cap but minimizes ordinary combat downtime.
+				}
+
+				Entry6: {
+					Title: Barrier x2 + Blue x2 | Stable survival
+					Body: Moderate mitigation combines with extra motes, covering sustained damage and team recovery without relying on Barrier's contact capstone.
+				}
+
+				Entry7: {
+					Title: Multiple x2 + Quickdraw x2 | Dual projectiles
+					Body: Phantom count and Quickdraw stacks improve together, but non-full Quickdraw still has 60% frequency and 80% stage damage. This is dual coverage, not blade-disc specialization.
+				}
+
+				Entry8: {
+					Title: Telekinetic + Taker + Barrier + Blue | Universal
+					Body: Four first-layer mechanics cover range, melee amplification, mitigation, and healing. It is the broadest setup, but has no specialization peak.
+				}
+			}
 		}
 
 		MainMenu.DisplayName: Fran · Reincarnated as a Sword
@@ -463,7 +604,7 @@ Mods: {
 				Description: Teacher's four-part sword combo always remains intact. The current world stage rearranges pressure cores, fold blades, high-speed lasers, and falling planets around those same four cuts
 				FirstLayer: One layer: uses the current four-cut projectile sequence
 				AdditionalLayer: Stack: adds one pressure core per layer
-				FullLoadout: Full: pressure cores gain long-range homing and retargeting
+				FullLoadout: Full: maximize flanking pressure cores for a dense homing formation
 
 				CurrentState: {
 					Stage0: One layer: 1 core | 2 delayed core | 3 twin cores | 4 heavy core
@@ -480,7 +621,7 @@ Mods: {
 				Description: Sword hits apply a theft mark. Sustained attacks gradually increase the target's vulnerability; both the vulnerability and mark decay after attacks stop
 				FirstLayer: One layer: sustained attacks raise vulnerability up to 1.3x
 				AdditionalLayer: Stack: vulnerability rises faster and the mark lasts longer
-				FullLoadout: Full: maximum vulnerability increases to 1.5x
+				FullLoadout: Full: maximum vulnerability increases to 1.7x
 			}
 
 			MagicBarrier: {
@@ -507,7 +648,7 @@ Mods: {
 				Description: Sword hits burst blue resonance motes. They seek and heal injured players; when everyone is healthy they instead seek enemies and deal damage
 				FirstLayer: One layer: hits release blue motes that heal or damage
 				AdditionalLayer: Stack: adds one blue mote per layer
-				FullLoadout: Full: healing is multiplied by 1.5
+				FullLoadout: Full: every swing releases blue motes without needing to hit an enemy
 			}
 
 			ThunderChain: {
@@ -522,10 +663,10 @@ Mods: {
 			PressurizedQuickdraw: {
 				DisplayName: Pressurized Quickdraw
 				UnlockCondition: Unlock by defeating Plantera
-				Description: Every swing releases a high-pressure wave using the Terra Blade beam form; it pierces without limit and gradually slows, while the fourth cut fires a smaller and faster finishing wave
-				FirstLayer: One layer: detonates compressed air along the sword arc
+				Description: Without a full loadout, the four-cut chain leaves compression bursts along each arc. A full loadout replaces the chain with a continuous blade disc that spins while left-click is held and coasts to a stop when released
+				FirstLayer: One layer: arc bursts; without Full, frequency -40% and damage -20%
 				AdditionalLayer: Stack: raises compressed-burst damage
-				FullLoadout: Full: compression bursts last longer
+				FullLoadout: Full: becomes an endless blade disc and triples compression-burst duration
 			}
 
 			ThorsHammer: {
@@ -582,8 +723,9 @@ Mods: {
 			FranBarrierCounterCut.DisplayName: Fran Barrier Counter Cut
 			FranAutoBarrierProjectile.DisplayName: Fran Auto Barrier Projectile
 			FranCompressionNode.DisplayName: Fran Compression Node
+			FranQuickdrawDiscHoldout.DisplayName: Pressurized Quickdraw Disc
 			FranRicochetLightning.DisplayName: Fran Ricochet Lightning
-			FranTelekineticShell.DisplayName: Fran Telekinetic Shell
+			Telekinetic_CondensedMindCore.DisplayName: Telekinetic Condensed Mind Core
 			FranSkillTakerWisp.DisplayName: Skill Taker Wisp
 			FranTeacherPhantomBlade.DisplayName: Teacher Phantom Blade
 			FranThunderDropVisual.DisplayName: Descending Thunder
@@ -601,19 +743,23 @@ Mods: {
 			FranUltimateDashLaunch.DisplayName: Fran Ultimate Dash Launch
 			FranUltimateSlashResidue.DisplayName: Fran Ultimate Slash Residue
 			FranUltimateTargetField.DisplayName: Fran Ultimate Target Field
-			FranTelekineticPlanet.DisplayName: Fran Telekinetic Planet
-			FranTelekineticPlanetExplosion.DisplayName: Fran Telekinetic Planet Explosion
+			Telekinetic_GravityStarfall.DisplayName: Telekinetic Gravity Starfall
+			Telekinetic_GravityStarfallExplosion.DisplayName: Telekinetic Gravity Starfall Explosion
 			FranTelekineticFlightVisual.DisplayName: Telekinetic Flight Visual
 			FranTacticalEjecta.DisplayName: Fran Tactical Ejecta
-			FranTelekineticHalleyBolt.DisplayName: Fran Telekinetic Halley Bolt
+			Telekinetic_Flash.DisplayName: Telekinetic Flash
 			FranBlackTigerImpactVisual.DisplayName: Fran Black Tiger Impact Visual
 			FranThunderCircuitFinisher.DisplayName: Fran Thunder Circuit Finisher
 			FranThunderCircuitLink.DisplayName: Fran Thunder Circuit Link
 			FranThunderCircuitNode.DisplayName: Fran Thunder Circuit Node
 			FranThunderStrikeProjectile.DisplayName: Fran Thunder Strike Projectile
-			FranTelekineticFoldBlade.DisplayName: Fran Telekinetic Fold Blade
+			Telekinetic_DestructiveWave.DisplayName: Telekinetic Destructive Wave
 			FranFlatLightningVisual.DisplayName: Fran Flat Lightning Visual
 			TeacherArrivalProjectile.DisplayName: Teacher's Descent
+			FranCoreTerraImpact.DisplayName: Fran Core Terra Impact
+			FranCoreTerraSlash.DisplayName: Fran Core Terra Slash
+			FranCoreTerraSlashCreator.DisplayName: Fran Core Terra Slash Creator
+			FranCoreImpactBurst.DisplayName: Fran Core Impact Burst
 		}
 	}
 }

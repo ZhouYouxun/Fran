@@ -27,7 +27,20 @@ Mods: {
 					【大招】能量条充满时，按下大招按键释放黑天虎之力
 					对单个目标进行连续斩杀
 					'''
+				TacticSelection: 【当前战术】已选择 {0}/{1}
+				FullLoadoutActive: 【全选效果】已触发：{0}
+				FullLoadoutInactive: 【全选效果】未触发
 				GoldenPrompt: 请输入文本
+			}
+
+			StrategyGuideBook: {
+				DisplayName: 攻略书
+				Tooltip:
+					'''
+					左键打开师父战术搭配攻略
+					可分别查看拥有2、3、4格战术槽时的推荐配置
+					界面中右键或点击右上角关闭
+					'''
 			}
 
 			TeacherExcavationTool: {
@@ -146,6 +159,134 @@ Mods: {
 				'''
 			TacticEquipped: 已装配：{0} ×{1}
 			TacticUnequipped: 已卸下：{0}（剩余×{1}）
+		}
+
+		StrategyGuide: {
+			Title: 师父战术搭配攻略
+			Subtitle: 全选追求质变，混搭追求多套首层机制同时运转
+			CurrentStatus: 当前已开放{0}格｜正在查看{1}格配置
+			CloseHint: 点击上方分页查看其他阶段｜界面中右键或点击 × 关闭
+			FullLoadoutTitle: 全选价值速查
+			FullLoadoutSummary: 强质变：念动弹射、技能夺取者、魔力屏障、蓝辉共鸣、压缩居合、雷神之锤｜雷链在雷雨天极强｜多重分体的全选奖励较温和，更适合参加混搭
+
+			Tabs: {
+				Slots2: 2格配置
+				Slots3: 3格配置
+				Slots4: 4格配置
+				Current: "{0} · 当前阶段"
+			}
+
+			Page2: {
+				Structure: 2格只有两种结构：2格全选获得完整质变，或1+1同时启动两套首层机制。此时取得全选的成本最低。
+
+				Entry1: {
+					Title: 念动×2｜安逸追踪
+					Body: 凝念核数量增加，形成持续追踪阵列。操作压力最低，适合稳定、安全的远距离输出。
+				}
+
+				Entry2: {
+					Title: 夺取×2｜近战高回报
+					Body: 必须由剑体命中启动夺取灵弹；持续贴身攻击后易伤最高达到1.7倍。
+				}
+
+				Entry3: {
+					Title: 屏障×2｜极限容错
+					Body: 获得15%减伤与15防御，再取得接触伤害减半和生命回复+35，彻底偏向生存。
+				}
+
+				Entry4: {
+					Title: 蓝辉×2｜主动续航
+					Body: 每刀无条件产生一组蓝辉弹；剑体命中敌人后还会继续追加，恢复不再依赖先命中。
+				}
+
+				Entry5: {
+					Title: 念动+夺取｜均衡进攻
+					Body: 念动负责远处压制，夺取负责近身后放大伤害；牺牲两边的全选质变换取适应性。
+				}
+
+				Entry6: {
+					Title: 屏障+蓝辉｜双重保险
+					Body: 一层屏障承受伤害，一层蓝辉恢复生命。单项不极端，但比单一防御机制更全面。
+				}
+			}
+
+			Page3: {
+				Structure: 3格可选3格全选、2+1主辅配置或1+1+1全功能配置。一般情况下，2+1是强度与功能最均衡的结构。
+
+				Entry1: {
+					Title: 夺取×3｜持续压制
+					Body: 全选取得1.7倍易伤上限，两层叠加又让成长更快、标记更久，适合持续近战输出。
+				}
+
+				Entry2: {
+					Title: 蓝辉×3｜挥刀即共鸣
+					Body: 每次挥刀先产生完整蓝辉弹组，命中每个敌人还会各追加一组，兼顾主动治疗和群体收益。
+				}
+
+				Entry3: {
+					Title: 夺取×2+念动｜攻守距离切换
+					Body: 夺取获得更快成长，念动保留远程弹幕编排。无法达到1.7倍，但不必始终贴身作战。
+				}
+
+				Entry4: {
+					Title: 屏障×2+蓝辉｜稳健续航
+					Body: 15%减伤和15防御搭配蓝辉治疗；放弃屏障全选，换来应对非接触伤害的恢复能力。
+				}
+
+				Entry5: {
+					Title: 多重×2+压缩｜弹幕进攻
+					Body: 增加分体数量，再以全选前60%的频率沿挥刀轨迹铺设压缩爆点；压缩爆点伤害同时降至80%，以覆盖换取专精峰值。
+				}
+
+				Entry6: {
+					Title: 念动+夺取+屏障｜全距离通用
+					Body: 远程弹幕、近战易伤和基础防御同时启用。没有全选质变，但任何战斗距离都有作用。
+				}
+			}
+
+			Page4: {
+				Structure: 4格优先考虑4格全选、2+2或2+1+1。3+1通常最尴尬：已经投入三格，却刚好失去最关键的全选质变。
+
+				Entry1: {
+					Title: 念动×4｜追踪火力网
+					Body: 三层额外念核组成密集追踪阵列，是最省操作、最稳定的持续远程路线。
+				}
+
+				Entry2: {
+					Title: 夺取×4｜近战极限
+					Body: 约4秒成长至最高1.7倍易伤，标记也最持久。必须持续用剑体命中，风险和回报都最高。
+				}
+
+				Entry3: {
+					Title: 屏障×4｜生存极限
+					Body: 25%减伤、25防御、接触伤害减半并获得生命回复+35；以远程战术能力换取最高容错。
+				}
+
+				Entry4: {
+					Title: 压缩×4｜永续刀盘
+					Body: 四段剑术彻底转化为持续回旋刀盘；按住左键不断旋转并沿真实剑路留下三倍持久的聚合旋风，松手后惯性停转。
+				}
+
+				Entry5: {
+					Title: 夺取×2+念动+蓝辉｜通用进攻
+					Body: 易伤成长、远程弹幕和治疗同时存在。没有1.7倍上限，但日常输出最全面、空档最少。
+				}
+
+				Entry6: {
+					Title: 屏障×2+蓝辉×2｜稳定生存
+					Body: 以中等减伤配合更多蓝辉弹，不依赖屏障全选的接触减伤，也能处理持续受伤和队友恢复。
+				}
+
+				Entry7: {
+					Title: 多重×2+压缩×2｜双重弹幕
+					Body: 分体数量和压缩叠层同时增强，但非全选压缩仍只有60%频率与80%阶段伤害；这是双机制覆盖，而非刀盘专精。
+				}
+
+				Entry8: {
+					Title: 念动+夺取+屏障+蓝辉｜万用配置
+					Body: 四套首层机制同时运行，覆盖远程、近战增伤、减伤和治疗；最全面，但没有任何专精峰值。
+				}
+			}
 		}
 
 		MainMenu.DisplayName: 弗兰 · 转生成为魔剑
@@ -649,7 +790,7 @@ Mods: {
 					'''
 				FirstLayer: 单层：按当前时期运行四刀弹幕编排
 				AdditionalLayer: 叠层：每层增加一枚念压核
-				FullLoadout: 全选：念压核获得远距离追踪与重新锁敌
+				FullLoadout: 全选：叠满侧翼念压核，形成密集追踪阵列
 
 				CurrentState: {
 					Stage0: 单层：一念核｜二延核｜三双核｜四重核
@@ -671,7 +812,7 @@ Mods: {
 					'''
 				FirstLayer: 单层：持续攻击使目标易伤最高提升至1.3倍
 				AdditionalLayer: 叠层：易伤提升更快，标记维持更久
-				FullLoadout: 全选：易伤倍率上限提升至1.5倍
+				FullLoadout: 全选：易伤倍率上限提升至1.7倍
 			}
 
 			MagicBarrier: {
@@ -717,7 +858,7 @@ Mods: {
 					'''
 				FirstLayer: 单层：命中释放可治疗或伤敌的蓝辉弹
 				AdditionalLayer: 叠层：每层增加一枚蓝辉弹
-				FullLoadout: 全选：治疗效果×1.5
+				FullLoadout: 全选：每次挥刀都会释放蓝辉弹，无需命中敌人
 			}
 
 			ThunderChain: {
@@ -740,13 +881,13 @@ Mods: {
 				UnlockCondition: 击败世纪之花后解锁
 				Description:
 					'''
-					每次挥剑都会释放使用泰拉刃光波形态的
-					高压气功波；光波无限贯穿并逐渐减速，
-					第四刀改为更小、更快、更集中的终结波
+					未全选时，四段剑术沿剑弧留下压缩爆点；
+					全选后四段剑术化为持续刀盘，
+					按住左键永续回旋，松开后惯性停转
 					'''
-				FirstLayer: 单层：剑弧沿途连续引爆压缩空气
+				FirstLayer: 单层：剑弧引爆压缩空气；未全选时频率-40%、伤害-20%
 				AdditionalLayer: 叠层：提高压缩爆点伤害
-				FullLoadout: 全选：聚合体持续时间提升
+				FullLoadout: 全选：化为永续刀盘，聚合体持续时间变为三倍
 			}
 
 			ThorsHammer: {
@@ -812,8 +953,9 @@ Mods: {
 			// FranBarrierCounterCut.DisplayName: Fran Barrier Counter Cut
 			// FranAutoBarrierProjectile.DisplayName: Fran Auto Barrier Projectile
 			// FranCompressionNode.DisplayName: Fran Compression Node
+			FranQuickdrawDiscHoldout.DisplayName: 压缩居合刀盘
 			// FranRicochetLightning.DisplayName: Fran Ricochet Lightning
-			// FranTelekineticShell.DisplayName: Fran Telekinetic Shell
+			Telekinetic_CondensedMindCore.DisplayName: 凝念核
 			FranSkillTakerWisp.DisplayName: 夺取灵弹
 			FranTeacherPhantomBlade.DisplayName: 师父幻影剑
 			FranThunderDropVisual.DisplayName: 天降雷迹
@@ -831,19 +973,23 @@ Mods: {
 			// FranUltimateDashLaunch.DisplayName: Fran Ultimate Dash Launch
 			// FranUltimateSlashResidue.DisplayName: Fran Ultimate Slash Residue
 			// FranUltimateTargetField.DisplayName: Fran Ultimate Target Field
-			// FranTelekineticPlanet.DisplayName: Fran Telekinetic Planet
-			// FranTelekineticPlanetExplosion.DisplayName: Fran Telekinetic Planet Explosion
+			Telekinetic_GravityStarfall.DisplayName: 引力星陨
+			Telekinetic_GravityStarfallExplosion.DisplayName: 引力星陨爆炸
 			// FranTelekineticFlightVisual.DisplayName: Telekinetic Flight Visual
 			// FranTacticalEjecta.DisplayName: Fran Tactical Ejecta
-			// FranTelekineticHalleyBolt.DisplayName: Fran Telekinetic Halley Bolt
+			Telekinetic_Flash.DisplayName: 瞬光闪
 			// FranBlackTigerImpactVisual.DisplayName: Fran Black Tiger Impact Visual
 			// FranThunderCircuitFinisher.DisplayName: Fran Thunder Circuit Finisher
 			// FranThunderCircuitLink.DisplayName: Fran Thunder Circuit Link
 			// FranThunderCircuitNode.DisplayName: Fran Thunder Circuit Node
 			// FranThunderStrikeProjectile.DisplayName: Fran Thunder Strike Projectile
-			// FranTelekineticFoldBlade.DisplayName: Fran Telekinetic Fold Blade
+			Telekinetic_DestructiveWave.DisplayName: 破坏性波浪
 			// FranFlatLightningVisual.DisplayName: Fran Flat Lightning Visual
 			TeacherArrivalProjectile.DisplayName: 师父·雷霆降临
+			// FranCoreTerraImpact.DisplayName: Fran Core Terra Impact
+			// FranCoreTerraSlash.DisplayName: Fran Core Terra Slash
+			// FranCoreTerraSlashCreator.DisplayName: Fran Core Terra Slash Creator
+			// FranCoreImpactBurst.DisplayName: Fran Core Impact Burst
 		}
 	}
 }

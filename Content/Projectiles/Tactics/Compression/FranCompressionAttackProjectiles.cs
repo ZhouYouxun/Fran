@@ -226,7 +226,11 @@ public sealed class FranPressurizedTerraWave : ModProjectile
 public sealed class FranCompressionAirburst : ModProjectile
 {
     private const int BaseLifetime = 40;
+    private const float CollisionDiameter = 7f * 16f;
+    private const float CollisionRadius = CollisionDiameter * 0.5f;
     private const float FullLoadoutLifetimeFlag = 100f;
+    private const float FullDiscVisualFlag = 200f;
+    private bool FullDiscVisual => Projectile.ai[0] >= FullDiscVisualFlag;
     private bool FullLoadoutLifetime => Projectile.ai[0] >= FullLoadoutLifetimeFlag;
     private int Lifetime => FullLoadoutLifetime
         ? Math.Max(BaseLifetime, (int)Math.Round(BaseLifetime * FranBalance.GetFloat(
@@ -235,12 +239,18 @@ public sealed class FranCompressionAirburst : ModProjectile
         : BaseLifetime;
     private float Age => Lifetime - Projectile.timeLeft;
     private float Delay => MathHelper.Clamp(Projectile.ai[0] -
-        (FullLoadoutLifetime ? FullLoadoutLifetimeFlag : 0f), 4f, 16f);
+        (FullDiscVisual ? FullDiscVisualFlag : FullLoadoutLifetime ? FullLoadoutLifetimeFlag : 0f), 4f, 16f);
     private float BurstScale => MathHelper.Clamp(Projectile.ai[1], 0.55f, 1.25f);
     private float BlastRadius => 108f * BurstScale;
+    private float VisualOpacity => FullDiscVisual
+        ? MathHelper.Clamp(FranBalance.GetFloat(
+            nameof(FranBalance.QuickdrawFullDiscAirburstOpacityMultiplier),
+            FranBalance.QuickdrawFullDiscAirburstOpacityMultiplier), 0f, 1f)
+        : 1f;
 
-    internal static float EncodeDelay(float delay, bool fullLoadout) =>
-        MathHelper.Clamp(delay, 4f, 16f) + (fullLoadout ? FullLoadoutLifetimeFlag : 0f);
+    internal static float EncodeDelay(float delay, bool fullLoadout, bool fullDiscVisual = false) =>
+        MathHelper.Clamp(delay, 4f, 16f) +
+        (fullDiscVisual ? FullDiscVisualFlag : fullLoadout ? FullLoadoutLifetimeFlag : 0f);
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -248,8 +258,8 @@ public sealed class FranCompressionAirburst : ModProjectile
 
     public override void SetDefaults()
     {
-        Projectile.width = 18;
-        Projectile.height = 18;
+        Projectile.width = (int)CollisionDiameter;
+        Projectile.height = (int)CollisionDiameter;
         Projectile.friendly = true;
         Projectile.DamageType = DamageClass.Melee;
         Projectile.penetrate = -1;
@@ -268,10 +278,8 @@ public sealed class FranCompressionAirburst : ModProjectile
 
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
     {
-        float expansion = FranMotion.Smooth(FranMotion.Segment(Age, Delay, Delay + 6f));
-        float radius = MathHelper.Lerp(34f * BurstScale, BlastRadius, expansion);
         Vector2 closest = Vector2.Clamp(Projectile.Center, targetHitbox.TopLeft(), targetHitbox.BottomRight());
-        return Vector2.DistanceSquared(Projectile.Center, closest) <= radius * radius;
+        return Vector2.DistanceSquared(Projectile.Center, closest) <= CollisionRadius * CollisionRadius;
     }
 
     public override void AI()
@@ -280,9 +288,12 @@ public sealed class FranCompressionAirburst : ModProjectile
         if (Age < Delay)
         {
             if (!Main.dedServ && (int)Age % 2 == 0)
-                FranParticleEffects.InwardSpark(Projectile.Center, new Color(105, 225, 255),
-                    46f * BurstScale, 92f * BurstScale, 5.5f, 0.76f * BurstScale);
-            Lighting.AddLight(Projectile.Center, 0.08f, 0.30f, 0.42f);
+                FranParticleEffects.InwardSpark(Projectile.Center,
+                    new Color(105, 225, 255) * VisualOpacity,
+                    46f * BurstScale, 92f * BurstScale, 5.5f,
+                    0.76f * BurstScale * VisualOpacity);
+            Lighting.AddLight(Projectile.Center,
+                new Vector3(0.08f, 0.30f, 0.42f) * VisualOpacity);
             return;
         }
 
@@ -293,63 +304,77 @@ public sealed class FranCompressionAirburst : ModProjectile
         }
 
         float fade = 1f - FranMotion.Smooth(FranMotion.Segment(Age, Delay + 7f, Lifetime));
-        Lighting.AddLight(Projectile.Center, 0.20f * fade, 0.62f * fade, 0.78f * fade);
+        Lighting.AddLight(Projectile.Center,
+            new Vector3(0.20f, 0.62f, 0.78f) * (fade * VisualOpacity));
     }
 
     private void SpawnBurstEffects()
     {
+        float opacity = VisualOpacity;
         SoundEngine.PlaySound(SoundID.Item14 with
-            { Volume = 0.24f, Pitch = 0.22f + BurstScale * 0.12f, PitchVariance = 0.08f, MaxInstances = 4 },
+            { Volume = 0.24f * opacity, Pitch = 0.22f + BurstScale * 0.12f,
+                PitchVariance = 0.08f, MaxInstances = FullDiscVisual ? 2 : 4 },
             Projectile.Center);
-        FranParticleEffects.Implosion(Projectile.Center, new Color(90, 215, 255), 0.52f * BurstScale);
-        FranParticleEffects.CompressionSignature(Projectile.Center, Projectile.ai[2].ToRotationVector2(), BurstScale);
+        if (!FullDiscVisual)
+            FranParticleEffects.Implosion(Projectile.Center, new Color(90, 215, 255), 0.52f * BurstScale);
+        FranParticleEffects.CompressionSignature(Projectile.Center,
+            Projectile.ai[2].ToRotationVector2(), BurstScale, opacity);
         FranVanillaDustEffects.Impact(Projectile.Center, Projectile.ai[2].ToRotationVector2(),
-            FranSkill.PressurizedQuickdraw, new Color(90, 215, 255), 20, 0.82f * BurstScale);
+            FranSkill.PressurizedQuickdraw, new Color(90, 215, 255) * opacity,
+            FullDiscVisual ? 8 : 20, 0.82f * BurstScale);
         if (!Main.dedServ)
         {
-            int rayCount = BurstScale >= 0.9f ? 18 : 14;
-            float baseAngle = Projectile.ai[2];
-            for (int i = 0; i < rayCount; i++)
+            if (!FullDiscVisual)
             {
-                Vector2 direction = (baseAngle + MathHelper.TwoPi * i / rayCount +
-                    Main.rand.NextFloat(-0.08f, 0.08f)).ToRotationVector2();
-                Color color = i % 4 == 0 ? Color.White : new Color(80, 205, 255);
-                FranParticleSystem.Spawn(new FranLineParticle(Projectile.Center + direction * 5f,
-                    direction * Main.rand.NextFloat(4.5f, 11f) * BurstScale, color,
-                    Main.rand.NextFloat(38f, 78f) * BurstScale,
-                    Main.rand.NextFloat(1.6f, 3.4f) * BurstScale, Main.rand.Next(12, 22), 0.90f));
-                if (i % 3 == 0)
-                    FranParticleSystem.Spawn(new FranBoltParticle(Projectile.Center + direction * 12f,
-                        direction * Main.rand.NextFloat(2.5f, 6f), new Color(105, 230, 255),
-                        Main.rand.NextFloat(0.16f, 0.28f) * BurstScale,
-                        new Vector2(0.48f, 1.45f), Main.rand.Next(10, 17)));
+                int rayCount = BurstScale >= 0.9f ? 18 : 14;
+                float baseAngle = Projectile.ai[2];
+                for (int i = 0; i < rayCount; i++)
+                {
+                    Vector2 direction = (baseAngle + MathHelper.TwoPi * i / rayCount +
+                        Main.rand.NextFloat(-0.08f, 0.08f)).ToRotationVector2();
+                    Color color = i % 4 == 0 ? Color.White : new Color(80, 205, 255);
+                    FranParticleSystem.Spawn(new FranLineParticle(Projectile.Center + direction * 5f,
+                        direction * Main.rand.NextFloat(4.5f, 11f) * BurstScale, color,
+                        Main.rand.NextFloat(38f, 78f) * BurstScale,
+                        Main.rand.NextFloat(1.6f, 3.4f) * BurstScale, Main.rand.Next(12, 22), 0.90f));
+                    if (i % 3 == 0)
+                        FranParticleSystem.Spawn(new FranBoltParticle(Projectile.Center + direction * 12f,
+                            direction * Main.rand.NextFloat(2.5f, 6f), new Color(105, 230, 255),
+                            Main.rand.NextFloat(0.16f, 0.28f) * BurstScale,
+                            new Vector2(0.48f, 1.45f), Main.rand.Next(10, 17)));
+                }
             }
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < (FullDiscVisual ? 2 : 5); i++)
             {
                 Vector2 velocity = Main.rand.NextVector2Circular(2.8f, 2.8f) - Vector2.UnitY * 0.6f;
                 FranParticleSystem.Spawn(new FranHeavySmokeParticle(
                     Projectile.Center + Main.rand.NextVector2Circular(18f, 18f), velocity,
-                    new Color(22, 60, 78), Main.rand.NextFloat(0.32f, 0.58f) * BurstScale,
+                    new Color(22, 60, 78), Main.rand.NextFloat(0.32f, 0.58f) * BurstScale * opacity,
                     Main.rand.Next(20, 32), 0.32f, true));
             }
         }
-        FranSpectatorVfx.SpawnImpactPetals(Projectile.GetSource_FromThis(), Projectile.Center,
-            Projectile.ai[2].ToRotationVector2(), Projectile.owner, FranSpectatorPalette.Cyan,
-            BurstScale >= 0.9f ? 5 : 3, 0.72f + BurstScale * 0.34f);
-        Main.player[Projectile.owner].GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, 2.6f * BurstScale);
+        if (!FullDiscVisual)
+        {
+            FranSpectatorVfx.SpawnImpactPetals(Projectile.GetSource_FromThis(), Projectile.Center,
+                Projectile.ai[2].ToRotationVector2(), Projectile.owner, FranSpectatorPalette.Cyan,
+                BurstScale >= 0.9f ? 5 : 3, 0.72f + BurstScale * 0.34f);
+            Main.player[Projectile.owner].GetModPlayer<FranPlayer>()
+                .ShakeScreen(Projectile.Center, 2.6f * BurstScale);
+        }
     }
 
     public override bool PreDraw(ref Color lightColor)
     {
-        Color cyan = new(75, 205, 255);
-        Color pale = new(175, 245, 255);
+        float opacity = VisualOpacity;
+        Color cyan = new Color(75, 205, 255) * opacity;
+        Color pale = new Color(175, 245, 255) * opacity;
         float seed = Projectile.ai[2];
         if (Age < Delay)
         {
             float charge = FranMotion.Smooth(FranMotion.Segment(Age, 0f, Delay));
             float radius = MathHelper.Lerp(82f, 22f, charge) * BurstScale;
             FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-                new Color(95, 205, 235) * (0.42f + charge * 0.34f), Projectile.rotation * 0.55f,
+                new Color(95, 205, 235) * (opacity * (0.42f + charge * 0.34f)), Projectile.rotation * 0.55f,
                 Vector2.One * MathHelper.Lerp(90f, 52f, charge) * BurstScale);
             FranVfx.BeginAdditive();
             FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
@@ -381,13 +406,13 @@ public sealed class FranCompressionAirburst : ModProjectile
             new Vector2(MathHelper.Lerp(88f, BlastRadius * 2.05f, expansion),
                 MathHelper.Lerp(58f, BlastRadius * 1.18f, expansion)));
         FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
-            Color.White * (0.94f * coreFlash), seed, new Vector2(136f, 74f) * BurstScale);
+            Color.White * (opacity * 0.94f * coreFlash), seed, new Vector2(136f, 74f) * BurstScale);
         FranVfx.DrawSharedPixels("Cal_HighResFoggyCircleHardEdge", Projectile.Center,
             cyan * (0.46f * fade), Projectile.rotation, Vector2.One * shellRadius * 2f);
         FranVfx.DrawRing(Projectile.Center, pale, shellRadius * 0.88f,
             0.72f * fade, Projectile.rotation * 1.7f, "Cal_BloomRing");
         FranVfx.DrawRing(Projectile.Center, Color.White, shellRadius * 0.52f,
-            0.52f * fade, -Projectile.rotation * 2.1f, "Cal_FadedStarRing");
+            opacity * 0.52f * fade, -Projectile.rotation * 2.1f, "Cal_FadedStarRing");
         for (int i = 0; i < 8; i++)
         {
             float angle = seed + i * MathHelper.TwoPi / 8f;
@@ -396,14 +421,15 @@ public sealed class FranCompressionAirburst : ModProjectile
                 (i % 2 == 0 ? 1f : 0.72f);
             Vector2 position = Projectile.Center + direction * rayLength * 0.42f;
             FranVfx.DrawSharedPixels("BloomLineSoftEdge", position,
-                (i % 3 == 0 ? Color.White : pale) * (0.52f * fade),
+                (i % 3 == 0 ? Color.White * opacity : pale) * (0.52f * fade),
                 direction.ToRotation() + MathHelper.PiOver2,
                 new Vector2(10f + coreFlash * 5f, rayLength));
         }
-        FranVfx.DrawShared("Cal_ShineFlare", Projectile.Center, Color.White * (0.82f * coreFlash),
+        FranVfx.DrawShared("Cal_ShineFlare", Projectile.Center,
+            Color.White * (opacity * 0.82f * coreFlash),
             seed, new Vector2(0.22f, 0.055f) * BurstScale);
         FranVfx.DrawBloom(Projectile.Center, pale, 38f + coreFlash * 34f,
-            0.38f * fade + coreFlash * 0.38f, true);
+            opacity * (0.38f * fade + coreFlash * 0.38f), true);
         FranVfx.EndAdditive();
         return false;
     }

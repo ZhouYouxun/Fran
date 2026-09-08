@@ -175,7 +175,7 @@ internal sealed class FranParticleSystem : ModSystem
         }
     }
 
-    internal static void Spawn(FranParticle particle)
+    internal static void Spawn(FranParticle particle, bool spawnSupportingDust = true)
     {
         if (Main.dedServ || Main.gameMenu || particle is null || particle.Lifetime <= 0)
             return;
@@ -188,7 +188,8 @@ internal sealed class FranParticleSystem : ModSystem
             return;
 
         Pending.Add(particle);
-        FranVanillaDustEffects.RegisterCustomParticle(particle);
+        if (spawnSupportingDust)
+            FranVanillaDustEffects.RegisterCustomParticle(particle);
     }
 
     internal static int FreeSlots => Math.Max(0, ParticleLimit - Active.Count - Pending.Count);

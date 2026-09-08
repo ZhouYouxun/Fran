@@ -28,6 +28,125 @@ internal static class FranProjectileTrailRenderer
     private const float MaximumSegmentLength = 58f;
     private static bool shaderTrailFaulted;
     private static bool telekineticWaveShaderFaulted;
+    private static bool telekineticCoreShaderFaulted;
+    // TerratomereSwordBeam: SlashLifetime + 1 history positions, rendered with 30 samples.
+    internal const int TelekineticCoreHistoryLength = 136;
+    internal const int TelekineticCoreSamples = 30;
+
+    public static bool TryDrawTelekineticCore(Projectile projectile, Color bodyColor,
+        Color edgeColor, Color coreColor, float opacity)
+    {
+        if (Main.dedServ || telekineticCoreShaderFaulted || !IsFinite(projectile.Center) ||
+            !float.IsFinite(opacity) || opacity <= 0.01f)
+            return false;
+
+        // Full history fits even at maximum chase speed. Keep the existing per-segment guard
+        // so a teleport cannot produce a screen-spanning triangle.
+        List<Vector2> points = BuildTelekineticCorePoints(projectile, out float[] distanceProgress);
+        if (points.Count < 3)
+            return false;
+        if (!ShaderManager.TryGetShader("Fran.FranTelekineticCoreShader", out ManagedShader shader))
+        {
+            WarnTelekineticCoreShader("Shader was not registered; using fallback.");
+            return false;
+        }
+
+        GraphicsDevice device = Main.instance.GraphicsDevice;
+        BlendState previousBlend = device.BlendState;
+        DepthStencilState previousDepth = device.DepthStencilState;
+        RasterizerState previousRasterizer = device.RasterizerState;
+        SamplerState previousSampler0 = device.SamplerStates[0];
+        SamplerState previousSampler1 = device.SamplerStates[1];
+        SamplerState previousSampler2 = device.SamplerStates[2];
+        Texture previousTexture1 = device.Textures[1];
+        Texture previousTexture2 = device.Textures[2];
+        try
+        {
+            shader.TrySetParameter("uBodyColor", bodyColor);
+            shader.TrySetParameter("uEdgeColor", edgeColor);
+            shader.TrySetParameter("uCoreColor", coreColor);
+            shader.TrySetParameter("uOpacity", MathHelper.Clamp(opacity, 0f, 1f));
+            shader.TrySetParameter("uDistanceProgress", distanceProgress);
+            shader.SetTexture(ModContent.Request<Texture2D>("Fran/Assets/TerratomereReference/BlobbyNoise").Value,
+                1, SamplerState.LinearWrap);
+            shader.SetTexture(ModContent.Request<Texture2D>("Terraria/Images/Extra_189").Value,
+                2, SamplerState.LinearWrap);
+            device.BlendState = BlendState.AlphaBlend;
+            // Use the reference's visual width (12), independently of Fran's gameplay hitbox.
+            PrimitiveSettings settings = new(
+                completion => 12f * projectile.scale * Utils.GetLerpValue(0f, 0.1f,
+                    distanceProgress[Math.Clamp((int)MathF.Round(completion * TelekineticCoreSamples), 0, TelekineticCoreSamples)], true),
+                completion => Color.White,
+                Smoothen: false, Pixelate: false, Shader: shader);
+            // Already smoothed/resampled above. Never smooth a second time inside Luminance.
+            PrimitiveRenderer.RenderTrail(points, settings, points.Count);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            WarnTelekineticCoreShader(exception.ToString());
+            return false;
+        }
+        finally
+        {
+            device.BlendState = previousBlend;
+            device.DepthStencilState = previousDepth;
+            device.RasterizerState = previousRasterizer;
+            device.SamplerStates[0] = previousSampler0;
+            device.SamplerStates[1] = previousSampler1;
+            device.SamplerStates[2] = previousSampler2;
+            device.Textures[1] = previousTexture1;
+            device.Textures[2] = previousTexture2;
+        }
+    }
+
+    private static List<Vector2> BuildTelekineticCorePoints(Projectile projectile, out float[] distanceProgress)
+    {
+        distanceProgress = new float[TelekineticCoreSamples + 1];
+        List<Vector2> controls = new(TelekineticCoreHistoryLength);
+        foreach (Vector2 oldPosition in projectile.oldPos)
+        {
+            if (oldPosition == Vector2.Zero)
+                continue;
+            Vector2 point = oldPosition + projectile.Size * 0.5f;
+            if (!IsFinite(point) || controls.Count > 0 &&
+                Vector2.DistanceSquared(point, controls[^1]) > MaximumSegmentLength * MaximumSegmentLength)
+                break;
+            controls.Add(point);
+        }
+        if (controls.Count < 2)
+            return new List<Vector2>();
+        // Calamity's current renderer requests 30 samples and then appends the final endpoint.
+        // Width and UV.x use cumulative distance, not the uniform sample index used by Luminance.
+        List<Vector2> points = new(TelekineticCoreSamples + 1);
+        for (int j = 0; j < TelekineticCoreSamples; j++)
+        {
+            float curve = j / (float)TelekineticCoreSamples * (controls.Count - 1);
+            int index = (int)curve;
+            Vector2 point = Vector2.CatmullRom(controls[Math.Max(index - 1, 0)], controls[index],
+                controls[Math.Min(index + 1, controls.Count - 1)],
+                controls[Math.Min(index + 2, controls.Count - 1)], curve - index);
+            if (!IsFinite(point))
+                return new List<Vector2>();
+            points.Add(point);
+        }
+        points.Add(controls[^1]);
+        for (int i = 1; i < points.Count; i++)
+            distanceProgress[i] = distanceProgress[i - 1] + Vector2.Distance(points[i - 1], points[i]);
+        float total = distanceProgress[^1];
+        if (!float.IsFinite(total) || total <= 0.001f)
+            return new List<Vector2>();
+        for (int i = 1; i < points.Count; i++)
+            distanceProgress[i] /= total;
+        return points;
+    }
+
+    private static void WarnTelekineticCoreShader(string message)
+    {
+        if (!telekineticCoreShaderFaulted)
+            ModLoader.GetMod("Fran")?.Logger.Warn($"Condensed mind core trail: {message}");
+        telekineticCoreShaderFaulted = true;
+    }
 
     public static bool TryDraw(Projectile projectile, FranProjectileTrailProfile profile,
         Color bodyColor, Color edgeColor, Color coreColor, float halfWidth, float opacity)
@@ -207,6 +326,7 @@ internal static class FranProjectileTrailRenderer
     {
         shaderTrailFaulted = false;
         telekineticWaveShaderFaulted = false;
+        telekineticCoreShaderFaulted = false;
     }
 
     private static void DrawPass(List<Vector2> points, ManagedShader shader,
@@ -333,7 +453,7 @@ internal static class FranProjectileTrailRenderer
         _ => 0.88f
     };
 
-    private static List<Vector2> CollectSafePoints(Projectile projectile)
+    private static List<Vector2> CollectSafePoints(Projectile projectile, float maximumRadius = MaximumTrailRadius)
     {
         List<Vector2> points = new(projectile.oldPos?.Length + 1 ?? 1);
         Vector2 head = projectile.Center;
@@ -353,7 +473,7 @@ internal static class FranProjectileTrailRenderer
             float headDistance = Vector2.DistanceSquared(point, head);
             float segmentDistance = Vector2.DistanceSquared(point, points[^1]);
             if (!float.IsFinite(headDistance) || !float.IsFinite(segmentDistance) ||
-                headDistance > MaximumTrailRadius * MaximumTrailRadius ||
+                headDistance > maximumRadius * maximumRadius ||
                 segmentDistance > MaximumSegmentLength * MaximumSegmentLength)
                 break;
             if (segmentDistance > 0.25f)

@@ -39,6 +39,28 @@ internal sealed class FranLightingBoltsSystem : ModSystem
         Main.ParticleSystem_World_OverPlayers.Add(particle);
     }
 
+    // 凝念核：六向规则亮点先展开，随后四枚随机亮点打散轮廓。
+    // 这里只注册 PrettySparkleParticle，不隐式补充 Dust 或 Fran 粒子。
+    public static void SpawnMindCoreBurst(Vector2 center, float rotation, Color color, bool afterglow)
+    {
+        if (Main.dedServ || Main.gameMenu)
+            return;
+
+        int count = afterglow ? 4 : 6;
+        for (int i = 0; i < count; i++)
+        {
+            float angle = afterglow ? Main.rand.NextFloat(MathHelper.TwoPi)
+                : rotation + MathHelper.TwoPi * i / count;
+            Vector2 direction = angle.ToRotationVector2();
+            float radius = afterglow ? Main.rand.NextFloat(15f, 29f) : 9f;
+            Vector2 velocity = direction * (afterglow ? Main.rand.NextFloat(0.6f, 1.6f) : 2.2f);
+            Color tint = Color.Lerp(color, Color.White, i % 3 == 0 ? 0.55f : 0.12f);
+            Sparkle(center + direction * radius, velocity, tint,
+                new Vector2(afterglow ? 0.72f : 1.10f, 0.25f),
+                afterglow ? 16 : 12, angle, 0.65f);
+        }
+    }
+
     public static void SpawnIonizingRadiation(Vector2 position, Color color, float scale = 1f)
     {
         const int arms = 3;
@@ -279,5 +301,105 @@ internal sealed class FranLightingBoltsSystem : ModSystem
             0.72f * scale, 0.04f, 15, true));
         FranParticleSystem.Spawn(new FranDirectionalRingParticle(center, Vector2.Zero, color,
             new Vector2(0.08f, 0.12f), new Vector2(1.2f, 0.46f) * scale, 0f, 16));
+    }
+
+    /// <summary>
+    /// 普通前三剑的原版池化闪光点缀。三种节奏分别使用十字闪、沿弧双闪与向刃聚拢，
+    /// 只补充原有自定义粒子，不把不同剑式统一成同一种雷电效果。
+    /// </summary>
+    public static void SpawnTeacherSwingAccent(Vector2 position, Vector2 bladeDirection,
+        Vector2 tangent, Color color, int combo, float intensity, int tick)
+    {
+        if (Main.dedServ || combo is < 0 or > 2 || intensity <= 0.08f)
+            return;
+
+        bladeDirection = bladeDirection.SafeNormalize(Vector2.UnitX);
+        tangent = tangent.SafeNormalize(bladeDirection.RotatedBy(MathHelper.PiOver2));
+        intensity = MathHelper.Clamp(intensity, 0f, 1f);
+
+        switch (combo)
+        {
+            case 0:
+                if (tick % 3 != 0)
+                    return;
+                Sparkle(position, tangent * 0.28f,
+                    Color.Lerp(color, new Color(255, 224, 174), 0.20f),
+                    new Vector2(1.45f, 0.24f) * (0.72f + intensity * 0.28f),
+                    13, tangent.ToRotation(), 0.52f);
+                Sparkle(position, bladeDirection * 0.12f, Color.White,
+                    new Vector2(0.72f, 0.18f) * (0.68f + intensity * 0.24f),
+                    10, bladeDirection.ToRotation(), 0.46f);
+                break;
+
+            case 1:
+                if (tick % 2 != 0)
+                    return;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Vector2 offset = bladeDirection * side * (3f + intensity * 3f);
+                    Sparkle(position + offset, tangent * side * 0.34f,
+                        side > 0 ? Color.White : Color.Lerp(color, Color.White, 0.44f),
+                        new Vector2(1.08f, 0.22f) * (0.72f + intensity * 0.22f),
+                        14, tangent.ToRotation(), 0.55f);
+                }
+                break;
+
+            default:
+                if (tick % 3 != 1)
+                    return;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Vector2 offset = tangent * side * 11f;
+                    Sparkle(position + offset, -tangent * side * (0.65f + intensity * 0.42f),
+                        side > 0 ? Color.White : Color.Lerp(color, Color.White, 0.58f),
+                        new Vector2(1.72f, 0.27f) * (0.78f + intensity * 0.30f),
+                        15, (-tangent * side).ToRotation(), 0.62f);
+                }
+                break;
+        }
+    }
+
+    /// <summary>第四刀的螺旋点列、横向闪星与退场碎光，按阶段切换运动方向。</summary>
+    public static void SpawnTeacherFinisherTrack(Vector2 origin, Vector2 bladeDirection,
+        float reach, Color color, float progress, int tick)
+    {
+        if (Main.dedServ || (tick & 1) != 0)
+            return;
+        Vector2 forward = bladeDirection.SafeNormalize(Vector2.UnitX);
+        Vector2 normal = forward.RotatedBy(MathHelper.PiOver2);
+        bool release = progress >= 0.18f && progress <= 0.52f;
+        for (int i = 0; i < 3; i++)
+        {
+            float phase = tick * 1.2f + i * MathHelper.TwoPi / 3f;
+            float lane = System.MathF.Sin(phase) * (release ? 10f : 21f);
+            Vector2 position = origin + forward * reach * (0.34f + i * 0.20f) + normal * lane;
+            Vector2 velocity = release ? forward * (5f + i) :
+                progress < 0.18f ? -normal * lane * 0.22f : normal * lane * 0.12f + forward;
+            Sparkle(position, velocity, i == 1 ? Color.White : color,
+                release ? new Vector2(0.90f, 0.16f) : new Vector2(0.28f, 0.28f),
+                release ? 7 : 11, release ? forward.ToRotation() : phase, 0.65f);
+        }
+    }
+
+    /// <summary>CLCB 星格的布局思路：少量错落光点加一枚十字主星，不铺满白色光带。</summary>
+    public static void SpawnTeacherFinisherBurst(Vector2 center, Vector2 bladeDirection,
+        Color color, float scale = 1f)
+    {
+        if (Main.dedServ)
+            return;
+        Vector2 forward = bladeDirection.SafeNormalize(Vector2.UnitX);
+        Vector2 normal = forward.RotatedBy(MathHelper.PiOver2);
+        for (int i = 0; i < 6; i++)
+        {
+            float side = i % 2 == 0 ? -1f : 1f;
+            Vector2 offset = forward * ((i / 2 - 1) * 13f) + normal * side * (10f + i * 2f);
+            Sparkle(center + offset * scale, forward * 2.5f + normal * side * 1.8f,
+                i % 3 == 0 ? new Color(255, 232, 179) : Color.Lerp(color, Color.White, 0.4f),
+                new Vector2(0.32f, 0.32f) * scale, 12 + i % 3, i * 0.8f, 0.66f);
+        }
+        for (int axis = 0; axis < 2; axis++)
+            Sparkle(center, forward * 1.5f, axis == 0 ? Color.White : color,
+                new Vector2(axis == 0 ? 1.6f : 0.85f, 0.18f) * scale,
+                8, forward.ToRotation() + axis * MathHelper.PiOver2, 0.78f);
     }
 }

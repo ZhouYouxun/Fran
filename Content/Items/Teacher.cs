@@ -15,6 +15,8 @@ namespace FranMod.Content.Items;
 public sealed class Teacher : ModItem
 {
     private const string GoldenPromptLineName = "GoldenPrompt";
+    private const string TacticSelectionLineName = "TacticSelection";
+    private const string FullLoadoutStatusLineName = "FullLoadoutStatus";
 
     public override string Texture => FranTeacherVisuals.TexturePath;
 
@@ -76,8 +78,12 @@ public sealed class Teacher : ModItem
         Item.useAnimation = Item.useTime;
         Item.knockBack = FranBalance.GetFloat(nameof(FranBalance.TeacherKnockback), FranBalance.TeacherKnockback);
         Item.channel = true;
-        Item.shoot = ModContent.ProjectileType<TeacherSwingRebuild>();
-        return player.ownedProjectileCounts[Item.shoot] == 0;
+        FranPlayer fran = player.GetModPlayer<FranPlayer>();
+        Item.shoot = fran.IsFullTacticLoadout(FranSkill.PressurizedQuickdraw)
+            ? ModContent.ProjectileType<FranQuickdrawDiscHoldout>()
+            : ModContent.ProjectileType<TeacherSwingRebuild>();
+        return player.ownedProjectileCounts[ModContent.ProjectileType<TeacherSwingRebuild>()] == 0 &&
+            player.ownedProjectileCounts[ModContent.ProjectileType<FranQuickdrawDiscHoldout>()] == 0;
     }
 
     public override bool Shoot(Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity,
@@ -87,12 +93,28 @@ public sealed class Teacher : ModItem
             return false;
 
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
+        Vector2 aim = (Main.MouseWorld - player.MountedCenter).SafeNormalize(Vector2.UnitX * player.direction);
+        if (fran.IsFullTacticLoadout(FranSkill.PressurizedQuickdraw))
+        {
+            // 全选压缩居合是一套独立的持续形态，不消耗也不推进普通四段连招。
+            fran.ComboIndex = 0;
+            fran.ComboReset = 0;
+            int layers = Math.Clamp(fran.GetSkillStacks(FranSkill.PressurizedQuickdraw),
+                1, FranPlayer.MaximumTacticSlots);
+            Projectile.NewProjectile(source, player.MountedCenter, aim,
+                ModContent.ProjectileType<FranQuickdrawDiscHoldout>(), damage, knockback,
+                player.whoAmI, layers);
+            return false;
+        }
+
         FranEvolutionPlayer evolution = player.GetModPlayer<FranEvolutionPlayer>();
         int combo = fran.ConsumeNextCombo();
         damage = Math.Max(1, (int)(damage * FranBalance.GetComboDamageMultiplier(combo)));
-        Vector2 aim = (Main.MouseWorld - player.MountedCenter).SafeNormalize(Vector2.UnitX * player.direction);
         float attackSpeed = Math.Max(0.25f, player.GetAttackSpeed(DamageClass.Melee));
         float baseDuration = FranBalance.GetComboBaseDuration(combo);
+        // 第四刀快速直推；时长仍写入 ai[1]，使持剑、战术和远端玩家共用同一时钟。
+        if (combo == 3)
+            baseDuration *= 0.74f;
         float evolutionDuration = evolution.ConsumeSwingDurationMultiplier(combo);
         int duration = Math.Max(12, (int)MathF.Round(baseDuration / attackSpeed * evolutionDuration));
         FranSkill skill = fran.HasSelectedSkill ? fran.SelectedSkill : FranSkill.None;
@@ -115,11 +137,13 @@ public sealed class Teacher : ModItem
 
     public override void ModifyTooltips(List<TooltipLine> tooltips)
     {
+        FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
+        InsertTacticStatus(tooltips, fran);
+
         if (FranEvolutionInfo.SystemEnabled)
             tooltips.Add(new TooltipLine(Mod, "Evolution", Language.GetTextValue("Mods.Fran.Evolution.Tooltip"))
             { OverrideColor = new Color(195, 178, 245) });
 
-        FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
         tooltips.Add(new TooltipLine(Mod, "FranDashStatus", BuildDashStatus())
         { OverrideColor = new Color(130, 235, 195) });
 
@@ -131,6 +155,37 @@ public sealed class Teacher : ModItem
         tooltips.Add(new TooltipLine(Mod, GoldenPromptLineName,
             Language.GetTextValue("Mods.Fran.Items.Teacher.GoldenPrompt"))
         { OverrideColor = new Color(241, 190, 76) });
+    }
+
+    private void InsertTacticStatus(List<TooltipLine> tooltips, FranPlayer fran)
+    {
+        int availableSlots = Math.Min(fran.AvailableTacticSlots, FranPlayer.MaximumTacticSlots);
+        int activeCount = fran.GetActiveTacticCount();
+        TooltipLine selectionLine = new(Mod, TacticSelectionLineName,
+            Language.GetTextValue("Mods.Fran.Items.Teacher.TacticSelection", activeCount, availableSlots))
+        { OverrideColor = new Color(150, 215, 255) };
+
+        FranSkill fullLoadoutSkill = fran.GetEquippedTactic(0);
+        bool fullLoadoutActive = FranSkillInfo.IsRealSkill(fullLoadoutSkill) &&
+            fran.IsFullTacticLoadout(fullLoadoutSkill);
+        string fullLoadoutText = fullLoadoutActive
+            ? Language.GetTextValue("Mods.Fran.Items.Teacher.FullLoadoutActive",
+                FranSkillInfo.Name(fullLoadoutSkill))
+            : Language.GetTextValue("Mods.Fran.Items.Teacher.FullLoadoutInactive");
+        TooltipLine fullLoadoutLine = new(Mod, FullLoadoutStatusLineName, fullLoadoutText)
+        {
+            OverrideColor = fullLoadoutActive
+                ? FranSkillInfo.Color(fullLoadoutSkill)
+                : new Color(155, 165, 178)
+        };
+
+        int rightClickLineIndex = tooltips.FindIndex(line =>
+            line.Mod == "Terraria" && line.Name == "Tooltip1");
+        int insertionIndex = rightClickLineIndex >= 0
+            ? rightClickLineIndex + 1
+            : Math.Min(2, tooltips.Count);
+        tooltips.Insert(insertionIndex, selectionLine);
+        tooltips.Insert(insertionIndex + 1, fullLoadoutLine);
     }
 
     private static string BuildDashStatus()
