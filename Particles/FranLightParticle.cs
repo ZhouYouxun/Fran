@@ -16,10 +16,11 @@ internal sealed class FranLightParticle : FranParticle
     private readonly float squishStrength;
     private readonly float maxSquish;
     private readonly float hueShift;
+    private readonly float timeScale;
 
     public FranLightParticle(Vector2 position, Vector2 velocity, float scale, Color color, int lifetime,
         float opacity = 1f, float squishStrength = 1f, float maxSquish = 3f, float hueShift = 0f,
-        FranParticleLayer layer = FranParticleLayer.AfterProjectiles)
+        FranParticleLayer layer = FranParticleLayer.AfterProjectiles, float timeScale = 1f)
     {
         Position = position;
         Velocity = velocity;
@@ -30,13 +31,14 @@ internal sealed class FranLightParticle : FranParticle
         this.squishStrength = squishStrength;
         this.maxSquish = Math.Max(1f, maxSquish);
         this.hueShift = hueShift;
+        this.timeScale = timeScale;
         Layer = layer;
     }
 
     protected override void Update()
     {
-        Velocity *= Completion >= 0.34f ? 0.93f : 1.02f;
-        Scale *= 0.95f;
+        Velocity *= MathF.Pow(Completion >= 0.34f ? 0.93f : 1.02f, timeScale);
+        Scale *= MathF.Pow(0.95f, timeScale);
         Rotation = Velocity.ToRotation() + MathHelper.PiOver2;
         if (hueShift != 0f)
         {

@@ -16,7 +16,8 @@ namespace FranMod.Content.Projectiles;
 
 public sealed class FranThorsHammerDrop : ModProjectile
 {
-    internal const int UpdatesPerTick = 2;
+    internal const int BaseUpdatesPerTick = 2;
+    internal const int UpdatesPerTick = BaseUpdatesPerTick * 3;
     private const int PackedTargetStride = 256;
     private bool Impacted => Projectile.localAI[1] > 0f;
     private float Age => Projectile.localAI[0];
@@ -63,7 +64,8 @@ public sealed class FranThorsHammerDrop : ModProjectile
         Vector2 target = trackedTarget?.Center + trackedTarget.velocity * 1.2f ?? anchor;
         Vector2 fallback = Projectile.velocity.SafeNormalize(Vector2.UnitY);
         float speed = MathHelper.Lerp(30f, 68f, FranMotion.Smooth(FranMotion.Segment(age, 0f, 24f)));
-        Vector2 desired = (target - Projectile.Center).SafeNormalize(fallback) * speed * tickStep;
+        // 子更新从 2 增至 6，但每次移动量仍按原来的 2 次更新计算：实际飞行速度三倍。
+        Vector2 desired = (target - Projectile.Center).SafeNormalize(fallback) * speed / BaseUpdatesPerTick;
         float turnAmount = 1f - MathF.Pow(1f - 0.22f, tickStep);
         Projectile.velocity = Vector2.Lerp(Projectile.velocity, desired, turnAmount);
         Projectile.rotation += 0.42f * tickStep * Math.Sign(Projectile.velocity.X == 0f ? 1f : Projectile.velocity.X);
@@ -114,7 +116,18 @@ public sealed class FranThorsHammerDrop : ModProjectile
 
         Vector2 remaining = target - Projectile.Center;
         bool passedTarget = age >= 3f && Vector2.Dot(remaining, Projectile.velocity) <= 0f;
-        if (remaining.LengthSquared() <= 42f * 42f || passedTarget || age >= 46f)
+        if (remaining.LengthSquared() <= 42f * 42f || passedTarget)
+        {
+            if (trackedTarget is not null && age < 46f)
+            {
+                // 留给正常碰撞结算锤体的一次伤害；旧版在近距离提前爆炸，会漏掉锤体伤害。
+                Projectile.Center = trackedTarget.Center;
+                Projectile.velocity = Vector2.Zero;
+            }
+            else
+                Impact(target);
+        }
+        else if (age >= 46f)
             Impact(target);
     }
 

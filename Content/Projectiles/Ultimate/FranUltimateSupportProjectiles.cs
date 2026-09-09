@@ -39,7 +39,7 @@ public sealed class FranUltimateReadySigil : ModProjectile
     public override void AI()
     {
         Player owner = Main.player[Projectile.owner];
-        if (!owner.active || owner.dead)
+        if (!Main.hardMode || !owner.active || owner.dead)
         {
             Projectile.Kill();
             return;

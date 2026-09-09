@@ -330,8 +330,8 @@ public sealed class FranThunderCircuitFinisher : ModProjectile
         Vector2 impact = Projectile.Center;
         Vector2 spawn = impact + new Vector2(Main.rand.NextFloat(-90f, 90f), Main.rand.NextFloat(-820f, -700f));
         Projectile.NewProjectile(Projectile.GetSource_FromThis(), spawn, Vector2.Zero,
-            ModContent.ProjectileType<FranThunderStrikeProjectile>(), Projectile.damage,
-            Projectile.knockBack, Projectile.owner, impact.X, impact.Y, 2f);
+            ModContent.ProjectileType<FranThunderBudgetStrike>(), Projectile.damage,
+            Projectile.knockBack, Projectile.owner, impact.X, impact.Y, TargetIndex + 1);
 
         Projectile.NewProjectile(Projectile.GetSource_FromThis(), impact, Vector2.Zero,
             ModContent.ProjectileType<FranThunderDropVisual>(), 0, 0f, Projectile.owner,

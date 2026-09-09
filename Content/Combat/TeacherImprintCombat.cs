@@ -73,7 +73,7 @@ internal static class TeacherImprintCombat
                         FranBalance.GetFloat(nameof(FranBalance.ThorsHammerDropDamageMultiplier),
                             FranBalance.ThorsHammerDropDamageMultiplier) *
                         (1f + FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExtraLayerDamageMultiplier),
-                            FranBalance.ThorsHammerExtraLayerDamageMultiplier) * (tacticLayers - 1)))),
+                            FranBalance.ThorsHammerExtraLayerDamageMultiplier) * (tacticLayers - 1)) * FranTacticOutputBudget.Scale(FranSkill.ThorsHammer))),
                     7f, owner.whoAmI, EncodeOptionalNpc(hammerNpc), tacticLayers, swing.identity + 1f);
                 SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.58f, Pitch = -0.18f }, hammerTarget);
                 break;
@@ -111,6 +111,8 @@ internal static class TeacherImprintCombat
                 float launchAngle = direction.SafeNormalize(Vector2.UnitX).ToRotation();
                 int wispCount = FranBalance.GetInt(nameof(FranBalance.SkillTakerBaseWispCount),
                     FranBalance.SkillTakerBaseWispCount);
+                wispCount = swing.ModProjectile is TeacherSwingRebuild teacherSwing
+                    ? teacherSwing.ReserveSkillTakerWisps(wispCount) : 0;
                 for (int i = 0; i < wispCount; i++)
                 {
                     // Positive rotation is clockwise in Terraria's screen coordinates. Every wisp
@@ -122,8 +124,8 @@ internal static class TeacherImprintCombat
                         ModContent.ProjectileType<FranSkillTakerWisp>(),
                         Math.Max(1, (int)(swing.damage *
                             FranBalance.GetFloat(nameof(FranBalance.SkillTakerWispDamageMultiplier),
-                                FranBalance.SkillTakerWispDamageMultiplier))),
-                        swing.knockBack * 0.18f, owner.whoAmI, target.whoAmI, markStrength);
+                                FranBalance.SkillTakerWispDamageMultiplier) * FranTacticOutputBudget.Scale(FranSkill.SkillTaker))),
+                        swing.knockBack * 0.18f, owner.whoAmI, -1f, markStrength);
                 }
             }
             return;
@@ -162,7 +164,7 @@ internal static class TeacherImprintCombat
                     ? FranBalance.GetFloat(nameof(FranBalance.BlueResonanceFinisherDamageMultiplier),
                         FranBalance.BlueResonanceFinisherDamageMultiplier)
                     : FranBalance.GetFloat(nameof(FranBalance.BlueResonanceNormalDamageMultiplier),
-                        FranBalance.BlueResonanceNormalDamageMultiplier)))),
+                        FranBalance.BlueResonanceNormalDamageMultiplier)) * FranTacticOutputBudget.Scale(FranSkill.BlueResonance))),
                 swing.knockBack * 0.3f, owner.whoAmI, encodedTarget,
                 i, FranBlueResonanceEcho.EncodeEchoCount(echoCount));
         }
@@ -173,115 +175,28 @@ internal static class TeacherImprintCombat
     {
         Vector2 direction = (target - owner.MountedCenter).SafeNormalize(Vector2.UnitX * owner.direction);
         int stage = FranBalance.GetTelekineticPatternStage();
-        float single = FranBalance.GetTelekineticFormationDamageMultiplier(1);
-        float pair = FranBalance.GetTelekineticFormationDamageMultiplier(2);
-        float triple = FranBalance.GetTelekineticFormationDamageMultiplier(3);
-        float quartet = FranBalance.GetTelekineticFormationDamageMultiplier(4);
-        float heavy = FranBalance.GetFloat(nameof(FranBalance.TelekineticHeavyProjectileDamageMultiplier),
-            FranBalance.TelekineticHeavyProjectileDamageMultiplier);
-
-        // 第一维：固定四刀。第二维：当前世界时期。
-        // 该状态机只生成附加弹幕，主武器始终保持固定四段剑招。
-        if (stage == 0)
+        float damageScale = FranTelekineticPattern.GetDamageScale(stage, FranBalance.GetAvailableTacticSlots());
+        List<FranTelekineticShot> shots = new(16);
+        FranTelekineticPattern.Fill(shots, stage, combo, tacticLayers, owner.direction);
+        foreach (FranTelekineticShot shot in shots)
         {
-            switch (combo)
+            float multiplier = shot.Weight * damageScale;
+            switch (shot.Kind)
             {
-                case 0:
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, single);
+                case FranTelekineticShotKind.Core:
+                    SpawnTelekineticPressureCore(owner, swing, direction, shot.Offset, multiplier);
                     break;
-                case 1:
-                    SpawnTelekineticPressureCore(owner, swing, direction, owner.direction * 12f, single);
+                case FranTelekineticShotKind.Wave:
+                    SpawnTelekineticFoldBlade(owner, swing, direction, shot.Offset, shot.Angle, shot.Scale, multiplier);
                     break;
-                case 2:
-                    SpawnTelekineticPressureCore(owner, swing, direction, -17f, pair);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 17f, pair);
+                case FranTelekineticShotKind.Laser:
+                    SpawnTelekineticLaser(owner, swing, direction, shot.Offset, shot.Scale, multiplier, shot.SuppressLaunchBurst);
                     break;
-                default:
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, heavy);
+                case FranTelekineticShotKind.Planet:
+                    SpawnTelekineticPlanetChain(owner, swing, target, multiplier, shot.Count);
                     break;
             }
         }
-        else if (stage == 1)
-        {
-            switch (combo)
-            {
-                case 0:
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, single);
-                    break;
-                case 1:
-                    SpawnTelekineticFoldBlade(owner, swing, direction, -owner.direction * 30f,
-                        -owner.direction * 0.08f, 1f, single);
-                    break;
-                case 2:
-                    SpawnTelekineticPressureCore(owner, swing, direction, -19f, triple);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 19f, triple);
-                    SpawnTelekineticFoldBlade(owner, swing, direction, 0f, 0f, 0.90f, triple);
-                    break;
-                default:
-                    // 冲击波始终只有一枚：把原先双排的总伤害合并到居中波体。
-                    SpawnTelekineticFoldBlade(owner, swing, direction, 0f, 0f, 1.02f, pair * 2f);
-                    break;
-            }
-        }
-        else if (stage == 2)
-        {
-            switch (combo)
-            {
-                case 0:
-                    SpawnTelekineticLaser(owner, swing, direction, 0f, 0.96f, single, false);
-                    break;
-                case 1:
-                    SpawnTelekineticLaser(owner, swing, direction, 0f, 0.96f, pair, false);
-                    SpawnTelekineticFoldBlade(owner, swing, direction, -owner.direction * 42f,
-                        owner.direction * 0.07f, 0.88f, pair);
-                    break;
-                case 2:
-                    SpawnTelekineticLaser(owner, swing, direction, -26f, 0.90f, triple, false);
-                    SpawnTelekineticLaser(owner, swing, direction, 26f, 0.90f, triple, true);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, triple);
-                    break;
-                default:
-                    SpawnTelekineticLaser(owner, swing, direction, 0f, 1.34f, heavy, false);
-                    break;
-            }
-        }
-        else
-        {
-            switch (combo)
-            {
-                case 0:
-                    SpawnTelekineticLaser(owner, swing, direction, 0f, 0.98f, pair, false);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 0f, pair);
-                    break;
-                case 1:
-                    SpawnTelekineticLaser(owner, swing, direction, 0f, 0.98f, triple, false);
-                    // 后期编排也不再并排复制冲击波，仍只发射一枚居中波体。
-                    SpawnTelekineticFoldBlade(owner, swing, direction, 0f, 0f, 0.88f, triple * 2f);
-                    break;
-                case 2:
-                    SpawnTelekineticLaser(owner, swing, direction, -32f, 0.92f, quartet, false);
-                    SpawnTelekineticLaser(owner, swing, direction, 32f, 0.92f, quartet, true);
-                    SpawnTelekineticPressureCore(owner, swing, direction, -62f, quartet);
-                    SpawnTelekineticPressureCore(owner, swing, direction, 62f, quartet);
-                    break;
-                default:
-                    if (stage == 3)
-                    {
-                        SpawnTelekineticLaser(owner, swing, direction, 0f, 1.28f, triple, false);
-                        SpawnTelekineticFoldBlade(owner, swing, direction, 0f, 0f, 0.92f, triple * 2f);
-                    }
-                    else
-                    {
-                        SpawnTelekineticLaser(owner, swing, direction, 0f, 1.34f, heavy, false);
-                        SpawnTelekineticPlanetChain(owner, swing, target);
-                    }
-                    break;
-            }
-        }
-
-        // 第三维被刻意压成唯一语义：A 是上方当前配方，每层 B 只多一枚侧翼念压核。
-        SpawnTelekineticLayerCores(owner, swing, direction, combo, tacticLayers - 1);
-
         Vector2 muzzle = owner.MountedCenter + direction * 28f;
         float releaseScale = (combo switch { 0 => 0.72f, 1 => 0.88f, 2 => 1.08f, _ => 1.42f }) *
             (1f + stage * 0.035f);
@@ -310,11 +225,15 @@ internal static class TeacherImprintCombat
         Vector2 spawn = owner.MountedCenter + direction * 28f + normal * lateralOffset;
         // Terratomere: shootSpeed 60 / 2, with a circular-edge velocity offset of 20%.
         // Formation counts, spawn offsets and base damage remain the tactic's own values.
-        Vector2 launchVelocity = direction * 30f + Main.rand.NextVector2CircularEdge(6f, 6f);
+        bool fullLoadout = owner.GetModPlayer<FranPlayer>().IsFullTacticLoadout(FranSkill.TelekineticCatapult);
+        Vector2 launchVelocity = fullLoadout
+            ? direction * 30f + Main.rand.NextVector2CircularEdge(6f, 6f)
+            : direction.RotatedByRandom(MathHelper.ToRadians(2f)) * 30f;
+        launchVelocity *= FranBalance.GetTelekineticCoreSpeedMultiplier();
         int index = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, launchVelocity,
             ModContent.ProjectileType<Telekinetic_CondensedMindCore>(),
             Math.Max(1, (int)(swing.damage * damageScale)), swing.knockBack * 0.52f,
-            owner.whoAmI);
+            owner.whoAmI, fullLoadout ? 1f : 0f);
         if (!Main.projectile.IndexInRange(index))
             return;
         Projectile core = Main.projectile[index];
@@ -324,6 +243,9 @@ internal static class TeacherImprintCombat
     private static void SpawnTelekineticFoldBlade(Player owner, Projectile swing, Vector2 baseDirection,
         float lateralOffset, float angleOffset, float scale, float damageScale)
     {
+        if (!Main.hardMode)
+            scale *= FranBalance.GetFloat(nameof(FranBalance.TelekineticFoldBladePreHardmodeScaleMultiplier),
+                FranBalance.TelekineticFoldBladePreHardmodeScaleMultiplier);
         Vector2 normal = baseDirection.RotatedBy(MathHelper.PiOver2);
         Vector2 direction = baseDirection.RotatedBy(angleOffset).SafeNormalize(baseDirection);
         Vector2 spawn = owner.MountedCenter + baseDirection * 30f + normal * lateralOffset;
@@ -361,31 +283,13 @@ internal static class TeacherImprintCombat
         laser.netUpdate = true;
     }
 
-    private static void SpawnTelekineticLayerCores(Player owner, Projectile swing, Vector2 direction,
-        int combo, int extraLayers)
-    {
-        if (extraLayers <= 0)
-            return;
-
-        float damageScale = FranBalance.GetFloat(nameof(FranBalance.TelekineticExtraLayerProjectileDamageMultiplier),
-            FranBalance.TelekineticExtraLayerProjectileDamageMultiplier);
-        float spacing = combo == 3 ? 38f : 31f;
-        for (int i = 0; i < extraLayers; i++)
-        {
-            float side = (i % 2 == 0 ? 1f : -1f) * (i / 2 + 1) * spacing * owner.direction;
-            SpawnTelekineticPressureCore(owner, swing, direction, side, damageScale);
-        }
-    }
-
-    private static void SpawnTelekineticPlanetChain(Player owner, Projectile swing, Vector2 target)
+    private static void SpawnTelekineticPlanetChain(Player owner, Projectile swing, Vector2 target, float damageScale, int planetCount)
     {
         NPC lockedTarget = FindNearestTarget(target, 1000f);
         Vector2 focus = lockedTarget?.Center ?? target;
-        float damageScale = FranBalance.GetFloat(nameof(FranBalance.TelekineticFinisherPlanetDamageMultiplier),
-            FranBalance.TelekineticFinisherPlanetDamageMultiplier);
         int damage = Math.Max(1, (int)(swing.damage * damageScale));
         int baseVariant = Math.Abs(swing.identity * 3 + 15 + (int)(Main.GameUpdateCount % 10)) % 10;
-        for (int orbitSlot = 0; orbitSlot < Telekinetic_GravityStarfall.PlanetCount; orbitSlot++)
+        for (int orbitSlot = 0; orbitSlot < planetCount; orbitSlot++)
         {
             int variant = (baseVariant + orbitSlot * 7) % 10;
             Vector2 spawn = Telekinetic_GravityStarfall.InitialOrbitPosition(focus, lockedTarget,
@@ -425,7 +329,7 @@ internal static class TeacherImprintCombat
                     ? FranBalance.GetFloat(nameof(FranBalance.MultipleBodyFinisherDamageMultiplier),
                         FranBalance.MultipleBodyFinisherDamageMultiplier)
                     : FranBalance.GetFloat(nameof(FranBalance.MultipleBodyNormalDamageMultiplier),
-                        FranBalance.MultipleBodyNormalDamageMultiplier)) / Math.Max(1, firstLayerCount))),
+                        FranBalance.MultipleBodyNormalDamageMultiplier)) / Math.Max(1, firstLayerCount) * FranTacticOutputBudget.Scale(FranSkill.MultipleBodyCreation))),
                 swing.knockBack * 0.48f, owner.whoAmI,
                 FranTeacherPhantomBlade.EncodeLaunchDelay(delay, hasEnemy, fullLoadout),
                 lockedTarget.X, lockedTarget.Y);
@@ -436,13 +340,7 @@ internal static class TeacherImprintCombat
         Vector2 swingDirection)
     {
         Vector2 mouseTarget = ClampTarget(owner, Main.MouseWorld, 780f);
-        float layerDamage = GetThunderWeatherDamageMultiplier(owner, tacticLayers) * (1f +
-            FranBalance.GetFloat(nameof(FranBalance.ThunderChainExtraLayerDamageMultiplier),
-                FranBalance.ThunderChainExtraLayerDamageMultiplier) * (tacticLayers - 1));
-        float mainDamage = FranBalance.GetFloat(nameof(FranBalance.ThunderChainMainDamageMultiplier),
-            FranBalance.ThunderChainMainDamageMultiplier);
-        float trackedDamage = FranBalance.GetFloat(nameof(FranBalance.ThunderChainTrackedDamageMultiplier),
-            FranBalance.ThunderChainTrackedDamageMultiplier);
+        // 电路锚点、连接和分支仅负责演出，所有雷链伤害统一从预算落雷结算。
 
         if (combo == 0)
         {
@@ -456,7 +354,7 @@ internal static class TeacherImprintCombat
             Vector2 forward = (destination - owner.MountedCenter).SafeNormalize(
                 swingDirection.SafeNormalize(Vector2.UnitX * owner.direction));
             Vector2 normal = forward.RotatedBy(MathHelper.PiOver2);
-            int placementDamage = Math.Max(1, (int)(swing.damage * mainDamage * layerDamage / anchorCount));
+            int placementDamage = 0;
 
             for (int i = 0; i < anchorCount; i++)
             {
@@ -490,7 +388,7 @@ internal static class TeacherImprintCombat
                     normal * (i == 0 ? -42f : 18f);
                 Projectile.NewProjectile(swing.GetSource_FromThis(), position, Vector2.Zero,
                     ModContent.ProjectileType<FranThunderCircuitNode>(),
-                    Math.Max(1, (int)(swing.damage * mainDamage * layerDamage * 0.5f)),
+                    0,
                     swing.knockBack * 0.16f, owner.whoAmI, 0f, i, tacticLayers);
             }
             anchors = GetThunderCircuitAnchors(owner);
@@ -502,7 +400,7 @@ internal static class TeacherImprintCombat
         if (combo == 1)
         {
             Vector2 start = owner.MountedCenter + swingDirection.SafeNormalize(Vector2.UnitX * owner.direction) * 24f;
-            int linkDamage = Math.Max(1, (int)(swing.damage * trackedDamage * layerDamage));
+            int linkDamage = 0;
             for (int i = 0; i < anchors.Count; i++)
             {
                 Vector2 end = anchors[i].Center;
@@ -510,14 +408,13 @@ internal static class TeacherImprintCombat
                     0.88f + i * 0.05f, false);
                 start = end;
             }
-            SpawnThunderRain(owner, swing, anchors[^1].Center, combo, tacticLayers, includeMainStrike: true);
+            SpawnThunderRain(owner, swing, anchors[^1].Center, combo, tacticLayers);
             return;
         }
 
         if (combo == 2)
         {
-            int branchDamage = Math.Max(1, (int)(swing.damage * mainDamage * layerDamage /
-                Math.Max(1, anchors.Count)));
+            int branchDamage = 0;
             for (int i = 0; i < anchors.Count; i++)
             {
                 Vector2 radialDirection = (anchors[i].Center - owner.MountedCenter).SafeNormalize(
@@ -537,28 +434,23 @@ internal static class TeacherImprintCombat
             Projectile.NewProjectile(swing.GetSource_FromThis(), launchAnchor.Center,
                 launchDirection.SafeNormalize(Vector2.UnitX * owner.direction) * 18f,
                 ModContent.ProjectileType<FranRicochetLightning>(),
-                Math.Max(1, (int)(swing.damage * trackedDamage * layerDamage)),
+                0,
                 swing.knockBack * 0.34f, owner.whoAmI, 0f, Math.Clamp(maximumJumps, 2, 7), tacticLayers);
-            SpawnThunderRain(owner, swing, launchAnchor.Center, combo, tacticLayers, includeMainStrike: true);
+            SpawnThunderRain(owner, swing, launchAnchor.Center, combo, tacticLayers);
             return;
         }
 
         NPC finalTarget = FindNearestTarget(mouseTarget, 760f);
         Vector2 focus = finalTarget?.Center ?? mouseTarget;
-        int returnDamage = Math.Max(1, (int)(swing.damage * trackedDamage * layerDamage));
+        int returnDamage = 0;
         for (int i = 0; i < anchors.Count; i++)
             SpawnThunderCircuitLink(swing, owner, anchors[i].Center, focus, returnDamage,
                 i * 2, 1.05f + i * 0.06f, true);
 
         // The return currents identify the target first. Supporting and tracked bolts begin the storm,
         // while FranThunderCircuitFinisher delays the single heaviest focal strike until the circuit closes.
-        SpawnThunderRain(owner, swing, focus, combo, tacticLayers, includeMainStrike: false);
         int delay = 7 + anchors.Count * 2;
-        Projectile.NewProjectile(swing.GetSource_FromThis(), focus, Vector2.Zero,
-            ModContent.ProjectileType<FranThunderCircuitFinisher>(),
-            Math.Max(1, (int)(swing.damage * mainDamage * layerDamage)),
-            swing.knockBack * 0.48f, owner.whoAmI, delay,
-            finalTarget is null ? 0f : finalTarget.whoAmI + 1f, tacticLayers);
+        SpawnThunderRain(owner, swing, focus, combo, tacticLayers, delay);
     }
 
     private static void SpawnThunderCircuitLink(Projectile swing, Player owner, Vector2 start, Vector2 end,
@@ -592,83 +484,73 @@ internal static class TeacherImprintCombat
     }
 
     private static void SpawnThunderRain(Player owner, Projectile swing, Vector2 focus, int combo,
-        int tacticLayers, bool includeMainStrike)
+        int tacticLayers, int finalDelay = 0)
     {
         bool finisher = combo == 3;
-        float layerDamage = GetThunderWeatherDamageMultiplier(owner, tacticLayers) * (1f +
-            FranBalance.GetFloat(nameof(FranBalance.ThunderChainExtraLayerDamageMultiplier),
-                FranBalance.ThunderChainExtraLayerDamageMultiplier) * (tacticLayers - 1));
-        float mainDamage = FranBalance.GetFloat(nameof(FranBalance.ThunderChainMainDamageMultiplier),
-            FranBalance.ThunderChainMainDamageMultiplier);
-        if (includeMainStrike)
-            SpawnThunderRainDrop(swing, owner, focus, mainDamage * layerDamage,
-                mainStrike: true, finisher: false);
-
-        int supportingBoltCount = (finisher
-            ? FranBalance.GetInt(nameof(FranBalance.ThunderChainFinisherSupportingBoltCount),
-                FranBalance.ThunderChainFinisherSupportingBoltCount)
-            : FranBalance.GetInt(nameof(FranBalance.ThunderChainNormalSupportingBoltCount),
-                FranBalance.ThunderChainNormalSupportingBoltCount)) + tacticLayers - 1;
-        for (int i = 0; i < supportingBoltCount; i++)
-        {
-            float horizontalOffset = supportingBoltCount == 1
-                ? (combo % 2 == 0 ? -96f : 96f)
-                : MathHelper.Lerp(-112f, 112f, i / (supportingBoltCount - 1f));
-            Vector2 impact = focus + new Vector2(horizontalOffset, Main.rand.NextFloat(-18f, 30f));
-            SpawnThunderRainDrop(swing, owner, impact, mainDamage * layerDamage,
-                mainStrike: false, finisher: false);
-        }
-
-        List<NPC> candidates = new();
+        int supporting = (finisher
+            ? FranBalance.GetInt(nameof(FranBalance.ThunderChainFinisherSupportingBoltCount), FranBalance.ThunderChainFinisherSupportingBoltCount)
+            : FranBalance.GetInt(nameof(FranBalance.ThunderChainNormalSupportingBoltCount), FranBalance.ThunderChainNormalSupportingBoltCount)) + tacticLayers - 1;
+        int tracked = (finisher
+            ? FranBalance.GetInt(nameof(FranBalance.ThunderChainFinisherTrackedTargetCount), FranBalance.ThunderChainFinisherTrackedTargetCount)
+            : FranBalance.GetInt(nameof(FranBalance.ThunderChainNormalTrackedTargetCount), FranBalance.ThunderChainNormalTrackedTargetCount)) + tacticLayers - 1;
+        int count = Math.Max(2, 1 + supporting + tracked);
+        int slots = FranBalance.GetAvailableTacticSlots();
+        int fullCount = Math.Max(2, count + (slots - tacticLayers) * 2);
+        List<NPC> targets = new();
         foreach (NPC npc in Main.ActiveNPCs)
+            if (npc.CanBeChasedBy() && npc.DistanceSQ(focus) <= 650f * 650f &&
+                npc.DistanceSQ(owner.Center) <= 980f * 980f)
+                targets.Add(npc);
+        targets.Sort((a, b) => a.DistanceSQ(focus).CompareTo(b.DistanceSQ(focus)));
+
+        for (int i = 0; i < count; i++)
         {
-            if (npc.CanBeChasedBy() && Vector2.DistanceSquared(npc.Center, focus) <= 650f * 650f &&
-                Vector2.DistanceSquared(npc.Center, owner.Center) <= 980f * 980f)
-                candidates.Add(npc);
+            // 每轮齐射只给每个 NPC 一个标记，不足的雷落在附近空处，不能重复锁定主目标。
+            NPC target = i < targets.Count ? targets[i] : null;
+            Vector2 impact = target?.Center ?? FindEmptyThunderImpact(focus, targets, i, count);
+            float multiplier = FranTacticOutputBudget.ThunderPerSwingRatio(i == 0, fullCount,
+                Main.raining && Main.IsItStorming);
+            int totalDamage = Math.Max(2, (int)(swing.damage * multiplier));
+            if (i == 0 && finisher)
+            {
+                // 第四刀的主雷继续等电路收束后落下，避免再叠加一条无预算的重复主雷。
+                Projectile.NewProjectile(swing.GetSource_FromThis(), impact, Vector2.Zero,
+                    ModContent.ProjectileType<FranThunderCircuitFinisher>(), totalDamage,
+                    swing.knockBack * 0.48f, owner.whoAmI, finalDelay,
+                    target?.whoAmI + 1 ?? 0, tacticLayers);
+                continue;
+            }
+            Vector2 spawn = impact + new Vector2(Main.rand.NextFloat(-130f, 130f), -720f);
+            Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, Vector2.Zero,
+                ModContent.ProjectileType<FranThunderBudgetStrike>(), totalDamage, 0f, owner.whoAmI,
+                impact.X, impact.Y, target?.whoAmI + 1 ?? 0);
+            Projectile.NewProjectile(swing.GetSource_FromThis(), impact, Vector2.Zero,
+                ModContent.ProjectileType<FranThunderDropVisual>(), 0, 0f, owner.whoAmI,
+                spawn.X, spawn.Y, Main.rand.NextFloat(100f) + (i == 0 ? finisher ? 2000f : 1000f : 0f));
         }
-        candidates.Sort((left, right) =>
-            Vector2.DistanceSquared(left.Center, focus).CompareTo(Vector2.DistanceSquared(right.Center, focus)));
-        int trackedCount = Math.Min((finisher
-            ? FranBalance.GetInt(nameof(FranBalance.ThunderChainFinisherTrackedTargetCount),
-                FranBalance.ThunderChainFinisherTrackedTargetCount)
-            : FranBalance.GetInt(nameof(FranBalance.ThunderChainNormalTrackedTargetCount),
-                FranBalance.ThunderChainNormalTrackedTargetCount)) + tacticLayers - 1, candidates.Count);
-        float trackedDamage = FranBalance.GetFloat(nameof(FranBalance.ThunderChainTrackedDamageMultiplier),
-            FranBalance.ThunderChainTrackedDamageMultiplier);
-        for (int i = 0; i < trackedCount; i++)
-            SpawnThunderRainDrop(swing, owner, candidates[i].Center, trackedDamage * layerDamage,
-                mainStrike: false, finisher: false);
     }
 
-    private static void SpawnThunderRainDrop(Projectile swing, Player owner, Vector2 impact,
-        float damageScale, bool mainStrike, bool finisher)
+    private static Vector2 FindEmptyThunderImpact(Vector2 focus, List<NPC> targets, int index, int count)
     {
-        Vector2 spawn = impact + new Vector2(Main.rand.NextFloat(-130f, 130f),
-            Main.rand.NextFloat(-800f, -650f));
-        float strikeMarker = finisher ? 2f : mainStrike ? 1f : 0f;
-        Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, Vector2.Zero,
-            ModContent.ProjectileType<FranThunderStrikeProjectile>(),
-            Math.Max(1, (int)(swing.damage * damageScale)), 0f, owner.whoAmI,
-            impact.X, impact.Y, strikeMarker);
-
-        float visualSeed = Main.rand.NextFloat(100f) +
-            (mainStrike ? (finisher ? 2000f : 1000f) : 0f);
-        Projectile.NewProjectile(swing.GetSource_FromThis(), impact, Vector2.Zero,
-            ModContent.ProjectileType<FranThunderDropVisual>(), 0, 0f, owner.whoAmI,
-            spawn.X, spawn.Y, visualSeed);
+        Vector2 direction = (MathHelper.TwoPi * index / count).ToRotationVector2();
+        float radius = 120f;
+        Vector2 impact = focus;
+        for (int attempt = 0; attempt < 24; attempt++, radius += 64f)
+        {
+            impact = focus + direction * radius;
+            Rectangle area = new((int)impact.X - 38, (int)impact.Y - 38, 76, 76);
+            bool occupied = false;
+            foreach (NPC npc in targets)
+                if (area.Intersects(npc.Hitbox))
+                {
+                    occupied = true;
+                    break;
+                }
+            if (!occupied)
+                return impact;
+        }
+        return impact;
     }
-
-    private static float GetThunderWeatherDamageMultiplier(Player owner, int tacticLayers)
-    {
-        FranPlayer fran = owner.GetModPlayer<FranPlayer>();
-        return Main.raining && tacticLayers == fran.AvailableTacticSlots &&
-               fran.IsFullTacticLoadout(FranSkill.ThunderChain)
-            ? Math.Max(0f, FranBalance.GetFloat(
-                nameof(FranBalance.ThunderChainFullLoadoutRainDamageMultiplier),
-                FranBalance.ThunderChainFullLoadoutRainDamageMultiplier))
-            : 1f;
-    }
-
     private static NPC FindNearestTarget(Vector2 center, float distance)
     {
         NPC best = null;

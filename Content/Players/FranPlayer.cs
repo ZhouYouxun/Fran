@@ -53,7 +53,6 @@ public sealed class FranPlayer : ModPlayer
     private bool teacherToolGranted;
     private int restoreTeacherAfterRespawnCount;
     private bool dashStartedThisTick;
-    private int teacherRecoveryCooldown;
     private float screenShakePower;
     private Vector2 ultimateCameraFocus;
     private int ultimateCameraLockTime;
@@ -77,7 +76,8 @@ public sealed class FranPlayer : ModPlayer
     public bool HasExternalDash => Player.dashType != 0 || HasNamedExternalDash();
     public bool HasExternalWings => Player.wingsLogic > 0 &&
         !FranTelekineticFlightSystem.IsTelekineticWingSlot(Player.wingsLogic);
-    public bool UltimateReady => UltimateChargeTicks >= UltimateChargeDuration;
+    public bool UltimateUnlocked => Main.hardMode;
+    public bool UltimateReady => UltimateUnlocked && UltimateChargeTicks >= UltimateChargeDuration;
     public bool UltimateActive => Player.ownedProjectileCounts[ModContent.ProjectileType<FranUltimateController>()] > 0;
 
     private bool HasNamedExternalDash()
@@ -206,7 +206,7 @@ public sealed class FranPlayer : ModPlayer
         if (!FranMode)
             return;
 
-        int barrierLayers = GetActiveMagicBarrierLayers();
+        int barrierLayers = GetEquippedMagicBarrierLayers();
         if (barrierLayers > 0)
         {
             int defense = FranBalance.GetInt(nameof(FranBalance.MagicBarrierBaseDefense),
@@ -214,7 +214,11 @@ public sealed class FranPlayer : ModPlayer
                 FranBalance.GetInt(nameof(FranBalance.MagicBarrierExtraLayerDefense),
                     FranBalance.MagicBarrierExtraLayerDefense) * (barrierLayers - 1);
             Player.statDefense += Math.Max(0, defense);
-            if (IsFullTacticLoadout(FranSkill.MagicBarrier))
+            bool barrierActive = FranAutoBarrierProjectile.IsActive(Player);
+            if (barrierActive)
+                Player.statDefense *= FranBalance.GetFloat(nameof(FranBalance.MagicBarrierActiveDefenseMultiplier),
+                    FranBalance.MagicBarrierActiveDefenseMultiplier);
+            if (barrierActive && IsFullTacticLoadout(FranSkill.MagicBarrier))
                 Player.lifeRegen += Math.Max(0, FranBalance.GetInt(
                     nameof(FranBalance.MagicBarrierFullLoadoutLifeRegen),
                     FranBalance.MagicBarrierFullLoadoutLifeRegen));
@@ -238,7 +242,9 @@ public sealed class FranPlayer : ModPlayer
             Player.wingTime = Math.Max(Player.wingTime, Player.wingTimeMax);
     }
 
-    public override void FrameEffects()
+    public override void FrameEffects() => ApplyFranAppearance();
+
+    internal void ApplyFranAppearance()
     {
         if (!FranMode)
             return;
@@ -256,9 +262,6 @@ public sealed class FranPlayer : ModPlayer
             return;
 
         // A readable Fran silhouette made entirely from vanilla player layers.
-        drawInfo.drawPlayer.head = ContentSamples.ItemsByType[ItemID.CatEars].headSlot;
-        drawInfo.drawPlayer.body = ContentSamples.ItemsByType[ItemID.FamiliarShirt].bodySlot;
-        drawInfo.drawPlayer.legs = ContentSamples.ItemsByType[ItemID.FamiliarPants].legSlot;
         Color environmentLight = Lighting.GetColor((int)(Player.Center.X / 16f), (int)(Player.Center.Y / 16f));
         Color skin = LitColor(new Color(244, 215, 198), environmentLight);
         drawInfo.colorHair = LitColor(new Color(36, 34, 49), environmentLight);
@@ -299,11 +302,6 @@ public sealed class FranPlayer : ModPlayer
             Math.Max(0f, Main.maxTilesY * 16f - Main.screenHeight));
     }
 
-    public override void OnEnterWorld()
-    {
-        EnsureTeacher();
-    }
-
     public override void CopyClientState(ModPlayer targetCopy)
     {
         FranPlayer copy = (FranPlayer)targetCopy;
@@ -341,7 +339,7 @@ public sealed class FranPlayer : ModPlayer
 
     internal void ReceiveUltimateCharge(int chargeTicks)
     {
-        UltimateChargeTicks = Math.Clamp(chargeTicks, 0, UltimateChargeDuration);
+        UltimateChargeTicks = UltimateUnlocked ? Math.Clamp(chargeTicks, 0, UltimateChargeDuration) : 0;
         ultimateReadyAnnounced = UltimateReady;
     }
 
@@ -359,6 +357,13 @@ public sealed class FranPlayer : ModPlayer
 
     public override void PostUpdate()
     {
+        if (!UltimateUnlocked)
+        {
+            UltimateChargeTicks = 0;
+            ultimateChargeSyncTimer = 0;
+            ultimateReadyAnnounced = false;
+        }
+
         if (Player.dead)
         {
             TelekineticFlightVisualActive = false;
@@ -370,13 +375,7 @@ public sealed class FranPlayer : ModPlayer
         if (HasTeacher)
             teacherBonded = true;
         if (Player.whoAmI == Main.myPlayer && teacherBonded)
-        {
             EnsureTeacherToolInitialGrant();
-            RecallTeacherFromStorage();
-            if (teacherRecoveryCooldown > 0)
-                teacherRecoveryCooldown--;
-            EnsureTeacher();
-        }
 
         if (!FranMode)
         {
@@ -451,7 +450,7 @@ public sealed class FranPlayer : ModPlayer
     {
         if (!FranMode)
             return;
-        int barrierLayers = GetActiveMagicBarrierLayers();
+        int barrierLayers = GetEquippedMagicBarrierLayers();
         if (barrierLayers > 0)
         {
             float damageReduction = FranBalance.GetFloat(nameof(FranBalance.MagicBarrierBaseDamageReduction),
@@ -602,9 +601,12 @@ public sealed class FranPlayer : ModPlayer
             GetSkillStacks(skill) == availableSlots;
     }
 
-    private int GetActiveMagicBarrierLayers()
+    private int GetActiveMagicBarrierLayers() => FranAutoBarrierProjectile.IsActive(Player)
+        ? GetEquippedMagicBarrierLayers() : 0;
+
+    private int GetEquippedMagicBarrierLayers()
     {
-        if (!FranMode || !FranAutoBarrierProjectile.IsActive(Player))
+        if (!FranMode)
             return 0;
 
         int availableSlots = Math.Min(AvailableTacticSlots, MaximumTacticSlots);
@@ -845,7 +847,7 @@ public sealed class FranPlayer : ModPlayer
 
     private void UpdateUltimateCharge()
     {
-        if (Main.netMode == NetmodeID.MultiplayerClient || UltimateActive || UltimateReady)
+        if (!UltimateUnlocked || Main.netMode == NetmodeID.MultiplayerClient || UltimateActive || UltimateReady)
             return;
 
         FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
@@ -965,7 +967,7 @@ public sealed class FranPlayer : ModPlayer
         direction = direction.SafeNormalize(Vector2.UnitX * (Player.direction == 0 ? 1 : Player.direction));
         FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
         float dashSpeed = FranBalance.GetFloat(nameof(FranBalance.DashBaseSpeed), FranBalance.DashBaseSpeed) *
-            evolution.DashSpeedMultiplier;
+            evolution.DashSpeedMultiplier * FranBalance.GetDashProgressionSpeedMultiplier();
         DashTimer = DashDuration;
         DashCooldown = evolution.DashCooldownTicks;
         DashVelocity = direction * dashSpeed;
@@ -1083,15 +1085,6 @@ public sealed class FranPlayer : ModPlayer
             FranModMain.SendCombatState(Player.whoAmI, 0, Vector2.Zero);
     }
 
-    private void EnsureTeacher()
-    {
-        if (!teacherBonded || HasTeacher || Player.whoAmI != Main.myPlayer || teacherRecoveryCooldown > 0)
-            return;
-        Player.QuickSpawnItem(Player.GetSource_Misc("FranModeTeacher"), ModContent.ItemType<Teacher>());
-        if (!HasTeacher)
-            teacherRecoveryCooldown = 5 * 60;
-    }
-
     private void EnsureTeacherToolInitialGrant()
     {
         if (teacherToolGranted)
@@ -1101,56 +1094,6 @@ public sealed class FranPlayer : ModPlayer
         if (!Player.HasItem(toolType) && Main.mouseItem.type != toolType)
             Player.QuickSpawnItem(Player.GetSource_Misc("FranTeacherToolForm"), toolType);
         teacherToolGranted = true;
-    }
-
-    private void RecallTeacherFromStorage()
-    {
-        int teacherType = ModContent.ItemType<Teacher>();
-        List<Item> recalled = new();
-
-        void ClearStorage(Item[] storage)
-        {
-            if (storage is null)
-                return;
-            for (int i = 0; i < storage.Length; i++)
-            {
-                if (storage[i].type != teacherType)
-                    continue;
-                recalled.Add(storage[i].Clone());
-                storage[i].TurnToAir();
-            }
-        }
-
-        if (Player.trashItem.type == teacherType)
-        {
-            recalled.Add(Player.trashItem.Clone());
-            Player.trashItem.TurnToAir();
-        }
-
-        ClearStorage(Player.bank.item);
-        ClearStorage(Player.bank2.item);
-        ClearStorage(Player.bank3.item);
-        ClearStorage(Player.bank4.item);
-
-        if (Player.chest >= 0 && Player.chest < Main.maxChests && Main.chest[Player.chest] is Chest chest)
-        {
-            for (int slot = 0; slot < chest.item.Length; slot++)
-            {
-                if (chest.item[slot].type != teacherType)
-                    continue;
-                recalled.Add(chest.item[slot].Clone());
-                chest.item[slot].TurnToAir();
-                if (Main.netMode == NetmodeID.MultiplayerClient)
-                    NetMessage.SendData(MessageID.SyncChestItem, -1, -1, null, Player.chest, slot);
-            }
-        }
-
-        if (recalled.Count > 0)
-        {
-            teacherRecoveryCooldown = 0;
-            foreach (Item item in recalled)
-                Player.QuickSpawnItem(Player.GetSource_Misc("FranTeacherRecall"), item, item.stack);
-        }
     }
 
     private void EnsureFloatingTeacher()
@@ -1203,7 +1146,7 @@ public sealed class FranPlayer : ModPlayer
 
     internal bool TryStartUltimate(Vector2 requestedFocus)
     {
-        if (Main.netMode == NetmodeID.MultiplayerClient || !FranMode || Player.dead || !UltimateReady ||
+        if (!UltimateUnlocked || Main.netMode == NetmodeID.MultiplayerClient || !FranMode || Player.dead || !UltimateReady ||
             UltimateActive)
             return false;
 
@@ -1253,7 +1196,7 @@ public sealed class FranPlayer : ModPlayer
 
     private void AnnounceUltimateReady()
     {
-        if (ultimateReadyAnnounced)
+        if (!UltimateUnlocked || ultimateReadyAnnounced)
             return;
         ultimateReadyAnnounced = true;
         Projectile.NewProjectile(Player.GetSource_Misc("FranUltimateReady"), Player.Center, Vector2.Zero,

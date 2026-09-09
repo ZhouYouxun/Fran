@@ -104,15 +104,6 @@ public sealed class FranSkillTakerWisp : ModProjectile
 
     private NPC FindTarget()
     {
-        int originalTarget = (int)Projectile.ai[0];
-        if (originalTarget >= 0 && originalTarget < Main.maxNPCs)
-        {
-            NPC original = Main.npc[originalTarget];
-            if (original.active && !original.friendly && original.life > 0 &&
-                Vector2.DistanceSquared(Projectile.Center, original.Center) <= 900f * 900f)
-                return original;
-        }
-
         NPC best = null;
         float bestDistance = 720f * 720f;
         foreach (NPC npc in Main.ActiveNPCs)

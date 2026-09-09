@@ -46,7 +46,7 @@ internal sealed class FranLightingBoltsSystem : ModSystem
         if (Main.dedServ || Main.gameMenu)
             return;
 
-        int count = afterglow ? 4 : 6;
+        int count = afterglow ? 6 : 8;
         for (int i = 0; i < count; i++)
         {
             float angle = afterglow ? Main.rand.NextFloat(MathHelper.TwoPi)
@@ -57,7 +57,7 @@ internal sealed class FranLightingBoltsSystem : ModSystem
             Color tint = Color.Lerp(color, Color.White, i % 3 == 0 ? 0.55f : 0.12f);
             Sparkle(center + direction * radius, velocity, tint,
                 new Vector2(afterglow ? 0.72f : 1.10f, 0.25f),
-                afterglow ? 16 : 12, angle, 0.65f);
+                afterglow ? 48 : 36, angle, 0.65f);
         }
     }
 

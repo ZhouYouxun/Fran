@@ -37,7 +37,7 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
         Projectile.friendly = true;
         Projectile.penetrate = -1;
         Projectile.ignoreWater = true;
-        Projectile.tileCollide = false;
+        Projectile.tileCollide = !NPC.downedBoss1;
         Projectile.timeLeft = 135;
         Projectile.DamageType = DamageClass.Melee;
         Projectile.usesLocalNPCImmunity = true;
@@ -47,12 +47,17 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
 
     public override void AI()
     {
+        // 击败克苏鲁之眼后才解锁念核穿墙；追踪仍由发射时的全选标记独立控制。
+        Projectile.tileCollide = !NPC.downedBoss1;
         // Terratomere calls HomeInOnNPC every sub-update. The helper itself raises extraUpdates
         // from 1 to 2 while a target is available; velocity is NOT divided by MaxUpdates.
         NPC closest = null;
         float closestDistance = 25000f;
         foreach (NPC npc in Main.ActiveNPCs)
         {
+            // ai[0] snapshots full-loadout eligibility at launch and is synced by vanilla.
+            if (Projectile.ai[0] != 1f)
+                break;
             float extraDistance = npc.width / 2 + npc.height / 2;
             if (!npc.CanBeChasedBy(Projectile, false) || !Projectile.WithinRange(npc.Center, 400f + extraDistance))
                 continue;
@@ -66,7 +71,8 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
         Projectile.extraUpdates = closest is null ? 1 : 2;
         if (closest is not null)
             Projectile.velocity = (Projectile.velocity * 20f +
-                (closest.Center - Projectile.Center).SafeNormalize(Vector2.UnitY) * 24f) / 21f;
+                (closest.Center - Projectile.Center).SafeNormalize(Vector2.UnitY) *
+                (24f * FranBalance.GetTelekineticCoreSpeedMultiplier())) / 21f;
         Projectile.scale = Utils.GetLerpValue(0f, 8f, Projectile.timeLeft, true);
         Projectile.rotation = Projectile.velocity.ToRotation();
 
@@ -161,10 +167,11 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
     private const float VisualScaleMultiplier = 1.30f;
     private const float ActiveLifetime = 43f;
     private const float DamageEndTime = 34f;
+    private const float TerrainDissipationLifetime = 16f;
     private ref float Age => ref Projectile.localAI[0];
     private ref float DamagingHitCount => ref Projectile.localAI[1];
     private ref float DissipationAge => ref Projectile.localAI[2];
-    private bool Dissipating => DissipationAge > 0f;
+    private bool Dissipating => Projectile.ai[1] != 0f;
     private bool SuppressDeathBurst => Projectile.ai[1] == 1f;
     private float BaseScale => Projectile.ai[2] > 0f ? Projectile.ai[2] : 1f;
     private float SwingSign => Projectile.ai[0] < 0f ? -1f : 1f;
@@ -218,6 +225,14 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         Projectile.scale = MathHelper.Lerp(1.5f, 1f, contraction) * BaseScale;
         Projectile.Opacity = Utils.Remap(Age, 0f, 9f, 0f, 1f) *
             Utils.Remap(Age, ActiveLifetime - 12f, ActiveLifetime, 1f, 0f);
+
+        // 原版 TerraBlade2Shot 会检测波体前沿，先减速，再由中心的方块碰撞停住。
+        if (IsWaveFrontBlocked())
+        {
+            BeginDissipation(suppressDeathBurst: true);
+            UpdateDissipation();
+            return;
+        }
 
         if (Projectile.velocity.Length() > 8f)
         {
@@ -280,10 +295,43 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
 
     public override bool OnTileCollide(Vector2 oldVelocity)
     {
-        Projectile.position += oldVelocity;
-        Projectile.velocity = oldVelocity * 0.01f;
+        // 已到达实体方块：留在接触处收拢闪光，不能把整个波体推进墙内。
+        Projectile.velocity = Vector2.Zero;
         BeginDissipation(suppressDeathBurst: true);
         return false;
+    }
+
+    private bool IsWaveFrontBlocked()
+    {
+        float reach = 110f * Projectile.scale;
+        for (float side = -1f; side <= 1f; side += 0.5f)
+        {
+            Vector2 direction = (Projectile.rotation + side * MathHelper.PiOver4 * 0.25f)
+                .ToRotationVector2();
+            if (Collision.CanHit(Projectile.Center + direction * reach * 0.5f, 0, 0,
+                    Projectile.Center + direction * reach, 0, 0))
+                return false;
+        }
+        return true;
+    }
+
+    public override void SendExtraAI(BinaryWriter writer)
+    {
+        writer.Write(Age);
+        writer.Write(DamagingHitCount);
+        writer.Write(DissipationAge);
+    }
+
+    public override void ReceiveExtraAI(BinaryReader reader)
+    {
+        Age = reader.ReadSingle();
+        DamagingHitCount = reader.ReadSingle();
+        DissipationAge = reader.ReadSingle();
+        if (Dissipating)
+        {
+            Projectile.friendly = false;
+            Projectile.damage = 0;
+        }
     }
 
     public override void OnKill(int timeLeft)
@@ -311,6 +359,9 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         Vector2 origin = source.Size() * 0.5f;
         Vector2 drawPosition = Projectile.Center - Main.screenPosition;
         float drawProgress = Utils.Remap(Age, 0f, ActiveLifetime + 5f, 0f, 1f);
+        if (Dissipating && SuppressDeathBurst)
+            drawProgress = MathHelper.Lerp(drawProgress, 1f,
+                MathHelper.Clamp(DissipationAge / TerrainDissipationLifetime, 0f, 1f));
         float closure = 1f - drawProgress;
         // 仅放大念动弹射的蓝色波体与附着闪光；命中锥体仍读取原始 Projectile.scale。
         float scale = Projectile.scale * VisualScaleMultiplier;
@@ -353,6 +404,19 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
             Projectile.rotation - SwingSign * 0.10f, origin, scale * 0.6f, first);
 
         DrawWaveSparkles(texture, drawPosition, bodyBlue, drawProgress, opacity, scale);
+
+        if (Dissipating && SuppressDeathBurst)
+        {
+            // 独立于发射淡入和环境亮度的蓝白闪光，贴墙发射也能看清停留的波体。
+            float flash = Utils.GetLerpValue(1f, 5f, DissipationAge, true) *
+                Utils.GetLerpValue(12f, 5f, DissipationAge, true);
+            Color flashColor = new Color(190, 240, 255, 0) * flash;
+            Main.EntitySpriteDraw(texture, drawPosition, coreFrame, flashColor,
+                Projectile.rotation, origin, scale, first);
+            DrawPrettyStarSparkle(flash, drawPosition + Projectile.rotation.ToRotationVector2() *
+                70f * Projectile.scale, flashColor, edgeBlue, 0.5f, Projectile.rotation,
+                new Vector2(2f, 3f) * scale, Vector2.One * scale);
+        }
     }
 
     private void DrawWaveSparkles(Texture2D waveTexture, Vector2 center, Color color,
@@ -431,18 +495,27 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         Projectile.ai[1] = suppressDeathBurst ? 1f : 2f;
         Projectile.friendly = false;
         Projectile.damage = 0;
-        Projectile.timeLeft = Math.Min(Projectile.timeLeft, 12);
+        Projectile.timeLeft = Math.Min(Projectile.timeLeft,
+            suppressDeathBurst ? (int)TerrainDissipationLifetime + 2 : 12);
         Projectile.netUpdate = true;
     }
 
     private void UpdateDissipation()
     {
         DissipationAge++;
-        Projectile.velocity *= 0.67f;
-        Projectile.Opacity = MathHelper.Clamp(1f - DissipationAge / 10f, 0f, 1f);
+        float lifetime = SuppressDeathBurst ? TerrainDissipationLifetime : 10f;
+        // 原版遇阻的三段速度保留：0.94 × 0.8 × 0.88，连续刹车而非瞬间降到 1%。
+        Projectile.velocity *= SuppressDeathBurst ? 0.94f * 0.8f * 0.88f : 0.67f;
+        if (SuppressDeathBurst && Projectile.velocity.LengthSquared() < 0.25f)
+            Projectile.velocity = Vector2.Zero;
+        Projectile.Opacity = SuppressDeathBurst
+            ? Utils.GetLerpValue(lifetime, 5f, DissipationAge, true)
+            : MathHelper.Clamp(1f - DissipationAge / lifetime, 0f, 1f);
         Projectile.rotation = Projectile.velocity.SafeNormalize(
             Projectile.rotation.ToRotationVector2()).ToRotation();
-        if (DissipationAge >= 10f)
+        if (SuppressDeathBurst)
+            Lighting.AddLight(Projectile.Center, new Vector3(0.22f, 0.68f, 1f) * Projectile.Opacity);
+        if (DissipationAge >= lifetime)
             Projectile.Kill();
     }
 }

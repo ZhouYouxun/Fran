@@ -84,6 +84,18 @@ public static partial class FranBalance
     // =====================================================================
     public static int DashDurationFrames = 12;                 // 主动冲刺持续时间
     public static float DashBaseSpeed = 16f;                   // 主动冲刺基础速度
+    public static float GetDashProgressionSpeedMultiplier()
+    {
+        float multiplier = 0.70f;
+        foreach ((FranProgressionMilestone milestone, float candidate) in
+                 FranBalanceSource.GetEnumFloatTable<FranProgressionMilestone>(
+                     nameof(DashSpeedProgression), DashSpeedProgression))
+        {
+            if (IsMilestoneCompleted(milestone))
+                multiplier = Math.Max(multiplier, candidate);
+        }
+        return Math.Max(0.05f, multiplier);
+    }
     public static int DashBaseCooldownFrames = 50;             // 未投入猫步时的基础冷却
 
     // 魔石回廊：以下是现有进化节点给予的实战数值，节点关系本身仍由 FranEvolution 定义。
@@ -218,9 +230,9 @@ public static partial class FranBalance
         sizeMultiplier = GetInitialCoreSizeFallback();
         dashDamage = GetInitialDashDamageFallback();
         int bestRank = -1;
+        var progression = FranBalanceSource.GetCoreProgressionTable(nameof(CoreProgression), CoreProgression);
         foreach ((FranProgressionMilestone milestone, int candidateDamage, float candidateSize,
-                     int candidateDashDamage) in
-                 FranBalanceSource.GetCoreProgressionTable(nameof(CoreProgression), CoreProgression))
+                     int candidateDashDamage) in progression)
         {
             int rank = GetDamageProgressionRank(milestone);
             if (!IsMilestoneCompleted(milestone) || rank < bestRank)
@@ -229,6 +241,15 @@ public static partial class FranBalance
             damage = Math.Max(1, candidateDamage);
             sizeMultiplier = Math.Max(0.1f, candidateSize);
             dashDamage = Math.Max(1, candidateDashDamage);
+        }
+
+        // A later stage cannot fall below an earlier point on the configured damage curve,
+        // even if bosses were skipped or the source table was reordered during tuning.
+        foreach (var entry in progression)
+        {
+            int rank = GetDamageProgressionRank(entry.Milestone);
+            if (rank >= 0 && rank <= bestRank)
+                damage = Math.Max(damage, entry.Damage);
         }
 
         // 月亮领主后允许一个可选大型模组提供额外数值成长；战术解锁和槽位不受影响。
@@ -291,6 +312,11 @@ public static partial class FranBalance
     public static int GetTacticCooldown(FranSkill skill) =>
         GetArrayValue(nameof(TacticCooldownFrames), TacticCooldownFrames, (int)skill, 0);
 
+    public static float GetTelekineticCoreSpeedMultiplier() => !Main.hardMode
+        ? GetFloat(nameof(TelekineticCorePreHardmodeSpeedMultiplier), TelekineticCorePreHardmodeSpeedMultiplier)
+        : NPC.downedPlantBoss ? 1f
+        : GetFloat(nameof(TelekineticCoreHardmodeSpeedMultiplier), TelekineticCoreHardmodeSpeedMultiplier);
+
     public static float GetComboDamageMultiplier(int combo) =>
         GetArrayValue(nameof(ComboDamageMultipliers), ComboDamageMultipliers, combo, 1f);
 
@@ -341,6 +367,21 @@ public static partial class FranBalance
             Main.hardMode ? 1 : 0;
         return Math.Max(1, GetArrayValue(nameof(TelekineticLaserDamagingHits),
             TelekineticLaserDamagingHits, progressionIndex, 1));
+    }
+
+    public static float GetTelekineticCycleGrowth(int patternStage) => Math.Max(0f,
+        GetArrayValue(nameof(TelekineticFullLoadoutCycleGrowth), TelekineticFullLoadoutCycleGrowth,
+            Math.Clamp(patternStage - 2, 0, 2), 1.20f));
+
+    public static int GetTelekineticReferenceSlots()
+    {
+        int slots = 1;
+        foreach ((FranProgressionMilestone milestone, int count) in
+                 FranBalanceSource.GetEnumIntTable<FranProgressionMilestone>(
+                     nameof(TacticSlotProgression), TacticSlotProgression))
+            if (GetDamageProgressionRank(milestone) <= GetDamageProgressionRank(FranProgressionMilestone.Skeletron))
+                slots = Math.Max(slots, count);
+        return Math.Clamp(slots, 1, Math.Max(1, TacticStorageCapacity));
     }
 
     // 念动弹射只在五个关键节点重组弹幕。这个阶段不影响师父本体固定的四刀。

@@ -3,6 +3,31 @@ Mods: {
 		Rarities.TeacherPrismaticRarity.DisplayName: Master-and-Disciple Prismatic
 
 		Items: {
+			Foreword: {
+				DisplayName: Foreword
+				Tooltip:
+					'''
+					Hello, and welcome to Fran!
+					This mod is inspired by Fran and Teacher from the anime
+					Reincarnated as a Sword, and is made and maintained by me alone.
+					I hope to give this duo an adventure of their own in Terraria.
+
+					I'd also like to share a few thoughts about their abilities:
+					Animation and games express things in different ways.
+					An ability that shines in a story may not fit Terraria's
+					combat, exploration, or progression if brought over unchanged.
+					So, while doing my best to preserve what makes these characters
+					special, I will adapt, leave out, or redesign certain abilities
+					to suit the game. Not every ability from the original will
+					appear here, and those that do may work differently.
+
+					I've poured everything I can into this mod as a solo creator,
+					and I hope you enjoy it.
+					Thank you for playing. May Fran and Teacher bring a little
+					more joy to your journey. Have a wonderful adventure!
+					'''
+			}
+
 			FransHeadwear: {
 				DisplayName: Fran's Headwear
 				Tooltip:
@@ -21,6 +46,10 @@ Mods: {
 					[Left Click] Cycle through multiple sword techniques; each technique acts together with your tactics
 					[Right Click] Open the tactic wheel; click a tactic to equip or remove it
 					Duplicate tactics may be equipped for a stronger effect
+					'''
+				UltimateLocked: "[Enter Hardmode to unlock the Ultimate: Black Heavenly Tiger - Absolute Flash]"
+				UltimateTooltip:
+					'''
 					[Ultimate] When the gauge is full, press the ultimate key to unleash the Black Heavenly Tiger's power
 					Execute a single target with a continuous rush of slashes
 					'''
@@ -48,7 +77,7 @@ Mods: {
 					Left click uses the pickaxe; right click uses the hamaxe
 					Supports automatic reuse and vanilla Smart Cursor
 					Its tool performance grows with world progression, but it cannot use Teacher's combat skills
-					Granted automatically the first time a bond with Teacher is established
+					Granted automatically when you first obtain Teacher
 					'''
 			}
 
@@ -567,7 +596,7 @@ Mods: {
 
 				AllowUltimateGaugeDragging: {
 					Label: "[i:Toolbox] Allow ultimate gauge dragging"
-					Tooltip: Disabled by default. When enabled, drag the gauge with the left mouse button; its position is saved with the character.
+					Tooltip: Disabled by default. When enabled, drag the gauge with the left mouse button, including with the inventory open or during autopause; its position is saved with the character.
 				}
 			}
 		}
@@ -602,9 +631,9 @@ Mods: {
 				DisplayName: Telekinetic Catapult
 				UnlockCondition: Unlocked by default
 				Description: Teacher's four-part sword combo always remains intact. The current world stage rearranges pressure cores, fold blades, high-speed lasers, and falling planets around those same four cuts
-				FirstLayer: One layer: uses the current four-cut projectile sequence
+				FirstLayer: One layer: uses the current four-cut projectile sequence; cores fire in a tight straight spread without a full loadout
 				AdditionalLayer: Stack: adds one pressure core per layer
-				FullLoadout: Full: maximize flanking pressure cores for a dense homing formation
+				FullLoadout: Full: cores gain homing and a wide spread, forming a dense homing formation
 
 				CurrentState: {
 					Stage0: One layer: 1 core | 2 delayed core | 3 twin cores | 4 heavy core
@@ -618,7 +647,7 @@ Mods: {
 			SkillTaker: {
 				DisplayName: Skill Taker
 				UnlockCondition: Unlocked by default
-				Description: Sword hits apply a theft mark. Sustained attacks gradually increase the target's vulnerability; both the vulnerability and mark decay after attacks stop
+				Description: Sword hits apply a theft mark. Sustained attacks gradually increase the target's vulnerability; both the vulnerability and mark decay after attacks stop. Each enemy hit releases two wisps, up to twenty per swing. Wisps seek the nearest enemy in range; the cap does not limit vulnerability application
 				FirstLayer: One layer: sustained attacks raise vulnerability up to 1.3x
 				AdditionalLayer: Stack: vulnerability rises faster and the mark lasts longer
 				FullLoadout: Full: maximum vulnerability increases to 1.7x
@@ -627,10 +656,21 @@ Mods: {
 			MagicBarrier: {
 				DisplayName: Magic Barrier
 				UnlockCondition: Unlock by defeating the Eye of Cthulhu
-				Description: Maintains a spherical barrier around the player. The first layer grants 10% damage reduction and 10 defense; each later layer grants another 5% damage reduction and 5 defense. Filling every currently available tactic slot with Magic Barrier halves enemy contact damage and grants 35 life regeneration. Taking a hit spends one of five charges and releases a retaliatory pulse before the barrier rebuilds
-				FirstLayer: One layer: 10% damage reduction and 10 defense
-				AdditionalLayer: Stack: adds 5% damage reduction and 5 defense per layer
-				FullLoadout: Full: halves contact damage and grants +35 life regeneration
+				Description:
+					'''
+					The first layer grants 10% damage reduction and 10 defense;
+					each additional layer grants 5% damage reduction and 5 defense. These bonuses persist while broken.
+					While the barrier is present, total defense is doubled.
+					Starts with 5 durability; each additional layer adds 1 maximum durability.
+					Taking damage from contact, projectiles, traps, or other normal hits spends 1 durability and retaliates.
+					Normal hit immunity applies, with protection against instant repeated durability loss.
+					After 3 seconds without taking damage, restore 1 durability every 1.5 seconds;
+					taking damage restarts the wait. A broken barrier rebuilds after 2.5 seconds.
+					With a full loadout and an active barrier, contact damage is halved and life regeneration increases by 35.
+					'''
+				FirstLayer: One layer: 10% damage reduction, 10 defense, and 5 durability; doubles total defense while active
+				AdditionalLayer: Stack: adds 5% damage reduction, 5 defense, and 1 maximum durability per layer
+				FullLoadout: Full: while the barrier is active, contact damage is halved and life regeneration increases by 35
 			}
 
 			MultipleBodyCreation: {
@@ -654,10 +694,10 @@ Mods: {
 			ThunderChain: {
 				DisplayName: Thunder Chain
 				UnlockCondition: Unlock by defeating any mechanical boss
-				Description: Every swing calls several ancient lightning arcs down over the cursor and adds automatic strikes above up to three nearby enemies; the fourth cut calls even more bolts
+				Description: The first cut places a circuit; the next three call lightning. Each bolt marks a different enemy, with spare bolts landing in nearby empty space. Each impact causes an area explosion that hits each enemy only once. The fourth cut calls more bolts
 				FirstLayer: One layer: swings call a lightning chain and tracked strikes
 				AdditionalLayer: Stack: adds supporting lightning and tracked targets
-				FullLoadout: Full: greatly increases damage during rain
+				FullLoadout: Full: greatly increases damage during thunderstorms
 			}
 
 			PressurizedQuickdraw: {
@@ -672,7 +712,7 @@ Mods: {
 			ThorsHammer: {
 				DisplayName: Thor's Hammer
 				UnlockCondition: Unlock by defeating Golem
-				Description: After two complete four-cut rounds, the second round's fourth cut locks onto the enemy nearest the cursor; without a nearby enemy the seal stays at the cursor. A full loadout of Thor's Hammer needs only one round. The hammer then strikes the seal and detonates a wide lightning-meteor impact
+				Description: After two complete four-cut rounds, the second round's fourth cut locks onto the enemy nearest the cursor; without a nearby enemy the seal stays at the cursor. A full loadout of Thor's Hammer needs only one round. The hammer then strikes the seal and detonates a wide lightning-meteor impact. Hammer damage doubles during rain
 				FirstLayer: One layer: two complete four-cut rounds summon Thor's Hammer
 				AdditionalLayer: Stack: raises Thor's Hammer damage
 				FullLoadout: Full: shortens the hammer interval
@@ -760,6 +800,8 @@ Mods: {
 			FranCoreTerraSlash.DisplayName: Fran Core Terra Slash
 			FranCoreTerraSlashCreator.DisplayName: Fran Core Terra Slash Creator
 			FranCoreImpactBurst.DisplayName: Fran Core Impact Burst
+			FranThunderImpactExplosion.DisplayName: Fran Thunder Impact Explosion
+			FranThunderBudgetStrike.DisplayName: Fran Thunder Budget Strike
 		}
 	}
 }

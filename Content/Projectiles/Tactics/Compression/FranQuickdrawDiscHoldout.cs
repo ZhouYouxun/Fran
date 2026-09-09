@@ -98,7 +98,7 @@ public sealed class FranQuickdrawDiscHoldout : ModProjectile
         }
 
         previousAngle = currentAngle;
-        float attackSpeed = MathHelper.Clamp(Owner.GetAttackSpeed(DamageClass.Melee), 0.50f, 2.50f);
+        float attackSpeed = MathHelper.Clamp(Owner.GetWeaponAttackSpeed(Owner.HeldItem), 0.50f, 2.50f);
         float maximumSpeed = Math.Max(0.02f, FranBalance.GetFloat(
             nameof(FranBalance.QuickdrawFullDiscMaximumAngularVelocity),
             FranBalance.QuickdrawFullDiscMaximumAngularVelocity)) * attackSpeed;
@@ -202,13 +202,8 @@ public sealed class FranQuickdrawDiscHoldout : ModProjectile
         float radius = MathHelper.Lerp(WeaponHiltOffset + 28f, currentReach - 18f, radial);
         Vector2 position = Owner.MountedCenter + spawnDirection * radius;
         float scale = 0.60f + MathF.Sin(sequence * MathHelper.Pi) * 0.12f;
-        float damageScale = Math.Max(0f, FranBalance.GetFloat(
-            nameof(FranBalance.QuickdrawFullDiscAirburstDamageMultiplier),
-            FranBalance.QuickdrawFullDiscAirburstDamageMultiplier));
-        float layerScale = 1f + FranBalance.GetFloat(
-            nameof(FranBalance.QuickdrawExtraLayerDamageMultiplier),
-            FranBalance.QuickdrawExtraLayerDamageMultiplier) * (TacticLayers - 1);
-        int damage = Math.Max(1, (int)(Projectile.damage * damageScale * layerScale));
+        float damageScale = FranTacticOutputBudget.DiscAirburstMultiplier(Owner);
+        int damage = Math.Max(1, (int)(Projectile.damage * damageScale));
         Projectile.NewProjectile(Projectile.GetSource_FromThis(), position, blade,
             ModContent.ProjectileType<FranCompressionAirburst>(), damage,
             Projectile.knockBack * 0.35f, Owner.whoAmI,

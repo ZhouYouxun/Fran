@@ -20,6 +20,14 @@ public sealed class Teacher : ModItem
 
     public override string Texture => FranTeacherVisuals.TexturePath;
 
+    // The held projectile draws the sword; hiding the item graphic must not exclude melee prefixes.
+    public override bool MeleePrefix() => true;
+
+    public override void SetStaticDefaults()
+    {
+        ItemID.Sets.BonusAttackSpeedMultiplier[Type] = 0.5f;
+    }
+
     public override void SetDefaults()
     {
         Item.width = 74;
@@ -38,25 +46,9 @@ public sealed class Teacher : ModItem
         Item.shootSpeed = 1f;
         Item.rare = ModContent.RarityType<TeacherPrismaticRarity>();
         Item.value = 0;
-        // A favorited item cannot be dropped, trashed, sold, quick-stacked into a chest,
-        // or placed in an item frame. Refreshing this in UpdateInventory prevents the
-        // player from manually removing the binding.
-        Item.favorited = true;
     }
-
-    public override void UpdateInventory(Player player) => Item.favorited = true;
 
     public override bool CanResearch() => false;
-
-    public override void AddRecipes()
-    {
-        CreateRecipe()
-            .AddIngredient(ItemID.Wood, 10)
-            .AddIngredient(ItemID.StoneBlock, 20)
-            .AddIngredient(ItemID.Gel, 5)
-            .AddTile(TileID.WorkBenches)
-            .Register();
-    }
 
     public override void ModifyWeaponDamage(Player player, ref StatModifier damage)
     {
@@ -110,7 +102,8 @@ public sealed class Teacher : ModItem
         FranEvolutionPlayer evolution = player.GetModPlayer<FranEvolutionPlayer>();
         int combo = fran.ConsumeNextCombo();
         damage = Math.Max(1, (int)(damage * FranBalance.GetComboDamageMultiplier(combo)));
-        float attackSpeed = Math.Max(0.25f, player.GetAttackSpeed(DamageClass.Melee));
+        // 自定义挥舞也读取物品的攻速收益系数，不能绕过 BonusAttackSpeedMultiplier。
+        float attackSpeed = Math.Max(0.25f, player.GetWeaponAttackSpeed(Item));
         float baseDuration = FranBalance.GetComboBaseDuration(combo);
         // 第四刀快速直推；时长仍写入 ai[1]，使持剑、战术和远端玩家共用同一时钟。
         if (combo == 3)
@@ -138,6 +131,7 @@ public sealed class Teacher : ModItem
     public override void ModifyTooltips(List<TooltipLine> tooltips)
     {
         FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
+        InsertUltimateTooltip(tooltips, fran);
         InsertTacticStatus(tooltips, fran);
 
         if (FranEvolutionInfo.SystemEnabled)
@@ -155,6 +149,17 @@ public sealed class Teacher : ModItem
         tooltips.Add(new TooltipLine(Mod, GoldenPromptLineName,
             Language.GetTextValue("Mods.Fran.Items.Teacher.GoldenPrompt"))
         { OverrideColor = new Color(241, 190, 76) });
+    }
+
+    private void InsertUltimateTooltip(List<TooltipLine> tooltips, FranPlayer fran)
+    {
+        string key = fran.UltimateUnlocked ? "UltimateTooltip" : "UltimateLocked";
+        string text = Language.GetTextValue($"Mods.Fran.Items.Teacher.{key}");
+        int index = tooltips.FindLastIndex(line =>
+            line.Mod == "Terraria" && line.Name.StartsWith("Tooltip", StringComparison.Ordinal)) + 1;
+        int lineNumber = 0;
+        foreach (string line in text.Split('\n'))
+            tooltips.Insert(index++, new TooltipLine(Mod, $"Ultimate{lineNumber++}", line.TrimEnd('\r')));
     }
 
     private void InsertTacticStatus(List<TooltipLine> tooltips, FranPlayer fran)

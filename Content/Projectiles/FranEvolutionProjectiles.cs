@@ -86,9 +86,13 @@ public sealed class FranMagicStoneAbsorptionVfx : ModProjectile
 
         Player target = Main.player[targetIndex];
         SoundEngine.PlaySound(SoundID.Item4 with { Volume = 0.72f, Pitch = 0.32f }, target.Center);
-        int pointReward = Math.Max(1, (int)Projectile.ai[1]);
-        CombatText.NewText(target.Hitbox, new Color(210, 174, 255),
-            Language.GetTextValue("Mods.Fran.Evolution.MagicStoneAcquired", pointReward));
+        // Keep the absorption visuals, but never advertise points for the disabled evolution UI.
+        if (FranEvolutionInfo.SystemEnabled)
+        {
+            int pointReward = Math.Max(1, (int)Projectile.ai[1]);
+            CombatText.NewText(target.Hitbox, new Color(210, 174, 255),
+                Language.GetTextValue("Mods.Fran.Evolution.MagicStoneAcquired", pointReward));
+        }
         for (int i = 0; i < 18; i++)
         {
             Vector2 velocity = (MathHelper.TwoPi * i / 18f).ToRotationVector2() * Main.rand.NextFloat(1.8f, 4.6f);

@@ -72,7 +72,7 @@ public sealed class ThorsHammerMarker : ModProjectile
             {
                 Vector2 spawn = Projectile.Center + new Vector2(Main.rand.NextFloat(-130f, 130f), -720f);
                 Vector2 velocity = (Projectile.Center - spawn).SafeNormalize(Vector2.UnitY) *
-                    (24f / FranThorsHammerDrop.UpdatesPerTick);
+                    (24f / FranThorsHammerDrop.BaseUpdatesPerTick);
                 float packedTarget = Projectile.ai[0] + PackedTargetStride;
                 Projectile.NewProjectile(Projectile.GetSource_FromThis(), spawn, velocity,
                     ModContent.ProjectileType<FranThorsHammerDrop>(), Projectile.damage, Projectile.knockBack,
@@ -166,6 +166,7 @@ public sealed class ThorsHammerMarker : ModProjectile
 
 public sealed class ThorsHammerBolt : ModProjectile
 {
+    private static int ImpactPasses => Math.Max(1, FranBalance.GetInt(nameof(FranBalance.HammerImpactParticleMultiplier), FranBalance.HammerImpactParticleMultiplier));
     // The falling hammer transmits its incoming velocity for visuals only. Beacon strikes default down.
     private Vector2 ImpactDirection => new Vector2(Projectile.ai[0], Projectile.ai[1]).SafeNormalize(Vector2.UnitY);
 
@@ -190,36 +191,75 @@ public sealed class ThorsHammerBolt : ModProjectile
                 strikeEnd, Projectile.owner, 1.72f,
                 FranFlatLightningPalette.ThorsHammer, 2.8f);
             FranVfx.SparkBurst(Projectile.Center, new Color(120, 165, 255),
-                18, 12f * visualIntensity, 1.05f * visualIntensity);
+                18 * ImpactPasses, 12f * visualIntensity, 1.05f * visualIntensity);
             FranLightingBoltsSystem.SpawnThunderImpact(Projectile.Center,
                 new Color(105, 175, 255), 0.70f * visualIntensity);
             SpawnImpactEjecta();
+            if (!Main.dedServ)
+            {
+                // 七组不同径向带：碎片、亮粒和烟雾沿冲击方向扩散，避免中心堆成白块。
+                for (int pass = 0; pass < ImpactPasses; pass++)
+                {
+                    Vector2 radial = (MathHelper.TwoPi * pass / ImpactPasses + Projectile.identity).ToRotationVector2();
+                    Vector2 center = Projectile.Center + radial * (24f + pass * 12f);
+                    if (pass > 0)
+                        FranLightingBoltsSystem.SpawnThunderImpact(center, new Color(105, 175, 255), 0.70f);
+                    for (int j = 0; j < 8; j++)
+                    {
+                        Vector2 direction = radial.RotatedBy(Main.rand.NextFloat(-0.4f, 0.4f));
+                        FranParticleSystem.Spawn(new FranBarrierShardParticle(center, direction * Main.rand.NextFloat(6f, 15f),
+                            new Color(130, 220, 255), new Vector2(18f + j * 3f, 4f), 24 + j));
+                        FranParticleSystem.Spawn(new FranLightParticle(center, direction * Main.rand.NextFloat(3f, 10f),
+                            0.5f, j % 3 == 0 ? Color.White : new Color(80, 175, 255), 25 + j));
+                        Dust dust = Dust.NewDustPerfect(center, DustID.Electric,
+                            direction * Main.rand.NextFloat(8f, 22f), 0, default, Main.rand.NextFloat(1.1f, 1.9f));
+                        dust.noGravity = true;
+                    }
+                    FranParticleSystem.Spawn(new FranHeavySmokeParticle(center, radial * 3f - Vector2.UnitY,
+                        new Color(25, 45, 80), 0.9f, 35, 0.55f, true));
+                }
+            }
             SoundEngine.PlaySound(SoundID.Item122 with { Pitch = -0.3f, Volume = 1f }, Projectile.Center);
             if (!Main.dedServ)
             {
                 // Retain the explosion sound and spectator shake formerly supplied by FranBurst.
                 SoundEngine.PlaySound(SoundID.Item14 with { Volume = 0.48f, Pitch = -0.35f }, Projectile.Center);
-                Main.LocalPlayer.GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, 13f);
+                Main.LocalPlayer.GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, 13f *
+                    FranBalance.GetFloat(nameof(FranBalance.HammerScreenShakeMultiplier), FranBalance.HammerScreenShakeMultiplier));
             }
-            FranSpectatorVfx.SpawnImpactPetals(Projectile.GetSource_FromThis(), Projectile.Center,
-                -Vector2.UnitY, Projectile.owner, FranSpectatorPalette.Lightning,
-                7, 1.35f * visualIntensity);
+            // 共用花瓣函数单次最多七枚，分组释放以实际增加数量。
+            for (int pass = 0; pass < ImpactPasses; pass++)
+            {
+                Vector2 radial = (MathHelper.TwoPi * pass / ImpactPasses).ToRotationVector2();
+                FranSpectatorVfx.SpawnImpactPetals(Projectile.GetSource_FromThis(), Projectile.Center + radial * 28f,
+                    (-Vector2.UnitY).RotatedBy((pass - (ImpactPasses - 1) * 0.5f) * 0.15f),
+                    Projectile.owner, FranSpectatorPalette.Lightning, 7, 1.35f * visualIntensity);
+            }
             float shakePower = FranBalance.GetFloat(nameof(FranBalance.ThorsHammerBaseScreenShakePower),
                 FranBalance.ThorsHammerBaseScreenShakePower);
-            Main.player[Projectile.owner].GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, shakePower);
+            Main.player[Projectile.owner].GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, shakePower *
+                FranBalance.GetFloat(nameof(FranBalance.HammerScreenShakeMultiplier), FranBalance.HammerScreenShakeMultiplier));
         }
         // Main sky fracture first, ground branches two ticks later, then brief independent after-arcs.
         if (Projectile.localAI[0] == 3f)
-            FranFlatLightningEffects.Burst(Projectile.Center, 1.12f,
-                FranFlatLightningPalette.ThorsHammer, 8, 260f, ground: true, innerRadius: 28f);
+        {
+            // 共用函数单次最多九条；每组八条、不同落点，保留其它技能的上限。
+            for (int pass = 0; pass < ImpactPasses; pass++)
+            {
+                Vector2 offset = (MathHelper.TwoPi * pass / ImpactPasses).ToRotationVector2() * 32f;
+                offset.Y *= 0.28f;
+                FranFlatLightningEffects.Burst(Projectile.Center + offset, 1.12f,
+                    FranFlatLightningPalette.ThorsHammer, 8, 260f, ground: true, innerRadius: 28f);
+            }
+        }
         if (Projectile.localAI[0] is 5f or 8f or 11f && !Main.dedServ)
         {
             float cooling = 1f - Projectile.localAI[0] / 18f;
             float wave = (Projectile.localAI[0] - 5f) / 3f;
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < 9 * ImpactPasses; i++)
             {
                 // Separate angular lanes and advancing spawn bands leave the impact core readable.
-                float angle = MathHelper.TwoPi * (i + wave * 0.37f) / 9f + Projectile.identity * 0.83f +
+                float angle = MathHelper.TwoPi * (i + wave * 0.37f) / (9f * ImpactPasses) + Projectile.identity * 0.83f +
                     Main.rand.NextFloat(-0.12f, 0.12f);
                 Vector2 radial = angle.ToRotationVector2();
                 Vector2 offset = radial * Main.rand.NextFloat(68f + wave * 18f, 130f + wave * 18f);
@@ -231,7 +271,7 @@ public sealed class ThorsHammerBolt : ModProjectile
                     Main.rand.NextFloat(45f, 90f), Main.rand.NextFloat(30f, 48f), 10));
             }
         }
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2 * ImpactPasses; i++)
         {
             Dust d = Dust.NewDustPerfect(Projectile.Center + Main.rand.NextVector2Circular(35f, 35f), DustID.Electric,
                 Main.rand.NextVector2Circular(2f, 2f), 40, default, 1.5f);
@@ -256,9 +296,9 @@ public sealed class ThorsHammerBolt : ModProjectile
         float phase = Projectile.identity * 0.83f;
 
         // Fast radial streaks visibly carry energy away from the hit, then brake and burn out.
-        for (int i = 0; i < 14; i++)
+        for (int i = 0; i < 14 * ImpactPasses; i++)
         {
-            Vector2 direction = (phase + MathHelper.TwoPi * i / 14f +
+            Vector2 direction = (phase + MathHelper.TwoPi * i / (14f * ImpactPasses) +
                 Main.rand.NextFloat(-0.1f, 0.1f)).ToRotationVector2();
             Vector2 position = Projectile.Center + direction * Main.rand.NextFloat(28f, 46f);
             Vector2 velocity = direction * Main.rand.NextFloat(11f, 20f);
@@ -268,11 +308,11 @@ public sealed class ThorsHammerBolt : ModProjectile
         }
 
         // A narrower forward spray preserves the falling hammer's momentum through the impact.
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 6 * ImpactPasses; i++)
         {
-            float spread = MathHelper.Lerp(-0.38f, 0.38f, i / 5f);
+            float spread = MathHelper.Lerp(-0.38f, 0.38f, i / (6f * ImpactPasses - 1f));
             Vector2 direction = incoming.RotatedBy(spread);
-            Vector2 position = Projectile.Center + incoming * 26f + tangent * (i - 2.5f) * 7f;
+            Vector2 position = Projectile.Center + incoming * 26f + tangent * (i / (float)ImpactPasses - 2.5f) * 7f;
             FranParticleSystem.Spawn(new FranLineParticle(position, direction * Main.rand.NextFloat(18f, 26f),
                 new Color(195, 241, 255), Main.rand.NextFloat(38f, 64f), 1.7f,
                 Main.rand.Next(10, 15), 0.88f));
@@ -338,6 +378,6 @@ public sealed class ThorsHammerBolt : ModProjectile
     }
     public override void OnKill(int timeLeft)
     {
-        FranVfx.SparkBurst(Projectile.Center, new Color(105, 145, 255), 7, 3.5f, 0.8f);
+        FranVfx.SparkBurst(Projectile.Center, new Color(105, 145, 255), 7 * ImpactPasses, 3.5f, 0.8f);
     }
 }

@@ -24,7 +24,7 @@ public sealed class FranCoreImpactBurst : ModProjectile
         Projectile.tileCollide = false;
         Projectile.ignoreWater = true;
         Projectile.penetrate = -1;
-        Projectile.timeLeft = 8;
+        Projectile.timeLeft = 24;
         Projectile.noEnchantmentVisuals = true;
     }
 
@@ -43,11 +43,11 @@ public sealed class FranCoreImpactBurst : ModProjectile
                 Projectile.Center);
             SpawnLayer(afterglow: false);
         }
-        else if (age == 3)
+        else if (age == 9)
             SpawnLayer(afterglow: true);
 
         Lighting.AddLight(Projectile.Center,
-            Telekinetic_CondensedMindCore.TrailLightBlue.ToVector3() * (0.7f * (1f - age / 8f)));
+            Telekinetic_CondensedMindCore.TrailLightBlue.ToVector3() * (0.7f * (1f - age / 24f)));
     }
 
     private void SpawnLayer(bool afterglow)
@@ -58,9 +58,9 @@ public sealed class FranCoreImpactBurst : ModProjectile
         Color paleBlue = Telekinetic_CondensedMindCore.TrailLightBlue;
         FranLightingBoltsSystem.SpawnMindCoreBurst(center, rotation, paleBlue, afterglow);
 
-        // 两层合计：10 枚 LightingBolts 亮点 + 8 枚光粒子 + 6 枚火花 + 6 枚 Dust。
+        // 两层合计：14 枚 LightingBolts 亮点 + 10 枚光粒子 + 8 枚火花 + 8 枚 Dust。
         // Dust 占生成数 20%；关闭通用粒子系统的自动补尘，保持显式配比。
-        int lightCount = afterglow ? 2 : 6;
+        int lightCount = afterglow ? 3 : 7;
         for (int i = 0; i < lightCount; i++)
         {
             float angle = afterglow ? Main.rand.NextFloat(MathHelper.TwoPi)
@@ -70,10 +70,10 @@ public sealed class FranCoreImpactBurst : ModProjectile
             Vector2 velocity = direction * Main.rand.NextFloat(afterglow ? 2f : 4f, afterglow ? 4f : 7f);
             FranParticleSystem.Spawn(new FranLightParticle(position, velocity,
                 Main.rand.NextFloat(0.22f, 0.34f), Color.Lerp(blue, paleBlue, Main.rand.NextFloat()),
-                afterglow ? 19 : 15, 0.85f, 1.6f, 2.4f), spawnSupportingDust: false);
+                afterglow ? 57 : 45, 0.85f, 1.6f, 2.4f, timeScale: 1f / 3f), spawnSupportingDust: false);
         }
 
-        int sparkCount = afterglow ? 2 : 4;
+        int sparkCount = afterglow ? 3 : 5;
         for (int i = 0; i < sparkCount; i++)
         {
             Vector2 velocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(3.5f, 8.5f);
@@ -81,19 +81,42 @@ public sealed class FranCoreImpactBurst : ModProjectile
                 center + Main.rand.NextVector2Circular(12f, 12f), velocity,
                 Color.Lerp(paleBlue, Color.White, Main.rand.NextFloat(0.1f, 0.45f)),
                 Main.rand.NextFloat(0.20f, 0.32f), new Vector2(0.30f, 1.35f),
-                Main.rand.Next(11, 18), drag: 0.90f), spawnSupportingDust: false);
+                Main.rand.Next(11, 18) * 3, drag: MathF.Pow(0.90f, 1f / 3f)), spawnSupportingDust: false);
         }
 
-        int dustCount = afterglow ? 2 : 4;
+        int dustCount = afterglow ? 3 : 5;
         for (int i = 0; i < dustCount; i++)
         {
             Dust dust = Dust.NewDustPerfect(center + Main.rand.NextVector2Circular(10f, 10f),
-                DustID.BlueTorch, Main.rand.NextVector2Unit() * Main.rand.NextFloat(1.6f, 4.2f),
+                ModContent.DustType<FranCoreImpactDust>(), Main.rand.NextVector2Unit() * Main.rand.NextFloat(1.6f, 4.2f),
                 100, paleBlue, Main.rand.NextFloat(0.65f, 0.9f));
             dust.noGravity = true;
             dust.noLight = true;
         }
     }
+}
+// Impact-only blue torch dust with an explicit 45-frame lifetime; flight dust is unchanged.
+public sealed class FranCoreImpactDust : ModDust
+{
+    public override string Texture => "Terraria/Images/Dust";
+    public override void OnSpawn(Dust dust)
+    {
+        dust.frame = new Rectangle(10 * (DustID.BlueTorch % 100),
+            30 * (DustID.BlueTorch / 100) + Main.rand.Next(3) * 10, 8, 8);
+        dust.customData = (0, dust.scale);
+    }
+    public override bool Update(Dust dust)
+    {
+        (int age, float initialScale) = dust.customData is ValueTuple<int, float> state ? state : (0, dust.scale);
+        dust.position += dust.velocity;
+        dust.velocity *= 0.97f;
+        dust.scale = initialScale * (1f - ++age / 45f);
+        dust.customData = (age, initialScale);
+        if (age >= 45)
+            dust.active = false;
+        return false;
+    }
+    public override Color? GetAlpha(Dust dust, Color lightColor) => dust.color * (1f - dust.alpha / 255f);
 }
 public abstract class FranCoreDust : ModDust
 {

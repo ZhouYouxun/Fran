@@ -72,6 +72,17 @@ public sealed class TeacherSwingRebuild : ModProjectile
     private float evolutionDamageMultiplier = 1f;
     private int quickdrawBurstStep = -1;
     private HashSet<int> hammerHitTargets;
+    private int skillTakerWispsSpawned;
+    private readonly HashSet<int> directHitTargets = new();
+
+    internal int ReserveSkillTakerWisps(int requested)
+    {
+        int count = Math.Clamp(requested, 0, Math.Max(0,
+            FranBalance.SkillTakerMaximumWispsPerSwing - skillTakerWispsSpawned));
+        skillTakerWispsSpawned += count;
+        return count;
+    }
+
     internal IReadOnlySet<int> HammerHitTargets => hammerHitTargets;
     internal bool HammerHitWindowEnded => Progress > 0.88f;
 
@@ -488,7 +499,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
                     FranBalance.QuickdrawNonFullDamageMultiplier));
             int burstDamage = Math.Max(1, (int)(Projectile.damage * damageScale *
                 (1f + FranBalance.GetFloat(nameof(FranBalance.QuickdrawExtraLayerDamageMultiplier),
-                    FranBalance.QuickdrawExtraLayerDamageMultiplier) * (quickdrawLayers - 1))));
+                    FranBalance.QuickdrawExtraLayerDamageMultiplier) * (quickdrawLayers - 1)) *
+                FranTacticOutputBudget.Scale(FranSkill.PressurizedQuickdraw)));
             float delay = 2f + step % 3;
             Projectile.NewProjectile(Projectile.GetSource_FromThis(), position, blade,
                 ModContent.ProjectileType<FranCompressionAirburst>(), burstDamage,
@@ -550,6 +562,22 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
     {
+        if (FranBalance.IsWormBossSegment(target))
+            modifiers.FinalDamage *= Math.Clamp(FranBalance.GetFloat(
+                nameof(FranBalance.SwingWormBossDamageMultiplier),
+                FranBalance.SwingWormBossDamageMultiplier), 0f, 1f);
+        if (!Main.hardMode)
+        {
+            bool bossFight = false;
+            foreach (NPC npc in Main.ActiveNPCs)
+                if (npc.boss || NPCID.Sets.ShouldBeCountedAsBoss[npc.type])
+                {
+                    bossFight = true;
+                    break;
+                }
+            int targetCount = directHitTargets.Count + (directHitTargets.Contains(target.whoAmI) ? 0 : 1);
+            modifiers.FinalDamage *= FranBalance.GetSwingCrowdDamageMultiplier(targetCount, bossFight, Main.hardMode);
+        }
         modifiers.FinalDamage *= evolutionDamageMultiplier;
         FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
         if (evolution.HasNode(FranEvolutionNode.MagicStoneAnalysis) &&
@@ -559,6 +587,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
+        directHitTargets.Add(target.whoAmI);
         if (Combo == 3 && HasTactic(FranSkill.ThorsHammer) && Main.myPlayer == Projectile.owner)
             (hammerHitTargets ??= new HashSet<int>()).Add(target.whoAmI);
         FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();

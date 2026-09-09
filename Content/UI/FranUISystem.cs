@@ -6,6 +6,7 @@ using FranMod.Content.Players;
 using FranMod.Core;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using Terraria;
 using Terraria.Audio;
 using Terraria.GameContent;
@@ -49,6 +50,7 @@ public sealed class FranUISystem : ModSystem
     private static bool previousLeftMouseHeld;
     private static float wheelVisibility;
     private static bool draggingUltimateGauge;
+    private static bool previousGaugeMouseHeld;
     private static Vector2 ultimateGaugeDragOffset;
     private static float tacticSigilHoverFade;
 
@@ -71,7 +73,6 @@ public sealed class FranUISystem : ModSystem
 
         Player player = Main.LocalPlayer;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
-        UpdateUltimateGaugeDrag(player, fran);
         bool allowed = !FranEvolutionUISystem.IsOpen && !Main.playerInventory && !player.dead &&
             player.HeldItem.type == ModContent.ItemType<Teacher>();
         if (!allowed)
@@ -179,15 +180,21 @@ public sealed class FranUISystem : ModSystem
     private static bool DrawHud()
     {
         if (Main.gameMenu || Main.LocalPlayer is null)
+        {
+            draggingUltimateGauge = false;
+            previousGaugeMouseHeld = Mouse.GetState().LeftButton == ButtonState.Pressed;
             return true;
+        }
 
         Player player = Main.LocalPlayer;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
+        // Keep input and drawing inside the same UI-scaled layer, including during autopause.
+        UpdateUltimateGaugeDrag(player, fran);
         bool holdingTeacher = player.HeldItem.type == ModContent.ItemType<Teacher>();
         if (!fran.FranMode && !holdingTeacher)
             return true;
 
-        if (fran.FranMode && !ModContent.GetInstance<FranClientConfig>().HideUltimateGauge)
+        if (fran.FranMode && fran.UltimateUnlocked && !ModContent.GetInstance<FranClientConfig>().HideUltimateGauge)
             DrawUltimateGauge(fran);
         if (wheelVisibility > 0.001f)
             DrawWheelPointClamped(fran);
@@ -214,9 +221,14 @@ public sealed class FranUISystem : ModSystem
 
     private static void UpdateUltimateGaugeDrag(Player player, FranPlayer fran)
     {
+        // Inventory and other vanilla UI can consume Main.mouseLeft before this layer draws.
+        bool leftHeld = Mouse.GetState().LeftButton == ButtonState.Pressed;
+        bool leftPressed = leftHeld && !previousGaugeMouseHeld;
+        previousGaugeMouseHeld = leftHeld;
         FranClientConfig config = ModContent.GetInstance<FranClientConfig>();
-        if (!fran.FranMode || config.HideUltimateGauge || !config.AllowUltimateGaugeDragging ||
-            Main.playerInventory)
+        if (!fran.FranMode || !fran.UltimateUnlocked || config.HideUltimateGauge || !config.AllowUltimateGaugeDragging ||
+            !Main.hasFocus || player.dead || Main.ingameOptionsWindow || Main.inFancyUI ||
+            Main.mapFullscreen || FranEvolutionUISystem.IsOpen || wheelOpen)
         {
             draggingUltimateGauge = false;
             return;
@@ -231,7 +243,7 @@ public sealed class FranUISystem : ModSystem
             player.mouseInterface = true;
         }
 
-        if (!draggingUltimateGauge && hovered && Main.mouseLeft && Main.mouseLeftRelease)
+        if (!draggingUltimateGauge && hovered && leftPressed)
         {
             draggingUltimateGauge = true;
             ultimateGaugeDragOffset = Main.MouseScreen - gauge.TopLeft();
@@ -240,7 +252,7 @@ public sealed class FranUISystem : ModSystem
 
         if (!draggingUltimateGauge)
             return;
-        if (!Main.mouseLeft)
+        if (!leftHeld)
         {
             draggingUltimateGauge = false;
             return;

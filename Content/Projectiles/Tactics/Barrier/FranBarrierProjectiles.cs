@@ -17,14 +17,20 @@ namespace FranMod.Content.Projectiles;
 
 public sealed class FranAutoBarrierProjectile : ModProjectile
 {
-    private static float MaxIntegrity => Math.Max(1, FranBalance.GetInt(
-        nameof(FranBalance.MagicBarrierMaximumIntegrity), FranBalance.MagicBarrierMaximumIntegrity));
+    private int recoveryTicks;
+    private ulong nextIntegrityHitTick;
+    private float MaxIntegrity => Math.Max(1, FranBalance.GetInt(
+        nameof(FranBalance.MagicBarrierMaximumIntegrity), FranBalance.MagicBarrierMaximumIntegrity)) +
+        Math.Max(0, Main.player[Projectile.owner].GetModPlayer<FranPlayer>()
+            .GetSkillStacks(FranSkill.MagicBarrier) - 1) *
+        Math.Max(0, FranBalance.GetInt(nameof(FranBalance.MagicBarrierExtraLayerIntegrity),
+            FranBalance.MagicBarrierExtraLayerIntegrity));
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
     public override void SetDefaults()
     {
         Projectile.width = 104; Projectile.height = 136; Projectile.timeLeft = 3600;
         Projectile.tileCollide = false; Projectile.penetrate = -1; Projectile.netImportant = true;
-        Projectile.ai[1] = MaxIntegrity;
+        Projectile.ai[1] = -1f; // Owner and loadout are assigned after SetDefaults.
     }
     public override bool? CanDamage() => false;
     public override bool ShouldUpdatePosition() => false;
@@ -35,8 +41,12 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
         if (Projectile.localAI[1] == 0f)
         {
             Projectile.localAI[1] = 1f;
-            if (Projectile.ai[1] <= 0f)
+            if (Projectile.ai[1] < 0f)
+            {
                 Projectile.ai[1] = MaxIntegrity;
+                if (owner.whoAmI == Main.myPlayer)
+                    Projectile.netUpdate = true;
+            }
             SoundEngine.PlaySound(SoundID.Item29 with { Volume = 0.46f, Pitch = 0.32f }, Projectile.Center);
             EmitShards(Projectile.Center, new Color(95, 190, 255), 8, true);
             FranParticleEffects.RingPulse(Projectile.Center, new Color(105, 205, 255), Vector2.One * 34f,
@@ -53,6 +63,30 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
             return;
         }
         Projectile.Center = owner.MountedCenter;
+        if (owner.whoAmI == Main.myPlayer)
+        {
+            float maximum = MaxIntegrity;
+            if (Projectile.ai[1] > maximum)
+            {
+                Projectile.ai[1] = maximum;
+                Projectile.netUpdate = true;
+            }
+            if (Projectile.ai[1] >= maximum)
+                recoveryTicks = 0;
+            else if (Projectile.ai[1] > 0f)
+            {
+                int delay = Math.Max(0, FranBalance.GetInt(nameof(FranBalance.MagicBarrierRecoveryDelayFrames),
+                    FranBalance.MagicBarrierRecoveryDelayFrames));
+                int interval = Math.Max(1, FranBalance.GetInt(nameof(FranBalance.MagicBarrierRecoveryIntervalFrames),
+                    FranBalance.MagicBarrierRecoveryIntervalFrames));
+                if (AdvanceRecovery(ref recoveryTicks, delay, interval))
+                {
+                    Projectile.ai[1] = Math.Min(maximum, Projectile.ai[1] + 1f);
+                    Projectile.ai[2] = 0.35f;
+                    Projectile.netUpdate = true;
+                }
+            }
+        }
         Projectile.rotation += 0.012f;
         Projectile.timeLeft = 2;
         Projectile.ai[0]++;
@@ -66,6 +100,14 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
         float hitFlash = MathHelper.Clamp(Projectile.ai[2], 0f, 1f);
         FranBarrierRenderer.TryDraw(Projectile.Center, integrity, hitFlash, Projectile.rotation);
         return false;
+    }
+
+    internal static bool AdvanceRecovery(ref int ticks, int delay, int interval)
+    {
+        if (++ticks < delay + interval)
+            return false;
+        ticks = delay;
+        return true;
     }
 
     public override void OnKill(int timeLeft)
@@ -113,7 +155,7 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
 
     public static bool HandlePlayerHit(Player owner, int damageTaken)
     {
-        if (owner.whoAmI != Main.myPlayer)
+        if (owner.whoAmI != Main.myPlayer || damageTaken <= 0)
             return false;
         foreach (Projectile projectile in Main.ActiveProjectiles)
         {
@@ -121,6 +163,14 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
                 projectile.type != ModContent.ProjectileType<FranAutoBarrierProjectile>() || projectile.ai[1] <= 0f)
                 continue;
 
+            var barrier = (FranAutoBarrierProjectile)projectile.ModProjectile;
+            // Every actual hurt interrupts recovery, including separate hurt cooldown slots.
+            barrier.recoveryTicks = 0;
+            if (Main.GameUpdateCount < barrier.nextIntegrityHitTick)
+                return false;
+            int protectionFrames = Math.Max(1, FranBalance.GetInt(nameof(FranBalance.MagicBarrierHitImmunityFrames),
+                FranBalance.MagicBarrierHitImmunityFrames));
+            barrier.nextIntegrityHitTick = Main.GameUpdateCount + (ulong)protectionFrames;
             projectile.ai[1] -= 1f;
             projectile.ai[2] = 1f;
             projectile.netUpdate = true;

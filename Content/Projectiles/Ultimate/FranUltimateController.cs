@@ -93,7 +93,7 @@ public sealed class FranUltimateController : ModProjectile
     public override bool ShouldUpdatePosition() => false;
 
     public override bool? CanDamage() =>
-        (phase is UltimatePhase.NormalStrike or UltimatePhase.FinalStrike) &&
+        Main.hardMode && (phase is UltimatePhase.NormalStrike or UltimatePhase.FinalStrike) &&
         Vector2.DistanceSquared(collisionStart, collisionEnd) > 4f ? null : false;
 
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
@@ -149,7 +149,7 @@ public sealed class FranUltimateController : ModProjectile
     public override void AI()
     {
         Player owner = Owner;
-        if (!owner.active || owner.dead)
+        if (!Main.hardMode || !owner.active || owner.dead)
         {
             if (Authority)
                 Projectile.Kill();
