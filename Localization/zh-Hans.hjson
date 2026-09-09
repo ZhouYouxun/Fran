@@ -46,20 +46,17 @@ Mods: {
 				DisplayName: 师父
 				Tooltip:
 					'''
-					【左键】循环施展多种剑术，剑术会与战术同步进行
+					【左键】循环施展4种剑术，与已装配的战术同步进行
 					【右键】呼出战术轮盘，点击战术装配或卸下
-					相同战术可重复装备以获得更强的效果
+					重复装备相同战术可获得更强的效果
+					合理搭配不同战术，可达成意想不到的效果
 					'''
 				UltimateLocked: 【进入困难模式后解锁大招：黑天虎-绝闪】
-				UltimateTooltip:
-					'''
-					【大招】能量条充满时，按下大招按键释放黑天虎之力
-					对单个目标进行连续斩杀
-					'''
-				TacticSelection: 【当前战术】已选择 {0}/{1}
-				FullLoadoutActive: 【全选效果】已触发：{0}
+				UltimateTooltip: 按下 {0} 键释放“黑天虎-绝闪”：对同一目标造成强力斩杀
+				TacticSelection: 当前战术：
+				FullLoadoutActive: 【全选效果】触发 {0} 的全选效果：{1}
 				FullLoadoutInactive: 【全选效果】未触发
-				GoldenPrompt: 请输入文本
+				UnboundKey: 未绑定
 			}
 
 			StrategyGuideBook: {
@@ -407,14 +404,14 @@ Mods: {
 
 		Abilities: {
 			Dash: {
-				Bound: 【冲刺】单击{0}键进行强力冲刺
-				Unbound: 【冲刺】双击左右键进行强力冲刺
+				Bound: 【冲刺】按下 {0} 键进行强力冲刺（仅在未装配冲刺道具时有效）
+				Unbound: 【冲刺】双击左右键进行强力冲刺（仅在未装配冲刺道具时有效）
 			}
 
 			Flight: {
 				Locked: 【飞行】进入困难模式来解锁飞行
 				WingsEquipped: 【飞行】玩家已装备翅膀，默认关闭念动飞行
-				Enabled: 【飞行】已自动启用念动飞行
+				Enabled: 【飞行】已启用自动飞行（仅在未装配翅膀且在困难模式时有效）
 			}
 		}
 

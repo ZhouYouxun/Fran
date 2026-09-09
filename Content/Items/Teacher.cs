@@ -1,22 +1,27 @@
 using System;
 using System.Collections.Generic;
+using FranMod.Content.UI;
 using FranMod.Content.Players;
 using FranMod.Content.Projectiles;
 using FranMod.Core;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
+using Terraria.UI.Chat;
 
 namespace FranMod.Content.Items;
 
 public sealed class Teacher : ModItem
 {
-    private const string GoldenPromptLineName = "GoldenPrompt";
+    private const string LeftClickTechniqueLineName = "LeftClickTechnique";
     private const string TacticSelectionLineName = "TacticSelection";
     private const string FullLoadoutStatusLineName = "FullLoadoutStatus";
+    private const int TacticIconTooltipWidthPadding = 36;
 
     public override string Texture => FranTeacherVisuals.TexturePath;
 
@@ -130,6 +135,7 @@ public sealed class Teacher : ModItem
 
     public override void ModifyTooltips(List<TooltipLine> tooltips)
     {
+        ApplyLeftClickTechniqueGoldenEffect(tooltips);
         FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
         InsertUltimateTooltip(tooltips, fran);
         InsertTacticStatus(tooltips, fran);
@@ -145,16 +151,28 @@ public sealed class Teacher : ModItem
         tooltips.Add(new TooltipLine(Mod, "FranFlightStatus", BuildFlightStatus(fran))
         { OverrideColor = flightEnabled ? new Color(105, 205, 255) : new Color(165, 175, 190) });
 
-        // Intentionally kept as the requested placeholder until its final localization is supplied.
-        tooltips.Add(new TooltipLine(Mod, GoldenPromptLineName,
-            Language.GetTextValue("Mods.Fran.Items.Teacher.GoldenPrompt"))
-        { OverrideColor = new Color(241, 190, 76) });
+    }
+
+    // Tooltip0 是本地化 Description 的第一行：左键剑术说明。
+    // 单独替换为模组行后，才能复用原占位行所用的金色动态绘制。
+    private void ApplyLeftClickTechniqueGoldenEffect(List<TooltipLine> tooltips)
+    {
+        int leftClickLineIndex = tooltips.FindIndex(line => line.Mod == "Terraria" && line.Name == "Tooltip0");
+        if (leftClickLineIndex < 0)
+            return;
+
+        string text = tooltips[leftClickLineIndex].Text;
+        tooltips[leftClickLineIndex] = new TooltipLine(Mod, LeftClickTechniqueLineName, text)
+        { OverrideColor = new Color(241, 190, 76) };
     }
 
     private void InsertUltimateTooltip(List<TooltipLine> tooltips, FranPlayer fran)
     {
         string key = fran.UltimateUnlocked ? "UltimateTooltip" : "UltimateLocked";
-        string text = Language.GetTextValue($"Mods.Fran.Items.Teacher.{key}");
+        string text = fran.UltimateUnlocked
+            ? Language.GetTextValue($"Mods.Fran.Items.Teacher.{key}",
+                GetAssignedKeyOrUnbound(FranModMain.UltimateKey))
+            : Language.GetTextValue($"Mods.Fran.Items.Teacher.{key}");
         int index = tooltips.FindLastIndex(line =>
             line.Mod == "Terraria" && line.Name.StartsWith("Tooltip", StringComparison.Ordinal)) + 1;
         int lineNumber = 0;
@@ -164,10 +182,9 @@ public sealed class Teacher : ModItem
 
     private void InsertTacticStatus(List<TooltipLine> tooltips, FranPlayer fran)
     {
-        int availableSlots = Math.Min(fran.AvailableTacticSlots, FranPlayer.MaximumTacticSlots);
-        int activeCount = fran.GetActiveTacticCount();
         TooltipLine selectionLine = new(Mod, TacticSelectionLineName,
-            Language.GetTextValue("Mods.Fran.Items.Teacher.TacticSelection", activeCount, availableSlots))
+            Language.GetTextValue("Mods.Fran.Items.Teacher.TacticSelection") +
+            new string(' ', TacticIconTooltipWidthPadding) + "\n ")
         { OverrideColor = new Color(150, 215, 255) };
 
         FranSkill fullLoadoutSkill = fran.GetEquippedTactic(0);
@@ -175,7 +192,7 @@ public sealed class Teacher : ModItem
             fran.IsFullTacticLoadout(fullLoadoutSkill);
         string fullLoadoutText = fullLoadoutActive
             ? Language.GetTextValue("Mods.Fran.Items.Teacher.FullLoadoutActive",
-                FranSkillInfo.Name(fullLoadoutSkill))
+                FranSkillInfo.Name(fullLoadoutSkill), GetFullLoadoutEffectText(fullLoadoutSkill))
             : Language.GetTextValue("Mods.Fran.Items.Teacher.FullLoadoutInactive");
         TooltipLine fullLoadoutLine = new(Mod, FullLoadoutStatusLineName, fullLoadoutText)
         {
@@ -193,22 +210,35 @@ public sealed class Teacher : ModItem
         tooltips.Insert(insertionIndex + 1, fullLoadoutLine);
     }
 
+    private static string GetFullLoadoutEffectText(FranSkill skill)
+    {
+        string text = FranSkillInfo.FullLoadoutText(skill);
+        int separator = text.IndexOf('：');
+        if (separator < 0)
+            separator = text.IndexOf(':');
+        return separator >= 0 ? text[(separator + 1)..].TrimStart() : text;
+    }
+
     private static string BuildDashStatus()
     {
-        if (TryGetAssignedDashKey(out string key))
+        if (TryGetAssignedKey(FranModMain.DashKey, out string key))
             return Language.GetTextValue("Mods.Fran.Abilities.Dash.Bound", key);
         return Language.GetTextValue("Mods.Fran.Abilities.Dash.Unbound");
     }
 
-    private static bool TryGetAssignedDashKey(out string assignedKey)
+    private static string GetAssignedKeyOrUnbound(ModKeybind keybind) =>
+        TryGetAssignedKey(keybind, out string key) ? key :
+            Language.GetTextValue("Mods.Fran.Items.Teacher.UnboundKey");
+
+    private static bool TryGetAssignedKey(ModKeybind keybind, out string assignedKey)
     {
         assignedKey = string.Empty;
-        if (Main.dedServ || FranModMain.DashKey is null)
+        if (Main.dedServ || keybind is null)
             return false;
 
         try
         {
-            foreach (string key in FranModMain.DashKey.GetAssignedKeys())
+            foreach (string key in keybind.GetAssignedKeys())
             {
                 if (string.IsNullOrWhiteSpace(key) || key.Equals("None", StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -233,16 +263,80 @@ public sealed class Teacher : ModItem
 
     public override bool PreDrawTooltipLine(DrawableTooltipLine line, ref int yOffset)
     {
+        if (line.Mod == Mod.Name && line.Name == LeftClickTechniqueLineName)
+        {
+            FranTooltipTextEffects.DrawGolden(line);
+            return false;
+        }
+
+        if (line.Mod == Mod.Name && line.Name == TacticSelectionLineName)
+        {
+            DrawTacticSelectionWithIcons(line);
+            return false;
+        }
+
         if (line.Mod == "Terraria" && line.Name == "ItemName")
         {
             FranTooltipTextEffects.DrawTeacherPrismaticName(line);
             return false;
         }
 
-        if (line.Mod != Mod.Name || line.Name != GoldenPromptLineName)
-            return true;
+        return true;
+    }
 
-        FranTooltipTextEffects.DrawGolden(line);
-        return false;
+    private static void DrawTacticSelectionWithIcons(DrawableTooltipLine line)
+    {
+        string label = line.Text.TrimEnd();
+        float uiScale = line.BaseScale.X;
+        int boxSize = Math.Max(26, (int)MathF.Round(34f * uiScale));
+        float labelHeight = line.Font.MeasureString(label).Y * uiScale;
+        Vector2 labelPosition = new(line.X, line.Y + (boxSize - labelHeight) * 0.5f);
+        ChatManager.DrawColorCodedString(Main.spriteBatch, line.Font, label, labelPosition,
+            line.OverrideColor ?? Color.White, line.Rotation, line.Origin, line.BaseScale);
+
+        float labelWidth = line.Font.MeasureString(label).X * uiScale;
+        DrawTacticIcons(line, new Vector2(line.X + labelWidth + 8f * uiScale, line.Y));
+    }
+
+    private static void DrawTacticIcons(DrawableTooltipLine line, Vector2 origin)
+    {
+        FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
+        int slots = Math.Min(fran.AvailableTacticSlots, FranPlayer.MaximumTacticSlots);
+        float uiScale = line.BaseScale.X;
+        int boxSize = Math.Max(26, (int)MathF.Round(34f * uiScale));
+        int gap = Math.Max(4, (int)MathF.Round(6f * uiScale));
+        int iconSize = Math.Max(16, boxSize - Math.Max(8, (int)MathF.Round(10f * uiScale)));
+        int left = (int)MathF.Round(origin.X);
+        int top = (int)MathF.Round(origin.Y);
+
+        for (int slot = 0; slot < slots; slot++)
+        {
+            FranSkill skill = fran.GetEquippedTactic(slot);
+            bool equipped = FranSkillInfo.IsRealSkill(skill);
+            Color accent = equipped ? FranSkillInfo.Color(skill) : new Color(82, 96, 115);
+            Rectangle box = new(left + slot * (boxSize + gap), top, boxSize, boxSize);
+            DrawTooltipRectangle(box, equipped ? new Color(14, 25, 43, 230) : new Color(10, 15, 25, 190));
+            DrawTooltipBorder(box, Color.Lerp(accent, Color.White, equipped ? 0.36f : 0.10f), 2);
+
+            if (!equipped)
+                continue;
+
+            Texture2D texture = ModContent.Request<Texture2D>(FranUISystem.SkillIconPath(skill)).Value;
+            float scale = Math.Min(iconSize / (float)Math.Max(1, texture.Width),
+                iconSize / (float)Math.Max(1, texture.Height));
+            Main.spriteBatch.Draw(texture, new Vector2(box.Center.X, box.Center.Y), null, Color.White,
+                0f, texture.Size() * 0.5f, scale, SpriteEffects.None, 0f);
+        }
+    }
+
+    private static void DrawTooltipRectangle(Rectangle rectangle, Color color) =>
+        Main.spriteBatch.Draw(TextureAssets.MagicPixel.Value, rectangle, color);
+
+    private static void DrawTooltipBorder(Rectangle rectangle, Color color, int thickness)
+    {
+        DrawTooltipRectangle(new Rectangle(rectangle.X, rectangle.Y, rectangle.Width, thickness), color);
+        DrawTooltipRectangle(new Rectangle(rectangle.X, rectangle.Bottom - thickness, rectangle.Width, thickness), color);
+        DrawTooltipRectangle(new Rectangle(rectangle.X, rectangle.Y, thickness, rectangle.Height), color);
+        DrawTooltipRectangle(new Rectangle(rectangle.Right - thickness, rectangle.Y, thickness, rectangle.Height), color);
     }
 }

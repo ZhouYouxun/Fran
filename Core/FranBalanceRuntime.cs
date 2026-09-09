@@ -400,7 +400,20 @@ public static partial class FranBalance
         _ => GetFloat(nameof(TelekineticManyShellDamageMultiplier), TelekineticManyShellDamageMultiplier)
     };
 
-    public static bool IsMilestoneCompleted(FranProgressionMilestone milestone) => milestone switch
+    /// <summary>
+    /// 进度按最高实际击败的节点向前补齐：例如月亮领主已击败时，骷髅王、血肉墙和机械三王节点都视为完成。
+    /// 这让跳流程存档的战术解锁、攻击力、槽位和飞行档位使用同一套判定。
+    /// </summary>
+    public static bool IsMilestoneCompleted(FranProgressionMilestone milestone)
+    {
+        if (IsMilestoneDirectlyCompleted(milestone))
+            return true;
+
+        int requiredRank = GetDamageProgressionRank(milestone);
+        return requiredRank >= 0 && GetHighestDirectProgressionRank() >= requiredRank;
+    }
+
+    private static bool IsMilestoneDirectlyCompleted(FranProgressionMilestone milestone) => milestone switch
     {
         FranProgressionMilestone.Initial => true,
         FranProgressionMilestone.KingSlime => NPC.downedSlimeKing,
@@ -435,19 +448,76 @@ public static partial class FranBalance
         _ => false
     };
 
+    private static int GetHighestDirectProgressionRank()
+    {
+        // 只读原版/事件旗标，不调用 IsMilestoneCompleted，避免“向前补齐”参与自身判定。
+        if (NPC.downedMoonlord)
+            return 110;
+        if (DD2Event.DownedInvasionT3)
+            return 105;
+        if (NPC.downedAncientCultist)
+            return 100;
+        if (NPC.downedFishron || NPC.downedEmpressOfLight)
+            return 95;
+        if (NPC.downedGolemBoss)
+            return 90;
+        if (NPC.downedPlantBoss)
+            return 80;
+        if (NPC.downedMechBoss1 && NPC.downedMechBoss2 && NPC.downedMechBoss3)
+            return 70;
+        if (DD2Event.DownedInvasionT2)
+            return 65;
+        if ((NPC.downedMechBoss1 ? 1 : 0) + (NPC.downedMechBoss2 ? 1 : 0) +
+            (NPC.downedMechBoss3 ? 1 : 0) >= 2)
+            return 60;
+        if (NPC.downedMechBossAny)
+            return 50;
+        if (NPC.downedQueenSlime)
+            return 45;
+        if (Main.hardMode)
+            return 40;
+        if (NPC.downedBoss3)
+            return 30;
+        if (NPC.downedQueenBee || NPC.downedDeerclops)
+            return 25;
+        if (NPC.downedBoss2)
+            return 20;
+        if (DD2Event.DownedInvasionT1)
+            return 15;
+        if (NPC.downedBoss1)
+            return 10;
+        if (NPC.downedSlimeKing)
+            return 5;
+        return 0;
+    }
+
     private static int GetDamageProgressionRank(FranProgressionMilestone milestone) => milestone switch
     {
         FranProgressionMilestone.Initial => 0,
+        FranProgressionMilestone.KingSlime => 5,
         FranProgressionMilestone.EyeOfCthulhu => 10,
+        FranProgressionMilestone.DarkMage => 15,
+        FranProgressionMilestone.EaterOfWorlds => 20,
+        FranProgressionMilestone.BrainOfCthulhu => 20,
         FranProgressionMilestone.AnyEvilBoss => 20,
+        FranProgressionMilestone.QueenBee => 25,
+        FranProgressionMilestone.Deerclops => 25,
         FranProgressionMilestone.Skeletron => 30,
         FranProgressionMilestone.WallOfFlesh => 40,
+        FranProgressionMilestone.QueenSlime => 45,
+        FranProgressionMilestone.Destroyer => 50,
+        FranProgressionMilestone.Twins => 50,
+        FranProgressionMilestone.SkeletronPrime => 50,
         FranProgressionMilestone.AnyMechanicalBoss => 50,
         FranProgressionMilestone.AnyTwoMechanicalBosses => 60,
+        FranProgressionMilestone.Ogre => 65,
         FranProgressionMilestone.AllMechanicalBosses => 70,
         FranProgressionMilestone.Plantera => 80,
         FranProgressionMilestone.Golem => 90,
+        FranProgressionMilestone.DukeFishron => 95,
+        FranProgressionMilestone.EmpressOfLight => 95,
         FranProgressionMilestone.LunaticCultist => 100,
+        FranProgressionMilestone.Betsy => 105,
         FranProgressionMilestone.MoonLord => 110,
         _ => -1
     };
