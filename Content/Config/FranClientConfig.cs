@@ -30,8 +30,8 @@ public sealed class FranClientConfig : ModConfig
 
     // The font asset has already been handed off, but its replacement system is intentionally
     // independent from the menu and character rendering switches.
-    [DefaultValue(true)]
-    public bool EnableCustomFont = true;
+    [DefaultValue(false)]
+    public bool EnableCustomFont;
 
     [DefaultValue(true)]
     public bool EnableModIconFlicker = true;

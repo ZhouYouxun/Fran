@@ -569,7 +569,7 @@ Mods: {
 
 				EnableCustomFont: {
 					Label: "[i:Book] Enable custom font"
-					Tooltip: Enabled by default. Controls Fran's custom font replacement.
+					Tooltip: Disabled by default. Enable this to use Fran's custom font replacement.
 				}
 
 				EnableModIconFlicker: {

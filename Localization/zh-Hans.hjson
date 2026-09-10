@@ -720,7 +720,7 @@ Mods: {
 
 				EnableCustomFont: {
 					Label: "[i:Book] 启用自定义字体"
-					Tooltip: 默认开启；统一控制弗兰自定义字体替换
+					Tooltip: 默认关闭；开启后统一控制弗兰自定义字体替换
 				}
 
 				EnableModIconFlicker: {
