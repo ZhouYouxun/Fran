@@ -9,10 +9,10 @@ using Terraria.ModLoader;
 namespace FranMod.Content.Players;
 
 /// <summary>
-/// Owns Teacher's continuous melee light independently from individual swing projectiles.
+/// Owns ShiFu's continuous melee light independently from individual swing projectiles.
 /// This keeps the light centered on the player and prevents combo or tactic transitions from flashing.
 /// </summary>
-public sealed class TeacherMeleeLightPlayer : ModPlayer
+public sealed class ShiFuMeleeLightPlayer : ModPlayer
 {
     private const float MinimumActiveStrength = 1.2f;
     private const float MaximumActiveStrength = 1.6f;
@@ -45,8 +45,8 @@ public sealed class TeacherMeleeLightPlayer : ModPlayer
         if (Main.dedServ)
             return;
 
-        bool holdingTeacher = Player.HeldItem.type == ModContent.ItemType<Teacher>();
-        bool requested = holdingTeacher && IsLeftAttackHeld();
+        bool holdingShiFu = Player.HeldItem.type == ModContent.ItemType<ShiFu>();
+        bool requested = holdingShiFu && IsLeftAttackHeld();
         float step = requested ? FadeInStep : FadeOutStep;
         activation = Approach(activation, requested ? 1f : 0f, step);
 
@@ -78,7 +78,7 @@ public sealed class TeacherMeleeLightPlayer : ModPlayer
             return physicalLeftHeld || routedLeftHeld;
         }
 
-        int swingType = ModContent.ProjectileType<TeacherSwingRebuild>();
+        int swingType = ModContent.ProjectileType<ShiFuSwingRebuild>();
         return Player.channel || Player.ownedProjectileCounts[swingType] > 0;
     }
 

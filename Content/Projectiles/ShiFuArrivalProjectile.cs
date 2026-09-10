@@ -8,9 +8,9 @@ using Terraria.ModLoader;
 namespace FranMod.Content.Projectiles;
 
 // Rebuildable visual projection. Destroying it never gives an item or reopens the character chance.
-public sealed class TeacherArrivalProjectile : ModProjectile
+public sealed class ShiFuArrivalProjectile : ModProjectile
 {
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
     public override void SetStaticDefaults() => ProjectileID.Sets.DrawScreenCheckFluff[Type] = 1600;
     public override void SetDefaults()
     {
@@ -28,7 +28,7 @@ public sealed class TeacherArrivalProjectile : ModProjectile
     public override bool ShouldUpdatePosition() => false;
     public override void AI()
     {
-        if (!TeacherArrivalSystem.Instance.TryGet((int)Projectile.ai[0], out TeacherArrivalRecord record))
+        if (!ShiFuArrivalSystem.Instance.TryGet((int)Projectile.ai[0], out ShiFuArrivalRecord record))
         {
             if (++Projectile.localAI[0] > 60f)
                 Projectile.Kill();
@@ -36,19 +36,19 @@ public sealed class TeacherArrivalProjectile : ModProjectile
         }
         Projectile.localAI[0] = 0f;
         Projectile.timeLeft = 120;
-        if (record.Age >= TeacherArrivalRules.LandingAge && record.ItemIndex >= 0)
+        if (record.Age >= ShiFuArrivalRules.LandingAge && record.ItemIndex >= 0)
         {
             Projectile.Kill();
             return;
         }
-        Projectile.Center = TeacherArrivalRules.SwordTip(record.Landing, record.Age);
-        if (!Main.dedServ && record.Age >= TeacherArrivalRules.Windup)
+        Projectile.Center = ShiFuArrivalRules.SwordTip(record.Landing, record.Age);
+        if (!Main.dedServ && record.Age >= ShiFuArrivalRules.Windup)
             Lighting.AddLight(Projectile.Center, 0.4f, 0.85f, 1.35f);
     }
     public override bool PreDraw(ref Color lightColor)
     {
-        if (TeacherArrivalSystem.Instance.TryGet((int)Projectile.ai[0], out TeacherArrivalRecord record))
-            TeacherArrivalVisuals.DrawArrival(record);
+        if (ShiFuArrivalSystem.Instance.TryGet((int)Projectile.ai[0], out ShiFuArrivalRecord record))
+            ShiFuArrivalVisuals.DrawArrival(record);
         return false;
     }
 }

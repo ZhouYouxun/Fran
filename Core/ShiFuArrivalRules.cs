@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework;
 namespace FranMod.Core;
 
 // Pure timing/identity rules, shared by the saved world event and its visual projections.
-internal static class TeacherArrivalRules
+internal static class ShiFuArrivalRules
 {
     public const int EntryDelay = 600;
     public const int Windup = 90;

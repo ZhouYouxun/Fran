@@ -1,6 +1,6 @@
 Mods: {
 	Fran: {
-		Rarities.TeacherPrismaticRarity.DisplayName: Master-and-Disciple Prismatic
+		Rarities.ShiFuPrismaticRarity.DisplayName: Master-and-Disciple Prismatic
 
 		Items: {
 			Foreword: {
@@ -8,7 +8,7 @@ Mods: {
 				Tooltip:
 					'''
 					Hello, and welcome to Fran!
-					This mod is inspired by Fran and Teacher from the anime
+					This mod is inspired by Fran and ShiFu from the anime
 					Reincarnated as a Sword, and is made and maintained by me alone.
 					I hope to give this duo an adventure of their own in Terraria.
 
@@ -23,7 +23,7 @@ Mods: {
 
 					I've poured everything I can into this mod as a solo creator,
 					and I hope you enjoy it.
-					Thank you for playing. May Fran and Teacher bring a little
+					Thank you for playing. May Fran and ShiFu bring a little
 					more joy to your journey. Have a wonderful adventure!
 					'''
 			}
@@ -34,13 +34,13 @@ Mods: {
 					'''
 					Favorite this item while it is in your inventory to enter Fran Mode
 					Fran Mode is identical to naming a character "Fran", "フラン", or "弗兰"
-					Enables Fran's appearance framework, Black Cat Warrior Instinct, dash, ultimate, and Teacher
+					Enables Fran's appearance framework, Black Cat Warrior Instinct, dash, ultimate, and ShiFu
 					The prototype currently uses a vanilla cat-ear icon
 					'''
 			}
 
-			Teacher: {
-				DisplayName: Teacher
+			ShiFu: {
+				DisplayName: ShiFu
 				Tooltip:
 					'''
 					[Left Click] Cycle through four sword techniques, each synchronized with equipped tactics
@@ -54,27 +54,28 @@ Mods: {
 				FullLoadoutActive: "[Full Loadout] {0}: {1}"
 				FullLoadoutInactive: "[Full Loadout] Inactive"
 				UnboundKey: Unbound
+				GoldenEvolutionRoad: We will once again set foot on the road of evolution, a road without end
 			}
 
 			StrategyGuideBook: {
 				DisplayName: Strategy Guide
 				Tooltip:
 					'''
-					Left-click to open Teacher's tactic loadout guide
+					Left-click to open ShiFu's tactic loadout guide
 					Browse recommended setups for two, three, or four available tactic slots
 					Right-click inside the guide or click the top-right button to close it
 					'''
 			}
 
-			TeacherExcavationTool: {
-				DisplayName: Teacher — Excavation Form
+			ShiFuExcavationTool: {
+				DisplayName: ShiFu — Excavation Form
 				Tooltip:
 					'''
-					Teacher reshapes itself into a restrained utility form for exploration
+					ShiFu reshapes itself into a restrained utility form for exploration
 					Left click uses the pickaxe; right click uses the hamaxe
 					Supports automatic reuse and vanilla Smart Cursor
-					Its tool performance grows with world progression, but it cannot use Teacher's combat skills
-					Granted automatically when you first obtain Teacher
+					Its tool performance grows with world progression, but it cannot use ShiFu's combat skills
+					Granted automatically when you first obtain ShiFu
 					'''
 			}
 
@@ -89,26 +90,26 @@ Mods: {
 					'''
 			}
 
-			TeacherArrivalDebugger: {
-				DisplayName: Teacher Arrival Debugger
+			ShiFuArrivalDebugger: {
+				DisplayName: ShiFu Arrival Debugger
 				Tooltip:
 					'''
 					Cheat-only developer tool; it has no recipe
 					Left click to replay the full arrival near the cursor
 					Bypasses the delay, surface and one-time eligibility checks
 					Does not consume your character's normal arrival opportunity
-					Reusable; each use creates a Teacher that anyone can pick up
+					Reusable; each use creates a ShiFu that anyone can pick up
 					'''
 			}
 
 			FranDamageDebugger: {
-				DisplayName: Teacher Damage Debugger
+				DisplayName: ShiFu Damage Debugger
 				Tooltip:
 					'''
 					Cheat-only developer tool; it has no recipe
 					Left click to open the base-damage panel
 					Favorite it in your inventory to enable its override
-					Only Teacher's base item damage is replaced
+					Only ShiFu's base item damage is replaced
 					'''
 			}
 		}
@@ -148,19 +149,19 @@ Mods: {
 		}
 
 		Keybinds: {
-			SkillWheel.DisplayName: Teacher Skill Wheel
+			SkillWheel.DisplayName: ShiFu Skill Wheel
 			PotentialRelease.DisplayName: Black Heavenly Tiger Flash
 			FranDash.DisplayName: Fran Dash
-			MagicStoneCorridor.DisplayName: Teacher's Magic-Stone Corridor
+			MagicStoneCorridor.DisplayName: ShiFu's Magic-Stone Corridor
 		}
 
 		UI: {
 			UltimateCharge: Black Tiger: {0}%
 			UltimateReady: BLACK TIGER READY
 			PureSwordsmanship: Pure Swordsmanship Core
-			PureSwordsmanshipDescription: Empty every lower slot to use pure swordsmanship. Teacher's four-part combo always remains; tactics are layered onto it rather than replacing it
+			PureSwordsmanshipDescription: Empty every lower slot to use pure swordsmanship. ShiFu's four-part combo always remains; tactics are layered onto it rather than replacing it
 			PureSwordsmanshipLine1: Empty every tactic slot to use pure swordsmanship
-			PureSwordsmanshipLine2: Teacher's four-cut combo always remains
+			PureSwordsmanshipLine2: ShiFu's four-cut combo always remains
 			TacticSlots: Tactic slots: {0}/{1}
 			TacticControls: Left-click a wheel icon to equip | left-click an equipped icon below the wheel to remove | right-click again or open inventory to close
 			TacticEquipped: Equipped: {0} x{1}
@@ -168,7 +169,7 @@ Mods: {
 		}
 
 		StrategyGuide: {
-			Title: Teacher Tactic Loadout Guide
+			Title: ShiFu Tactic Loadout Guide
 			Subtitle: Full loadouts pursue a transformation; mixed loadouts run several first-layer mechanics together
 			CurrentStatus: Current capacity: {0} slots | Viewing: {1}-slot loadouts
 			CloseHint: Click a tab to preview another stage | Right-click inside the guide or click X to close
@@ -192,7 +193,7 @@ Mods: {
 
 				Entry2: {
 					Title: Skill Taker x2 | Melee reward
-					Body: Teacher's blade must hit to launch the wisps. Sustained close combat can eventually raise vulnerability to 1.7x.
+					Body: ShiFu's blade must hit to launch the wisps. Sustained close combat can eventually raise vulnerability to 1.7x.
 				}
 
 				Entry3: {
@@ -340,7 +341,7 @@ Mods: {
 		}
 
 		DamageDebug: {
-			Title: Teacher Base Damage Debugger
+			Title: ShiFu Base Damage Debugger
 			Active: Damage override enabled
 			Inactive: Favorite this item to enable it
 			Apply: Apply
@@ -353,11 +354,11 @@ Mods: {
 		}
 
 		Notices: {
-			TeacherArrivalPickup: Approach to pick up Teacher
+			ShiFuArrivalPickup: Approach to pick up ShiFu
 			IntroTitle: "[Fran Mode activated]"
 			IntroCombat: Hold left click for the four-part greatsword combo
 			IntroSkills: Right-click to open or close the tactic wheel; left-click upper icons to equip duplicates and lower slots to remove them; opening inventory closes the wheel
-			IntroEvolution: Participate in a boss victory to absorb its unique magic stone; press J to shape Teacher, Fran, and their long-term resonance in the Corridor
+			IntroEvolution: Participate in a boss victory to absorb its unique magic stone; press J to shape ShiFu, Fran, and their long-term resonance in the Corridor
 			IntroDash: When Fran Dash is bound, only that key triggers it; when unbound, double-tap left/right instead; equipped dashes take priority
 			IntroPotential: The ultimate charges automatically over three minutes of active play; press G when full to begin Black Heavenly Tiger's execution rush immediately
 		}
@@ -388,9 +389,9 @@ Mods: {
 			ResetLocked: Cannot respec during combat
 
 			Branches: {
-				Teacher: Teacher — Self Evolution
+				ShiFu: ShiFu — Self Evolution
 				Fran: Fran — Black Cat Evolution
-				Bond: Teacher and Fran — Resonance
+				Bond: ShiFu and Fran — Resonance
 			}
 
 			Status: {
@@ -407,7 +408,7 @@ Mods: {
 			Nodes: {
 				EdgeCalibration: {
 					DisplayName: Edge Calibration
-					Description: Teacher's direct blade reach and hit range increase by 6%; tactical projectiles are unaffected.
+					Description: ShiFu's direct blade reach and hit range increase by 6%; tactical projectiles are unaffected.
 				}
 
 				ComboCalculation: {
@@ -437,7 +438,7 @@ Mods: {
 
 				HuntingTempo: {
 					DisplayName: Hunting Tempo
-					Description: Touching an enemy during a dash stores one Hunter Tempo, shortening Teacher's next direct swing by 12%.
+					Description: Touching an enemy during a dash stores one Hunter Tempo, shortening ShiFu's next direct swing by 12%.
 				}
 
 				EvolvedFootwork: {
@@ -457,7 +458,7 @@ Mods: {
 
 				ResonantPull: {
 					DisplayName: Resonant Pull
-					Description: Teacher's direct blade hits tug ordinary enemies toward the edge; bosses and fully knockback-immune enemies are unaffected.
+					Description: ShiFu's direct blade hits tug ordinary enemies toward the edge; bosses and fully knockback-immune enemies are unaffected.
 				}
 
 				OneAsSword: {
@@ -467,7 +468,7 @@ Mods: {
 
 				ArcaneCirculation: {
 					DisplayName: Arcane Circulation
-					Description: Carrying Teacher reduces mana costs by 8%; Teacher's direct blade reach gains another 4% beyond Edge Calibration.
+					Description: Carrying ShiFu reduces mana costs by 8%; ShiFu's direct blade reach gains another 4% beyond Edge Calibration.
 				}
 
 				DeeperAnalysis: {
@@ -477,12 +478,12 @@ Mods: {
 
 				SwordSaintReasoning: {
 					DisplayName: Sword-Saint Reasoning
-					Description: Teacher's direct blade damage rises by 6%; Combo Calculation increases from 3%/6%/9% to 4%/8%/12%.
+					Description: ShiFu's direct blade damage rises by 6%; Combo Calculation increases from 3%/6%/9% to 4%/8%/12%.
 				}
 
 				FelineReflex: {
 					DisplayName: Feline Reflex
-					Description: Fran's dash cooldown falls from 42 to 38 ticks; carrying Teacher also grants 5% movement speed.
+					Description: Fran's dash cooldown falls from 42 to 38 ticks; carrying ShiFu also grants 5% movement speed.
 				}
 
 				SkyHunter: {
@@ -507,7 +508,7 @@ Mods: {
 
 				SharedMana: {
 					DisplayName: Shared Mana
-					Description: Carrying Teacher grants 20 maximum mana.
+					Description: Carrying ShiFu grants 20 maximum mana.
 				}
 
 				SharedVision: {
@@ -517,7 +518,7 @@ Mods: {
 
 				HarmonicGuard: {
 					DisplayName: Harmonic Guard
-					Description: Carrying Teacher grants 3 defense and 2% damage reduction.
+					Description: Carrying ShiFu grants 3 defense and 2% damage reduction.
 				}
 
 				SoulBridge: {
@@ -527,7 +528,7 @@ Mods: {
 
 				SynchronizedVolley: {
 					DisplayName: Synchronized Volley
-					Description: Carrying Teacher grants 6% magic damage, strengthening Teacher's tactical spells and projectiles.
+					Description: Carrying ShiFu grants 6% magic damage, strengthening ShiFu's tactical spells and projectiles.
 				}
 
 				LimitResonance: {
@@ -542,7 +543,7 @@ Mods: {
 
 				EternalContract: {
 					DisplayName: Eternal Contract
-					Description: Carrying Teacher grants 5% all damage, 20 additional maximum mana, and 3 defense.
+					Description: Carrying ShiFu grants 5% all damage, 20 additional maximum mana, and 3 defense.
 				}
 			}
 		}
@@ -581,9 +582,14 @@ Mods: {
 					Tooltip: Enabled by default. Allows future client-side videos to play; it does nothing while no video assets exist.
 				}
 
-				EnableFloatingTeacherVisual: {
-					Label: "[i:MagicMirror] Show Teacher from inventory"
-					Tooltip: Disabled by default. When enabled, Teacher floats behind the player while stored in the inventory and another item is held.
+				EnableFloatingShiFuVisual: {
+					Label: "[i:MagicMirror] Show ShiFu from inventory"
+					Tooltip: Disabled by default. When enabled, ShiFu floats behind the player while stored in the inventory and another item is held.
+				}
+
+				HoldSkillWheelToOpen: {
+					Label: "[i:Cog] Hold to open the skill wheel"
+					Tooltip: Disabled by default. When disabled, pressing the skill-wheel key toggles the wheel. When enabled, the wheel stays open only while the key is held.
 				}
 
 				HideUltimateGauge: {
@@ -627,7 +633,7 @@ Mods: {
 			TelekineticCatapult: {
 				DisplayName: Telekinetic Catapult
 				UnlockCondition: Unlocked by default
-				Description: Teacher's four-part sword combo always remains intact. The current world stage rearranges pressure cores, fold blades, high-speed lasers, and falling planets around those same four cuts
+				Description: ShiFu's four-part sword combo always remains intact. The current world stage rearranges pressure cores, fold blades, high-speed lasers, and falling planets around those same four cuts
 				FirstLayer: One layer: uses the current four-cut projectile sequence; cores fire in a tight straight spread without a full loadout
 				AdditionalLayer: Stack: adds one pressure core per layer
 				FullLoadout: Full: cores gain homing and a wide spread, forming a dense homing formation
@@ -673,7 +679,7 @@ Mods: {
 			MultipleBodyCreation: {
 				DisplayName: Multiple Body Creation
 				UnlockCondition: Unlock by defeating Skeletron
-				Description: Every swing arrays two Teacher phantoms behind the player; after a brief hover they lock onto the cursor area and dash, while the fourth cut launches four in sequence
+				Description: Every swing arrays two ShiFu phantoms behind the player; after a brief hover they lock onto the cursor area and dash, while the fourth cut launches four in sequence
 				FirstLayer: One layer: every swing summons multiple blade phantoms
 				AdditionalLayer: Stack: increases the number of phantoms
 				FullLoadout: Full: phantoms dash faster
@@ -703,7 +709,7 @@ Mods: {
 				Description: Without a full loadout, the four-cut chain leaves compression bursts along each arc. A full loadout replaces the chain with a continuous blade disc that spins while left-click is held and coasts to a stop when released
 				FirstLayer: One layer: arc bursts; without Full, frequency -40% and damage -20%
 				AdditionalLayer: Stack: raises compressed-burst damage
-				FullLoadout: Full: becomes an endless blade disc and triples compression-burst duration
+				FullLoadout: Full: continuously swings the greatsword, greatly extends compression bursts, and heals on enemy kills
 			}
 
 			ThorsHammer: {
@@ -720,10 +726,10 @@ Mods: {
 			AirDrawSlashProjectile.DisplayName: Air Draw Slash Projectile
 			FloatingSwordArrayProjectile.DisplayName: Floating Sword Array Projectile
 			FloatingSwordLaser.DisplayName: Floating Sword Laser
-			FloatingTeacherVisual.DisplayName: Floating Teacher Visual
+			FloatingShiFuVisual.DisplayName: Floating ShiFu Visual
 			FranBurst.DisplayName: Fran Burst
 			FranDashTrail.DisplayName: Fran Dash Trail
-			HeldTeacherVisual.DisplayName: Held Teacher Visual
+			HeldShiFuVisual.DisplayName: Held ShiFu Visual
 			LightningSpearProjectile.DisplayName: Lightning Spear Projectile
 			MagicBarrierProjectile.DisplayName: Magic Barrier Projectile
 			ShipCutterProjectile.DisplayName: Ship Cutter Projectile
@@ -734,20 +740,20 @@ Mods: {
 			FranUltimateExecutionSeal.DisplayName: Ultimate Execution Seal
 			FranUltimateStrikeBeat.DisplayName: Ultimate Strike Beat
 			FranUltimateSpectatorBlade.DisplayName: Ultimate Spectator Blade
-			TeacherSlashWave.DisplayName: Teacher Slash Wave
-			TeacherSwing.DisplayName: Teacher Swing
+			ShiFuSlashWave.DisplayName: ShiFu Slash Wave
+			ShiFuSwing.DisplayName: ShiFu Swing
 			TelekineticCannonProjectile.DisplayName: Telekinetic Cannon Projectile
 			ThorsHammerBolt.DisplayName: Thors Hammer Bolt
 			ThorsHammerMarker.DisplayName: Thors Hammer Marker
 			FlameFangAuraVisual.DisplayName: Flame Fang Aura Visual
-			TeacherPiercingWave.DisplayName: Teacher Piercing Wave
-			TeacherCrescentWave.DisplayName: Teacher Crescent Wave
-			TeacherCompressionWave.DisplayName: Teacher Compression Wave
-			TeacherStarlightMass.DisplayName: Teacher Starlight Mass
+			ShiFuPiercingWave.DisplayName: ShiFu Piercing Wave
+			ShiFuCrescentWave.DisplayName: ShiFu Crescent Wave
+			ShiFuCompressionWave.DisplayName: ShiFu Compression Wave
+			ShiFuStarlightMass.DisplayName: ShiFu Starlight Mass
 			FranDeathVisual.DisplayName: Fran Death Visual
-			TeacherResonanceEcho.DisplayName: Teacher Resonance Echo
+			ShiFuResonanceEcho.DisplayName: ShiFu Resonance Echo
 			FranHeartSeekerProjectile.DisplayName: Fran Heart Seeker Projectile
-			TeacherSwingRebuild.DisplayName: Teacher Swing Rebuild
+			ShiFuSwingRebuild.DisplayName: ShiFu Swing Rebuild
 			FranWindField.DisplayName: Fran Wind Field
 			FranTelekineticReturnBlade.DisplayName: Fran Telekinetic Return Blade
 			FranSkillSealDetonation.DisplayName: Fran Skill Seal Detonation
@@ -764,7 +770,7 @@ Mods: {
 			FranRicochetLightning.DisplayName: Fran Ricochet Lightning
 			Telekinetic_CondensedMindCore.DisplayName: Telekinetic Condensed Mind Core
 			FranSkillTakerWisp.DisplayName: Skill Taker Wisp
-			FranTeacherPhantomBlade.DisplayName: Teacher Phantom Blade
+			FranShiFuPhantomBlade.DisplayName: ShiFu Phantom Blade
 			FranThunderDropVisual.DisplayName: Descending Thunder
 			FranPressurizedTerraWave.DisplayName: Pressurized Terra Wave
 			FranThorsHammerDrop.DisplayName: Thor's Hammer Drop
@@ -792,7 +798,7 @@ Mods: {
 			FranThunderStrikeProjectile.DisplayName: Fran Thunder Strike Projectile
 			Telekinetic_DestructiveWave.DisplayName: Telekinetic Destructive Wave
 			FranFlatLightningVisual.DisplayName: Fran Flat Lightning Visual
-			TeacherArrivalProjectile.DisplayName: Teacher's Descent
+			ShiFuArrivalProjectile.DisplayName: ShiFu's Descent
 			FranCoreTerraImpact.DisplayName: Fran Core Terra Impact
 			FranCoreTerraSlash.DisplayName: Fran Core Terra Slash
 			FranCoreTerraSlashCreator.DisplayName: Fran Core Terra Slash Creator

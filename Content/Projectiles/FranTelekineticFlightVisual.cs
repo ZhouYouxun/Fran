@@ -57,17 +57,17 @@ public sealed class FranTelekineticFlightVisual : ModProjectile
     {
         if (opacity <= 0.01f)
             return false;
-        Texture2D teacher = FranTeacherVisuals.Texture;
+        Texture2D shiFu = FranShiFuVisuals.Texture;
         Vector2 position = Projectile.Center - Main.screenPosition;
-        Vector2 origin = teacher.Size() * 0.5f;
-        float scale = 0.92f * 0.75f * FranTeacherVisuals.TextureScale;
+        Vector2 origin = shiFu.Size() * 0.5f;
+        float scale = 0.92f * 0.75f * FranShiFuVisuals.TextureScale;
         SpriteEffects effects = Projectile.spriteDirection < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         // 仅描边与剑身：去除光圈、流线、残影和漂浮粒子。
         for (int i = 0; i < 8; i++)
-            Main.EntitySpriteDraw(teacher, position + (MathHelper.TwoPi * i / 8f).ToRotationVector2() * 2f,
+            Main.EntitySpriteDraw(shiFu, position + (MathHelper.TwoPi * i / 8f).ToRotationVector2() * 2f,
                 null, new Color(40, 145, 255, 0) * opacity, Projectile.rotation, origin, scale, effects);
         Color environmentLight = Lighting.GetColor(Projectile.Center.ToTileCoordinates());
-        Main.EntitySpriteDraw(teacher, position, null, Color.Lerp(environmentLight, Color.White, 0.34f) * opacity,
+        Main.EntitySpriteDraw(shiFu, position, null, Color.Lerp(environmentLight, Color.White, 0.34f) * opacity,
             Projectile.rotation, origin, scale, effects);
         return false;
     }

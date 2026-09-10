@@ -128,14 +128,14 @@ public sealed class ThorsHammerMarker : ModProjectile
         if (Main.myPlayer != Projectile.owner)
             return;
 
-        TeacherSwingRebuild source = null;
+        ShiFuSwingRebuild source = null;
         if (Projectile.ai[2] > 0f)
         {
             int identity = (int)Projectile.ai[2] - 1;
             foreach (Projectile candidate in Main.ActiveProjectiles)
             {
                 if (candidate.owner == Projectile.owner && candidate.identity == identity &&
-                    candidate.ModProjectile is TeacherSwingRebuild swing)
+                    candidate.ModProjectile is ShiFuSwingRebuild swing)
                 {
                     source = swing;
                     break;

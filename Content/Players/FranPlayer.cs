@@ -49,9 +49,9 @@ public sealed class FranPlayer : ModPlayer
     private bool introShown;
     private bool wasFranMode;
     private bool networkFranMode;
-    private bool teacherBonded;
-    private bool teacherToolGranted;
-    private int restoreTeacherAfterRespawnCount;
+    private bool shiFuBonded;
+    private bool shiFuToolGranted;
+    private int restoreShiFuAfterRespawnCount;
     private bool dashStartedThisTick;
     private float screenShakePower;
     private Vector2 ultimateCameraFocus;
@@ -60,11 +60,11 @@ public sealed class FranPlayer : ModPlayer
     private bool ultimateReadyAnnounced;
     private bool telekineticFlightSession;
 
-    public bool HasTeacher
+    public bool HasShiFu
     {
         get
         {
-            int type = ModContent.ItemType<Teacher>();
+            int type = ModContent.ItemType<ShiFu>();
             return Player.HasItem(type) || Player.whoAmI == Main.myPlayer && Main.mouseItem.type == type;
         }
     }
@@ -139,12 +139,12 @@ public sealed class FranPlayer : ModPlayer
         }
         if (introShown)
             tag["IntroShown"] = true;
-        if (teacherBonded)
-            tag["TeacherBonded"] = true;
-        if (teacherToolGranted)
-            tag["TeacherToolGranted"] = true;
-        if (restoreTeacherAfterRespawnCount > 0)
-            tag["TeacherRespawnCount"] = restoreTeacherAfterRespawnCount;
+        if (shiFuBonded)
+            tag["ShiFuBonded"] = true;
+        if (shiFuToolGranted)
+            tag["ShiFuToolGranted"] = true;
+        if (restoreShiFuAfterRespawnCount > 0)
+            tag["ShiFuRespawnCount"] = restoreShiFuAfterRespawnCount;
     }
 
     public override void LoadData(TagCompound tag)
@@ -185,9 +185,9 @@ public sealed class FranPlayer : ModPlayer
             MathHelper.Clamp(gaugeY, 0f, 1f));
         ultimateReadyAnnounced = UltimateReady;
         introShown = tag.GetBool("IntroShown");
-        teacherBonded = tag.GetBool("TeacherBonded");
-        teacherToolGranted = tag.GetBool("TeacherToolGranted");
-        restoreTeacherAfterRespawnCount = Math.Clamp(tag.GetInt("TeacherRespawnCount"), 0, 59);
+        shiFuBonded = tag.GetBool("ShiFuBonded");
+        shiFuToolGranted = tag.GetBool("ShiFuToolGranted");
+        restoreShiFuAfterRespawnCount = Math.Clamp(tag.GetInt("ShiFuRespawnCount"), 0, 59);
     }
 
     public override void ResetEffects()
@@ -372,10 +372,10 @@ public sealed class FranPlayer : ModPlayer
             return;
         }
 
-        if (HasTeacher)
-            teacherBonded = true;
-        if (Player.whoAmI == Main.myPlayer && teacherBonded)
-            EnsureTeacherToolInitialGrant();
+        if (HasShiFu)
+            shiFuBonded = true;
+        if (Player.whoAmI == Main.myPlayer && shiFuBonded)
+            EnsureShiFuToolInitialGrant();
 
         if (!FranMode)
         {
@@ -384,12 +384,12 @@ public sealed class FranPlayer : ModPlayer
             telekineticFlightSession = false;
             if (DashTimer > 0 || DashVelocity != Vector2.Zero)
                 EndDash(sync: Player.whoAmI == Main.myPlayer);
-            if (HasTeacher)
+            if (HasShiFu)
             {
                 RemoveLockedTactics();
                 UpdateTimers();
                 MaintainSelectedImprint();
-                EnsureFloatingTeacher();
+                EnsureFloatingShiFu();
             }
             return;
         }
@@ -407,7 +407,7 @@ public sealed class FranPlayer : ModPlayer
         UpdateInputs();
         UpdateDash();
         UpdateTelekineticFlightVisual();
-        EnsureFloatingTeacher();
+        EnsureFloatingShiFu();
     }
 
     public override void PreUpdateMovement()
@@ -485,19 +485,19 @@ public sealed class FranPlayer : ModPlayer
     public override bool PreKill(double damage, int hitDirection, bool pvp, ref bool playSound, ref bool genGore,
         ref PlayerDeathReason damageSource)
     {
-        if (Player.whoAmI == Main.myPlayer && Player.difficulty == PlayerDifficultyID.MediumCore && teacherBonded && HasTeacher)
+        if (Player.whoAmI == Main.myPlayer && Player.difficulty == PlayerDifficultyID.MediumCore && shiFuBonded && HasShiFu)
         {
-            int teacherType = ModContent.ItemType<Teacher>();
+            int shiFuType = ModContent.ItemType<ShiFu>();
             for (int i = 0; i < Player.inventory.Length; i++)
             {
-                if (Player.inventory[i].type != teacherType)
+                if (Player.inventory[i].type != shiFuType)
                     continue;
-                restoreTeacherAfterRespawnCount += Player.inventory[i].stack;
+                restoreShiFuAfterRespawnCount += Player.inventory[i].stack;
                 Player.inventory[i].TurnToAir();
             }
-            if (Main.mouseItem.type == teacherType)
+            if (Main.mouseItem.type == shiFuType)
             {
-                restoreTeacherAfterRespawnCount += Main.mouseItem.stack;
+                restoreShiFuAfterRespawnCount += Main.mouseItem.stack;
                 Main.mouseItem.TurnToAir();
             }
         }
@@ -544,12 +544,12 @@ public sealed class FranPlayer : ModPlayer
         if (Player.whoAmI == Main.myPlayer)
         {
             FranModMain.SendCombatState(Player.whoAmI, 0, Vector2.Zero);
-            if (restoreTeacherAfterRespawnCount > 0)
+            if (restoreShiFuAfterRespawnCount > 0)
             {
-                int count = restoreTeacherAfterRespawnCount;
-                restoreTeacherAfterRespawnCount = 0;
+                int count = restoreShiFuAfterRespawnCount;
+                restoreShiFuAfterRespawnCount = 0;
                 for (int i = 0; i < count; i++)
-                    Player.QuickSpawnItem(Player.GetSource_Misc("FranTeacherRespawn"), ModContent.ItemType<Teacher>());
+                    Player.QuickSpawnItem(Player.GetSource_Misc("FranShiFuRespawn"), ModContent.ItemType<ShiFu>());
             }
         }
     }
@@ -1085,34 +1085,34 @@ public sealed class FranPlayer : ModPlayer
             FranModMain.SendCombatState(Player.whoAmI, 0, Vector2.Zero);
     }
 
-    private void EnsureTeacherToolInitialGrant()
+    private void EnsureShiFuToolInitialGrant()
     {
-        if (teacherToolGranted)
+        if (shiFuToolGranted)
             return;
 
-        int toolType = ModContent.ItemType<TeacherExcavationTool>();
+        int toolType = ModContent.ItemType<ShiFuExcavationTool>();
         if (!Player.HasItem(toolType) && Main.mouseItem.type != toolType)
-            Player.QuickSpawnItem(Player.GetSource_Misc("FranTeacherToolForm"), toolType);
-        teacherToolGranted = true;
+            Player.QuickSpawnItem(Player.GetSource_Misc("FranShiFuToolForm"), toolType);
+        shiFuToolGranted = true;
     }
 
-    private void EnsureFloatingTeacher()
+    private void EnsureFloatingShiFu()
     {
-        if (!ModContent.GetInstance<FranClientConfig>().EnableFloatingTeacherVisual)
+        if (!ModContent.GetInstance<FranClientConfig>().EnableFloatingShiFuVisual)
             return;
 
         int flightVisualType = ModContent.ProjectileType<FranTelekineticFlightVisual>();
-        if (!HasTeacher || Player.dead || TelekineticFlightVisualActive ||
+        if (!HasShiFu || Player.dead || TelekineticFlightVisualActive ||
             Player.ownedProjectileCounts[flightVisualType] > 0)
             return;
 
-        if (Player.HeldItem.type == ModContent.ItemType<Teacher>() ||
-            Player.HeldItem.type == ModContent.ItemType<TeacherExcavationTool>())
+        if (Player.HeldItem.type == ModContent.ItemType<ShiFu>() ||
+            Player.HeldItem.type == ModContent.ItemType<ShiFuExcavationTool>())
             return;
 
-        int type = ModContent.ProjectileType<FloatingTeacherVisual>();
+        int type = ModContent.ProjectileType<FloatingShiFuVisual>();
         if (Player.ownedProjectileCounts[type] == 0 && Player.whoAmI == Main.myPlayer)
-            Projectile.NewProjectile(Player.GetSource_Misc("FloatingTeacher"), Player.Center, Vector2.Zero, type, 0, 0f, Player.whoAmI);
+            Projectile.NewProjectile(Player.GetSource_Misc("FloatingShiFu"), Player.Center, Vector2.Zero, type, 0, 0f, Player.whoAmI);
     }
 
     private bool HasFavoritedHeadwear()
@@ -1177,19 +1177,19 @@ public sealed class FranPlayer : ModPlayer
     internal int GetUltimateStrikeDamage()
     {
         // 黑天虎仍以师父为伤害来源；切到其他物品不会借用其他武器的面板。
-        int teacherType = ModContent.ItemType<Teacher>();
-        Item teacher = Player.HeldItem.type == teacherType ? Player.HeldItem : null;
-        if (teacher is null)
+        int shiFuType = ModContent.ItemType<ShiFu>();
+        Item shiFu = Player.HeldItem.type == shiFuType ? Player.HeldItem : null;
+        if (shiFu is null)
             for (int i = 0; i < Player.inventory.Length; i++)
-                if (Player.inventory[i].type == teacherType)
+                if (Player.inventory[i].type == shiFuType)
                 {
-                    teacher = Player.inventory[i];
+                    shiFu = Player.inventory[i];
                     break;
                 }
-        int teacherDamage = teacher is null
+        int shiFuDamage = shiFu is null
             ? Math.Max(1, (int)Player.GetDamage(DamageClass.Melee).ApplyTo(FranBalance.GetBaseDamage(Player)))
-            : Math.Max(1, Player.GetWeaponDamage(teacher));
-        return Math.Max(1, (int)(teacherDamage *
+            : Math.Max(1, Player.GetWeaponDamage(shiFu));
+        return Math.Max(1, (int)(shiFuDamage *
             FranBalance.GetFloat(nameof(FranBalance.UltimateStrikeDamageMultiplier),
                 FranBalance.UltimateStrikeDamageMultiplier)));
     }

@@ -1,6 +1,6 @@
 Mods: {
 	Fran: {
-		Rarities.TeacherPrismaticRarity.DisplayName: 师徒棱彩
+		Rarities.ShiFuPrismaticRarity.DisplayName: 师徒棱彩
 
 		Items: {
 			Foreword: {
@@ -42,7 +42,7 @@ Mods: {
 					'''
 			}
 
-			Teacher: {
+			ShiFu: {
 				DisplayName: 师父
 				Tooltip:
 					'''
@@ -57,6 +57,7 @@ Mods: {
 				FullLoadoutActive: 【全选效果】触发 {0} 的全选效果：{1}
 				FullLoadoutInactive: 【全选效果】未触发
 				UnboundKey: 未绑定
+				GoldenEvolutionRoad: 我们将再一次踏上进化的道路，一条没有尽头的道路
 			}
 
 			StrategyGuideBook: {
@@ -69,7 +70,7 @@ Mods: {
 					'''
 			}
 
-			TeacherExcavationTool: {
+			ShiFuExcavationTool: {
 				DisplayName: 师父·开拓形态
 				Tooltip:
 					'''
@@ -94,7 +95,7 @@ Mods: {
 					'''
 			}
 
-			TeacherArrivalDebugger: {
+			ShiFuArrivalDebugger: {
 				DisplayName: 师父降临调试器
 				Tooltip:
 					'''
@@ -373,7 +374,7 @@ Mods: {
 		}
 
 		Notices: {
-			TeacherArrivalPickup: 靠近，拾起师父
+			ShiFuArrivalPickup: 靠近，拾起师父
 			IntroTitle: 【弗兰人物模式已启动】
 			IntroCombat: 持续左键使用四段大剑连击
 			IntroSkills:
@@ -434,7 +435,7 @@ Mods: {
 			ResetLocked: 战斗中不能洗点
 
 			Branches: {
-				Teacher: 师父·自我进化
+				ShiFu: 师父·自我进化
 				Fran: 弗兰·黑猫进化
 				Bond: 师徒·共鸣
 			}
@@ -737,12 +738,22 @@ Mods: {
 						'''
 				}
 
-				EnableFloatingTeacherVisual: {
-					Label: "[i:MagicMirror] 显示背包中的师傅"
+				EnableFloatingShiFuVisual: {
+					Label: "[i:MagicMirror] 显示背包中的师父"
 					Tooltip:
 						'''
-						默认关闭；开启后，当师傅位于背包中
-						且当前手持其他物品时，师傅会浮在玩家身后
+						默认关闭；开启后，当师父位于背包中
+						且当前手持其他物品时，师父会浮在玩家身后
+						'''
+				}
+
+				HoldSkillWheelToOpen: {
+					Label: "[i:Cog] 将技能轮盘更改为长按触发"
+					Tooltip:
+						'''
+						默认关闭；关闭时点击技能轮盘按键打开，
+						再点一次关闭。开启后必须按住该按键
+						才会显示技能轮盘，松开后自动关闭
 						'''
 				}
 
@@ -920,7 +931,7 @@ Mods: {
 					'''
 				FirstLayer: 单层：剑弧引爆压缩空气；未全选时频率-40%、伤害-20%
 				AdditionalLayer: 叠层：提高压缩爆点伤害
-				FullLoadout: 全选：化为永续刀盘，聚合体持续时间变为三倍
+				FullLoadout: 全选：持续挥舞大剑，聚合体大幅延长，击杀敌人回复生命值
 			}
 
 			ThorsHammer: {
@@ -946,10 +957,10 @@ Mods: {
 			// AirDrawSlashProjectile.DisplayName: Air Draw Slash Projectile
 			// FloatingSwordArrayProjectile.DisplayName: Floating Sword Array Projectile
 			// FloatingSwordLaser.DisplayName: Floating Sword Laser
-			// FloatingTeacherVisual.DisplayName: Floating Teacher Visual
+			// FloatingShiFuVisual.DisplayName: Floating ShiFu Visual
 			// FranBurst.DisplayName: Fran Burst
 			// FranDashTrail.DisplayName: Fran Dash Trail
-			// HeldTeacherVisual.DisplayName: Held Teacher Visual
+			// HeldShiFuVisual.DisplayName: Held ShiFu Visual
 			// LightningSpearProjectile.DisplayName: Lightning Spear Projectile
 			// MagicBarrierProjectile.DisplayName: Magic Barrier Projectile
 			// ShipCutterProjectile.DisplayName: Ship Cutter Projectile
@@ -960,20 +971,20 @@ Mods: {
 			// FranUltimateExecutionSeal.DisplayName: Ultimate Execution Seal
 			// FranUltimateStrikeBeat.DisplayName: Ultimate Strike Beat
 			// FranUltimateSpectatorBlade.DisplayName: Ultimate Spectator Blade
-			// TeacherSlashWave.DisplayName: Teacher Slash Wave
-			// TeacherSwing.DisplayName: Teacher Swing
+			// ShiFuSlashWave.DisplayName: ShiFu Slash Wave
+			// ShiFuSwing.DisplayName: ShiFu Swing
 			// TelekineticCannonProjectile.DisplayName: Telekinetic Cannon Projectile
 			// ThorsHammerBolt.DisplayName: Thors Hammer Bolt
 			// ThorsHammerMarker.DisplayName: Thors Hammer Marker
 			// FlameFangAuraVisual.DisplayName: Flame Fang Aura Visual
-			// TeacherPiercingWave.DisplayName: Teacher Piercing Wave
-			// TeacherCrescentWave.DisplayName: Teacher Crescent Wave
-			// TeacherCompressionWave.DisplayName: Teacher Compression Wave
-			// TeacherStarlightMass.DisplayName: Teacher Starlight Mass
+			// ShiFuPiercingWave.DisplayName: ShiFu Piercing Wave
+			// ShiFuCrescentWave.DisplayName: ShiFu Crescent Wave
+			// ShiFuCompressionWave.DisplayName: ShiFu Compression Wave
+			// ShiFuStarlightMass.DisplayName: ShiFu Starlight Mass
 			// FranDeathVisual.DisplayName: Fran Death Visual
-			// TeacherResonanceEcho.DisplayName: Teacher Resonance Echo
+			// ShiFuResonanceEcho.DisplayName: ShiFu Resonance Echo
 			// FranHeartSeekerProjectile.DisplayName: Fran Heart Seeker Projectile
-			// TeacherSwingRebuild.DisplayName: Teacher Swing Rebuild
+			// ShiFuSwingRebuild.DisplayName: ShiFu Swing Rebuild
 			// FranWindField.DisplayName: Fran Wind Field
 			// FranTelekineticReturnBlade.DisplayName: Fran Telekinetic Return Blade
 			// FranSkillSealDetonation.DisplayName: Fran Skill Seal Detonation
@@ -990,7 +1001,7 @@ Mods: {
 			// FranRicochetLightning.DisplayName: Fran Ricochet Lightning
 			Telekinetic_CondensedMindCore.DisplayName: 凝念核
 			FranSkillTakerWisp.DisplayName: 夺取灵弹
-			FranTeacherPhantomBlade.DisplayName: 师父幻影剑
+			FranShiFuPhantomBlade.DisplayName: 师父幻影剑
 			FranThunderDropVisual.DisplayName: 天降雷迹
 			FranPressurizedTerraWave.DisplayName: 压缩泰拉光波
 			FranThorsHammerDrop.DisplayName: 雷神之锤坠击
@@ -1018,7 +1029,7 @@ Mods: {
 			// FranThunderStrikeProjectile.DisplayName: Fran Thunder Strike Projectile
 			Telekinetic_DestructiveWave.DisplayName: 破坏性波浪
 			// FranFlatLightningVisual.DisplayName: Fran Flat Lightning Visual
-			TeacherArrivalProjectile.DisplayName: 师父·雷霆降临
+			ShiFuArrivalProjectile.DisplayName: 师父·雷霆降临
 			// FranCoreTerraImpact.DisplayName: Fran Core Terra Impact
 			// FranCoreTerraSlash.DisplayName: Fran Core Terra Slash
 			// FranCoreTerraSlashCreator.DisplayName: Fran Core Terra Slash Creator

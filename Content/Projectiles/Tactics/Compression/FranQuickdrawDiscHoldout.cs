@@ -40,7 +40,7 @@ public sealed class FranQuickdrawDiscHoldout : ModProjectile
     private bool initialized;
     private bool releasing;
 
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
 
     public override void SetStaticDefaults() =>
         ProjectileID.Sets.DrawScreenCheckFluff[Type] = 1200;
@@ -77,7 +77,7 @@ public sealed class FranQuickdrawDiscHoldout : ModProjectile
 
     public override void AI()
     {
-        if (!Owner.active || Owner.dead || Owner.HeldItem.type != ModContent.ItemType<Teacher>())
+        if (!Owner.active || Owner.dead || Owner.HeldItem.type != ModContent.ItemType<ShiFu>())
         {
             Projectile.Kill();
             return;
@@ -176,7 +176,7 @@ public sealed class FranQuickdrawDiscHoldout : ModProjectile
     private float CalculateReach()
     {
         FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
-        float visibleBladeLength = SuppliedTextureBladeLength * 1.05f * FranTeacherVisuals.TextureScale;
+        float visibleBladeLength = SuppliedTextureBladeLength * 1.05f * FranShiFuVisuals.TextureScale;
         return WeaponHiltOffset + visibleBladeLength * evolution.BladeReachMultiplier;
     }
 
@@ -292,14 +292,14 @@ public sealed class FranQuickdrawDiscHoldout : ModProjectile
 
     private void DrawWeapon(Color lightColor, Color energyColor)
     {
-        Texture2D texture = FranTeacherVisuals.Texture;
-        Texture2D ghostTexture = FranTeacherVisuals.GhostTexture;
+        Texture2D texture = FranShiFuVisuals.Texture;
+        Texture2D ghostTexture = FranShiFuVisuals.GhostTexture;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         Vector2 origin = new(facing < 0 ? texture.Width : 0f, texture.Height);
         Vector2 ghostOrigin = new(facing < 0 ? ghostTexture.Width : 0f, ghostTexture.Height);
         Vector2 drawPosition = Owner.MountedCenter + currentAngle.ToRotationVector2() * WeaponHiltOffset -
             Main.screenPosition;
-        float drawScale = 1.05f * FranTeacherVisuals.TextureScale;
+        float drawScale = 1.05f * FranShiFuVisuals.TextureScale;
         Color ghostColor = new(energyColor.R, energyColor.G, energyColor.B, 0);
         for (int i = 0; i < 12; i++)
         {

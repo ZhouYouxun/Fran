@@ -18,7 +18,7 @@ using Terraria.UI;
 namespace FranMod.Content.Systems;
 
 [Autoload(Side = ModSide.Client)]
-public sealed class TeacherArrivalVisuals : ModSystem
+public sealed class ShiFuArrivalVisuals : ModSystem
 {
     private sealed class Presentation
     {
@@ -43,15 +43,15 @@ public sealed class TeacherArrivalVisuals : ModSystem
         lastThunder = lastImpact = 0;
     }
 
-    internal static void Update(TeacherArrivalRecord record)
+    internal static void Update(ShiFuArrivalRecord record)
     {
-        if (Main.dedServ || Main.gameMenu || record.Age >= TeacherArrivalRules.SettledAge)
+        if (Main.dedServ || Main.gameMenu || record.Age >= ShiFuArrivalRules.SettledAge)
             return;
         if (!scenes.TryGetValue(record.Id, out Presentation scene))
         {
             scene = new Presentation {
                 Landing = record.Landing, Age = record.Age - 1,
-                SkyArc = new FranFissionArc(Vector2.UnitY * TeacherArrivalRules.FallHeight,
+                SkyArc = new FranFissionArc(Vector2.UnitY * ShiFuArrivalRules.FallHeight,
                     record.Id * 7919, 5.4f)
             };
             scenes.Add(record.Id, scene);
@@ -62,19 +62,19 @@ public sealed class TeacherArrivalVisuals : ModSystem
         if (!Nearby(record.Landing))
             return;
         if ((previousAge < 18 && scene.Age >= 18 ||
-             previousAge < TeacherArrivalRules.Windup && scene.Age >= TeacherArrivalRules.Windup) &&
+             previousAge < ShiFuArrivalRules.Windup && scene.Age >= ShiFuArrivalRules.Windup) &&
             (lastThunder == 0 || Main.GameUpdateCount - lastThunder >= 25))
         {
             // Vanilla lightning respects Terraria's intense-visual-effects accessibility option.
             Main.NewLightning();
             lastThunder = Main.GameUpdateCount;
         }
-        if (previousAge < TeacherArrivalRules.LandingAge && scene.Age >= TeacherArrivalRules.LandingAge)
+        if (previousAge < ShiFuArrivalRules.LandingAge && scene.Age >= ShiFuArrivalRules.LandingAge)
             Impact(record);
-        int fallAge = scene.Age - TeacherArrivalRules.Windup;
-        if (fallAge >= 0 && fallAge < TeacherArrivalRules.FallFrames && fallAge % 4 == 0)
+        int fallAge = scene.Age - ShiFuArrivalRules.Windup;
+        if (fallAge >= 0 && fallAge < ShiFuArrivalRules.FallFrames && fallAge % 4 == 0)
         {
-            Vector2 tip = TeacherArrivalRules.SwordTip(record.Landing, scene.Age);
+            Vector2 tip = ShiFuArrivalRules.SwordTip(record.Landing, scene.Age);
             FranFlatLightningEffects.Fracture(tip - Vector2.UnitY * 100f,
                 tip + new Vector2(Main.rand.NextFloat(-38f, 38f), -10f), 0.7f,
                 FranFlatLightningPalette.ThorsHammer, record.Id * 991 + fallAge, 1.5f, 12);
@@ -84,7 +84,7 @@ public sealed class TeacherArrivalVisuals : ModSystem
     private static bool Nearby(Vector2 landing) => Main.player.IndexInRange(Main.myPlayer) &&
         Vector2.DistanceSquared(Main.LocalPlayer.Center, landing) < 1300f * 1300f;
 
-    private static void Impact(TeacherArrivalRecord record)
+    private static void Impact(ShiFuArrivalRecord record)
     {
         Vector2 point = record.Landing - Vector2.UnitY * 7f;
         FranFlatLightningEffects.Burst(point, 1.1f, FranFlatLightningPalette.ThorsHammer, 7, 210f, true, 28f);
@@ -115,7 +115,7 @@ public sealed class TeacherArrivalVisuals : ModSystem
             // The spotlight fades to completion even if the sword is picked up during the fade.
             if (scene.LastObserved != Main.GameUpdateCount)
                 scene.Age++;
-            if (scene.Age >= TeacherArrivalRules.SettledAge)
+            if (scene.Age >= ShiFuArrivalRules.SettledAge)
                 expired.Add(id);
         }
         foreach (int id in expired)
@@ -124,7 +124,7 @@ public sealed class TeacherArrivalVisuals : ModSystem
 
     public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)
     {
-        layers.Insert(0, new LegacyGameInterfaceLayer("Fran: Teacher arrival spotlight",
+        layers.Insert(0, new LegacyGameInterfaceLayer("Fran: ShiFu arrival spotlight",
             DrawSpotlight, InterfaceScaleType.Game));
     }
 
@@ -135,7 +135,7 @@ public sealed class TeacherArrivalVisuals : ModSystem
         float darkness = 0f;
         foreach (Presentation scene in scenes.Values)
             if (Nearby(scene.Landing))
-                darkness = Math.Max(darkness, TeacherArrivalRules.Highlight(scene.Age));
+                darkness = Math.Max(darkness, ShiFuArrivalRules.Highlight(scene.Age));
         if (darkness <= 0.001f)
             return true;
         float dim = Main.DisableIntenseVisualEffects ? 0.13f : 0.32f;
@@ -146,19 +146,19 @@ public sealed class TeacherArrivalVisuals : ModSystem
         int drawn = 0;
         foreach ((int id, Presentation scene) in scenes)
         {
-            float strength = TeacherArrivalRules.Highlight(scene.Age);
+            float strength = ShiFuArrivalRules.Highlight(scene.Age);
             if (strength <= 0f || !Nearby(scene.Landing) || drawn++ >= 12)
                 continue;
             DrawHalo(scene.Landing, strength);
             // Keep the actual planted blade bright above the dim overlay, not a duplicate after pickup.
-            if (TeacherArrivalSystem.Instance.TryGet(id, out TeacherArrivalRecord record) &&
+            if (ShiFuArrivalSystem.Instance.TryGet(id, out ShiFuArrivalRecord record) &&
                 Main.item.IndexInRange(record.ItemIndex) && Main.item[record.ItemIndex].active &&
-                Main.item[record.ItemIndex].type == ModContent.ItemType<Content.Items.Teacher>() &&
-                Main.item[record.ItemIndex].GetGlobalItem<Content.Items.TeacherArrivalWorldItem>().ArrivalId == id)
+                Main.item[record.ItemIndex].type == ModContent.ItemType<Content.Items.ShiFu>() &&
+                Main.item[record.ItemIndex].GetGlobalItem<Content.Items.ShiFuArrivalWorldItem>().ArrivalId == id)
             {
                 DrawBlade(scene.Landing, 1f, false);
                 if (Vector2.DistanceSquared(Main.LocalPlayer.Center, scene.Landing) < 420f * 420f)
-                    Utils.DrawBorderString(Main.spriteBatch, Language.GetTextValue("Mods.Fran.Notices.TeacherArrivalPickup"),
+                    Utils.DrawBorderString(Main.spriteBatch, Language.GetTextValue("Mods.Fran.Notices.ShiFuArrivalPickup"),
                         scene.Landing - Main.screenPosition - new Vector2(0f, 142f),
                         WhiteBlue * strength, 0.72f, 0.5f);
             }
@@ -166,42 +166,42 @@ public sealed class TeacherArrivalVisuals : ModSystem
         return true;
     }
 
-    internal static void DrawArrival(TeacherArrivalRecord record)
+    internal static void DrawArrival(ShiFuArrivalRecord record)
     {
-        if (record.Age < TeacherArrivalRules.Windup)
+        if (record.Age < ShiFuArrivalRules.Windup)
         {
-            float charge = Math.Clamp(record.Age / (float)TeacherArrivalRules.Windup, 0f, 1f);
+            float charge = Math.Clamp(record.Age / (float)ShiFuArrivalRules.Windup, 0f, 1f);
             FranVfx.BeginAdditive();
             Ring(record.Landing - Vector2.UnitY * 6f, 18f + charge * 29f, 0.22f,
                 Cyan * (charge * 0.5f), 1.2f);
             FranVfx.EndAdditive();
             return;
         }
-        if (record.Age >= TeacherArrivalRules.LandingAge)
+        if (record.Age >= ShiFuArrivalRules.LandingAge)
         {
             DrawPlanted(record.Landing, record.Age, 1f);
             return;
         }
-        Vector2 tip = TeacherArrivalRules.SwordTip(record.Landing, record.Age);
+        Vector2 tip = ShiFuArrivalRules.SwordTip(record.Landing, record.Age);
         FranVfx.BeginAdditive();
         if (scenes.TryGetValue(record.Id, out Presentation scene))
-            scene.SkyArc.Draw(Main.spriteBatch, record.Landing - Vector2.UnitY * TeacherArrivalRules.FallHeight,
-                Cyan, record.Age - TeacherArrivalRules.Windup + 0.5f, TeacherArrivalRules.FallFrames + 4, 2f, 0.85f);
+            scene.SkyArc.Draw(Main.spriteBatch, record.Landing - Vector2.UnitY * ShiFuArrivalRules.FallHeight,
+                Cyan, record.Age - ShiFuArrivalRules.Windup + 0.5f, ShiFuArrivalRules.FallFrames + 4, 2f, 0.85f);
         for (int i = 4; i >= 1; i--)
-            DrawBlade(TeacherArrivalRules.SwordTip(record.Landing, record.Age - i * 2), (5 - i) * 0.085f, true);
+            DrawBlade(ShiFuArrivalRules.SwordTip(record.Landing, record.Age - i * 2), (5 - i) * 0.085f, true);
         FranVfx.EndAdditive();
         DrawBlade(tip, 1f, false);
     }
 
     internal static void DrawPlanted(Vector2 landing, int age, float opacity)
     {
-        DrawHalo(landing, 0.08f + TeacherArrivalRules.Highlight(age) * 0.75f);
+        DrawHalo(landing, 0.08f + ShiFuArrivalRules.Highlight(age) * 0.75f);
         DrawBlade(landing, opacity, false);
     }
 
     private static void DrawBlade(Vector2 tip, float opacity, bool ghost)
     {
-        Texture2D texture = ghost ? FranTeacherVisuals.GhostTexture : FranTeacherVisuals.Texture;
+        Texture2D texture = ghost ? FranShiFuVisuals.GhostTexture : FranShiFuVisuals.Texture;
         // Art points from bottom-left hilt to top-right tip; rotate the tip straight into the ground.
         Vector2 origin = new(texture.Width - 4f, 4f);
         Main.spriteBatch.Draw(texture, tip - Main.screenPosition, null,

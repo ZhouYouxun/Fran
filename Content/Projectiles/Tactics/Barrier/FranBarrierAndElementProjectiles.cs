@@ -110,10 +110,10 @@ public sealed class MagicBarrierProjectile : ModProjectile
         FranVfx.DrawBloom(Projectile.Center, new Color(95, 110, 255), 38f, 0.28f * deploy);
         FranVfx.EndAdditive();
 
-        Texture2D teacher = FranTeacherVisuals.Texture;
-        Main.EntitySpriteDraw(teacher, Projectile.Center - Main.screenPosition, null,
+        Texture2D shiFu = FranShiFuVisuals.Texture;
+        Main.EntitySpriteDraw(shiFu, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(lightColor, Color.White, 0.18f), Projectile.rotation + MathHelper.PiOver4,
-            teacher.Size() * 0.5f, 0.86f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
+            shiFu.Size() * 0.5f, 0.86f * FranShiFuVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 }

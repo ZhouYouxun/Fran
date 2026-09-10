@@ -62,12 +62,12 @@ public static partial class FranBalance
     public static float TacticSkillTakerBudgetRatio = 1.20f;
     public static float TacticMultipleBodyBudgetRatio = 1.25f;
     public static float TacticBlueResonanceBudgetRatio = 0.70f;
-    public static float TacticThunderSingleBudgetRatio = 0.50f;
-    public static float TacticThunderGroupBudgetRatio = 1.00f;
-    public static float TacticThunderStormBudgetRatio = 2.10f;
+    public static float TacticThunderSingleBudgetRatio = 0.575f;
+    public static float TacticThunderGroupBudgetRatio = 1.15f;
+    public static float TacticThunderStormBudgetRatio = 2.415f;
     public static float TacticQuickdrawBudgetRatio = 3.00f;
-    public static float TacticHammerBudgetRatio = 3.00f;
-    public static float TacticHammerRainBudgetRatio = 6.00f;
+    public static float TacticHammerBudgetRatio = 1.80f;
+    public static float TacticHammerRainBudgetRatio = 3.60f;
     public static int ThunderImpactExplosionSize = 75;
     public static int ThunderImpactExplosionLifetime = 2;
     public static int ThunderImpactExplosionPenetration = 99;
@@ -158,6 +158,9 @@ public static partial class FranBalance
     };
     public static float QuickdrawExtraLayerDamageMultiplier = 0.15f;
     public static float QuickdrawFullLoadoutLifetimeMultiplier = 3f;
+    public static int QuickdrawFullLoadoutKillHealMinimum = 10;
+    public static int QuickdrawFullLoadoutKillHealMaximum = 20;
+    public static float QuickdrawFullDiscKnockbackMultiplier = 1.30f;
     public static float QuickdrawNonFullEmissionMultiplier = 0.60f;
     public static float QuickdrawNonFullDamageMultiplier = 0.80f;
     public static float QuickdrawFullDiscMaximumAngularVelocity = 0.245f;

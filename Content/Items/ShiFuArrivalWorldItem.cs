@@ -11,13 +11,13 @@ using Terraria.ModLoader.IO;
 
 namespace FranMod.Content.Items;
 
-// This is the real Teacher item, not a second collectible currency or a client-side reward.
-// Its planted presentation is stripped on pickup; ordinary Teacher items keep their existing behavior.
-public sealed class TeacherArrivalWorldItem : GlobalItem
+// This is the real ShiFu item, not a second collectible currency or a client-side reward.
+// Its planted presentation is stripped on pickup; ordinary ShiFu items keep their existing behavior.
+public sealed class ShiFuArrivalWorldItem : GlobalItem
 {
     public override bool InstancePerEntity => true;
     public override bool AppliesToEntity(Item entity, bool lateInstantiation) =>
-        entity.type == ModContent.ItemType<Teacher>();
+        entity.type == ModContent.ItemType<ShiFu>();
     internal int ArrivalId { get; private set; }
     internal Vector2 Landing { get; private set; }
     private int age;
@@ -43,8 +43,8 @@ public sealed class TeacherArrivalWorldItem : GlobalItem
     {
         Vector2 landing = new(tag.GetFloat("LandingX"), tag.GetFloat("LandingY"));
         int id = tag.GetInt("ArrivalId");
-        if (id > 0 && TeacherArrivalRules.Finite(landing))
-            Plant(id, landing, TeacherArrivalRules.SettledAge);
+        if (id > 0 && ShiFuArrivalRules.Finite(landing))
+            Plant(id, landing, ShiFuArrivalRules.SettledAge);
     }
 
     public override void NetSend(Item item, BinaryWriter writer)
@@ -63,8 +63,8 @@ public sealed class TeacherArrivalWorldItem : GlobalItem
         if (ArrivalId <= 0)
             return;
         Landing = new Vector2(reader.ReadSingle(), reader.ReadSingle());
-        age = Math.Clamp(reader.ReadInt32(), 0, TeacherArrivalRules.SettledAge);
-        if (!TeacherArrivalRules.Finite(Landing))
+        age = Math.Clamp(reader.ReadInt32(), 0, ShiFuArrivalRules.SettledAge);
+        if (!ShiFuArrivalRules.Finite(Landing))
             ArrivalId = 0;
     }
 
@@ -80,12 +80,12 @@ public sealed class TeacherArrivalWorldItem : GlobalItem
     {
         if (ArrivalId <= 0)
             return;
-        age = Math.Min(age + 1, TeacherArrivalRules.SettledAge);
+        age = Math.Min(age + 1, ShiFuArrivalRules.SettledAge);
         Anchor(item);
         item.timeSinceItemSpawned = 0;
         if (!Main.dedServ)
         {
-            float highlight = TeacherArrivalRules.Highlight(age);
+            float highlight = ShiFuArrivalRules.Highlight(age);
             Lighting.AddLight(Landing - Vector2.UnitY * 45f,
                 new Vector3(0.28f, 0.66f, 1f) * (0.18f + highlight * 1.35f));
         }
@@ -112,14 +112,14 @@ public sealed class TeacherArrivalWorldItem : GlobalItem
     }
 
     public override bool CanPickup(Item item, Player player) =>
-        ArrivalId <= 0 || age >= TeacherArrivalRules.LandingAge + TeacherArrivalRules.HighlightHold &&
+        ArrivalId <= 0 || age >= ShiFuArrivalRules.LandingAge + ShiFuArrivalRules.HighlightHold &&
             player.ItemSpace(item).CanTakeItemToPersonalInventory;
 
     public override bool OnPickup(Item item, Player player)
     {
         if (ArrivalId > 0)
         {
-            TeacherArrivalSystem.NotifyPickup(ArrivalId, item.whoAmI);
+            ShiFuArrivalSystem.NotifyPickup(ArrivalId, item.whoAmI);
             ArrivalId = 0;
         }
         return true;
@@ -132,7 +132,7 @@ public sealed class TeacherArrivalWorldItem : GlobalItem
     {
         if (ArrivalId <= 0)
             return true;
-        TeacherArrivalVisuals.DrawPlanted(Landing, age, 1f);
+        ShiFuArrivalVisuals.DrawPlanted(Landing, age, 1f);
         return false;
     }
 }

@@ -3,8 +3,8 @@ using Terraria.ModLoader;
 
 namespace FranMod.Core;
 
-// One source of truth for Teacher's real body texture and world-progression scale.
-public static class FranTeacherVisuals
+// One source of truth for ShiFu's real body texture and world-progression scale.
+public static class FranShiFuVisuals
 {
     public const string TexturePath = "Fran/Textures/师父本体";
     public const string GhostTexturePath = "Fran/Textures/师父本体Ghost";

@@ -5,7 +5,7 @@ using Terraria.ModLoader;
 
 namespace FranMod.Content.Items;
 
-public sealed class TeacherArrivalDebugger : ModItem
+public sealed class ShiFuArrivalDebugger : ModItem
 {
     public override string Texture => $"Terraria/Images/Item_{ItemID.ThunderStaff}";
 
@@ -27,7 +27,7 @@ public sealed class TeacherArrivalDebugger : ModItem
     {
         // UseItem also runs on remote peers. Only the user submits one request per click.
         if (player.whoAmI == Main.myPlayer)
-            TeacherArrivalSystem.RequestDebugArrival(player, Main.MouseWorld);
+            ShiFuArrivalSystem.RequestDebugArrival(player, Main.MouseWorld);
         return true;
     }
 

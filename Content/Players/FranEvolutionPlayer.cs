@@ -105,7 +105,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
             return;
 
         FranPlayer fran = Player.GetModPlayer<FranPlayer>();
-        if (!fran.FranMode && !fran.HasTeacher)
+        if (!fran.FranMode && !fran.HasShiFu)
             return;
 
         if (HasNode(FranEvolutionNode.ArcaneCirculation))
@@ -532,7 +532,7 @@ public sealed class FranEvolutionPlayer : ModPlayer
         if (Main.dedServ || Player.whoAmI != Main.myPlayer)
             return;
         SoundEngine.PlaySound(SoundID.Item29 with { Volume = 0.58f, Pitch = 0.24f }, Player.Center);
-        FranEvolutionBranch firstBranch = FranEvolutionBranch.Teacher;
+        FranEvolutionBranch firstBranch = FranEvolutionBranch.ShiFu;
         bool foundBranch = false;
         for (int i = 0; i < FranEvolutionInfo.Count; i++)
         {

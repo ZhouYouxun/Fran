@@ -7,7 +7,7 @@ using Terraria.ModLoader.IO;
 
 namespace FranMod.Content.Players;
 
-public sealed class TeacherArrivalPlayer : ModPlayer
+public sealed class ShiFuArrivalPlayer : ModPlayer
 {
     internal Guid CharacterId { get; private set; }
     internal bool OpportunitySpent { get; private set; }
@@ -43,7 +43,7 @@ public sealed class TeacherArrivalPlayer : ModPlayer
         ProfileReady = Main.netMode == NetmodeID.SinglePlayer;
         profileAcknowledged = ProfileReady;
         if (!ProfileReady)
-            TeacherArrivalSystem.SendProfile(this);
+            ShiFuArrivalSystem.SendProfile(this);
     }
 
     public override void PostUpdate()
@@ -59,13 +59,13 @@ public sealed class TeacherArrivalPlayer : ModPlayer
             if (!profileAcknowledged && ++profileRetry >= 180)
             {
                 profileRetry = 0;
-                TeacherArrivalSystem.SendProfile(this);
+                ShiFuArrivalSystem.SendProfile(this);
             }
             if (!OpportunitySpent && (++readinessTimer >= 60 || ready != PresentationReady))
             {
                 readinessTimer = 0;
                 PresentationReady = ready;
-                TeacherArrivalSystem.SendReadiness(ready);
+                ShiFuArrivalSystem.SendReadiness(ready);
             }
         }
     }

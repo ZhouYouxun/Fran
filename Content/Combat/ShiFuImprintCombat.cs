@@ -16,7 +16,7 @@ using Terraria.ModLoader;
 namespace FranMod.Content.Projectiles;
 
 
-internal static class TeacherImprintCombat
+internal static class ShiFuImprintCombat
 {
     public static void TriggerSwing(Player owner, Projectile swing, int combo, FranSkill skill,
         int tacticLayers, Vector2 direction, float reach)
@@ -66,7 +66,7 @@ internal static class TeacherImprintCombat
 
             case FranSkill.ThorsHammer when combo == 3 && fran.AdvanceHammerRound(tacticLayers):
                 NPC hammerNpc = FranHammerTargeting.Select(owner,
-                    (swing.ModProjectile as TeacherSwingRebuild)?.HammerHitTargets);
+                    (swing.ModProjectile as ShiFuSwingRebuild)?.HammerHitTargets);
                 Vector2 hammerTarget = hammerNpc?.Center ?? owner.Center;
                 Projectile.NewProjectile(swing.GetSource_FromThis(), hammerTarget, Vector2.Zero,
                     ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(swing.damage *
@@ -111,8 +111,8 @@ internal static class TeacherImprintCombat
                 float launchAngle = direction.SafeNormalize(Vector2.UnitX).ToRotation();
                 int wispCount = FranBalance.GetInt(nameof(FranBalance.SkillTakerBaseWispCount),
                     FranBalance.SkillTakerBaseWispCount);
-                wispCount = swing.ModProjectile is TeacherSwingRebuild teacherSwing
-                    ? teacherSwing.ReserveSkillTakerWisps(wispCount) : 0;
+                wispCount = swing.ModProjectile is ShiFuSwingRebuild shiFuSwing
+                    ? shiFuSwing.ReserveSkillTakerWisps(wispCount) : 0;
                 for (int i = 0; i < wispCount; i++)
                 {
                     // Positive rotation is clockwise in Terraria's screen coordinates. Every wisp
@@ -324,14 +324,14 @@ internal static class TeacherImprintCombat
                 normal * formationIndex * 48f - Vector2.UnitY * (20f + (i % 2) * 12f);
             float delay = 6f + i * 3f;
             Projectile.NewProjectile(swing.GetSource_FromThis(), origin, Vector2.Zero,
-                ModContent.ProjectileType<FranTeacherPhantomBlade>(),
+                ModContent.ProjectileType<FranShiFuPhantomBlade>(),
                 Math.Max(1, (int)(swing.damage * (combo == 3
                     ? FranBalance.GetFloat(nameof(FranBalance.MultipleBodyFinisherDamageMultiplier),
                         FranBalance.MultipleBodyFinisherDamageMultiplier)
                     : FranBalance.GetFloat(nameof(FranBalance.MultipleBodyNormalDamageMultiplier),
                         FranBalance.MultipleBodyNormalDamageMultiplier)) / Math.Max(1, firstLayerCount) * FranTacticOutputBudget.Scale(FranSkill.MultipleBodyCreation))),
                 swing.knockBack * 0.48f, owner.whoAmI,
-                FranTeacherPhantomBlade.EncodeLaunchDelay(delay, hasEnemy, fullLoadout),
+                FranShiFuPhantomBlade.EncodeLaunchDelay(delay, hasEnemy, fullLoadout),
                 lockedTarget.X, lockedTarget.Y);
         }
     }

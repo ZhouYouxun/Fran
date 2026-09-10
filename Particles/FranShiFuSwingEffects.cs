@@ -5,7 +5,7 @@ using Terraria;
 namespace FranMod.Particles;
 
 // 每刀有自己的主材质和节奏；细光、星点、电丝交错，文字只作为第二刀的主识别层。
-internal static class FranTeacherSwingEffects
+internal static class FranShiFuSwingEffects
 {
     private static void Spawn(FranParticle particle) =>
         FranParticleSystem.Spawn(particle, spawnSupportingDust: false);
@@ -97,7 +97,7 @@ internal static class FranTeacherSwingEffects
                 Color.White, color, 0.18f, 12));
         }
 
-        global::FranMod.FranLightingBoltsSystem.SpawnTeacherFinisherTrack(
+        global::FranMod.FranLightingBoltsSystem.SpawnShiFuFinisherTrack(
             origin, blade, reach, color, progress, tick);
     }
 
@@ -126,7 +126,7 @@ internal static class FranTeacherSwingEffects
         for (int sign = -1; sign <= 1; sign += 2)
             Spawn(new FranSwordFilamentParticle(center + side * sign * 14f,
                 blade * 8f + side * sign * 2f, blade, accent, 44f, 7));
-        global::FranMod.FranLightingBoltsSystem.SpawnTeacherFinisherBurst(center, blade, accent,
+        global::FranMod.FranLightingBoltsSystem.SpawnShiFuFinisherBurst(center, blade, accent,
             0.65f + stage * 0.10f);
     }
 }

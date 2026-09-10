@@ -413,7 +413,7 @@ public sealed class FranEvolutionBossSystem : ModSystem
                 continue;
             Player player = Main.player[playerIndex];
             FranPlayer fran = player.GetModPlayer<FranPlayer>();
-            if (!player.active || (!fran.FranMode && !fran.HasTeacher))
+            if (!player.active || (!fran.FranMode && !fran.HasShiFu))
                 continue;
 
             int projectileIndex = Projectile.NewProjectile(new EntitySource_Misc("FranBossMagicStone"),
@@ -429,19 +429,76 @@ public sealed class FranEvolutionBossSystem : ModSystem
 
 public sealed class FranEvolutionBossGlobalNPC : GlobalNPC
 {
-    public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone) =>
+    public override bool InstancePerEntity => true;
+
+    private int fullQuickdrawOwner = -1;
+    private int fullQuickdrawKillCreditTimer;
+
+    public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone)
+    {
         FranEvolutionBossSystem.MarkParticipant(npc, player.whoAmI);
+        MarkFullQuickdrawKillCredit(player);
+    }
 
     public override void OnHitByProjectile(NPC npc, Projectile projectile, NPC.HitInfo hit, int damageDone)
     {
         if (projectile.ModProjectile is FranEvolutionEchoSlash)
             return;
         if (Main.player.IndexInRange(projectile.owner))
+        {
             FranEvolutionBossSystem.MarkParticipant(npc, projectile.owner);
+            MarkFullQuickdrawKillCredit(Main.player[projectile.owner]);
+        }
     }
 
     public override void OnHitPlayer(NPC npc, Player target, Player.HurtInfo hurtInfo) =>
         FranEvolutionBossSystem.MarkParticipant(npc, target.whoAmI);
 
-    public override void OnKill(NPC npc) => FranEvolutionBossSystem.QueueBossCompletion(npc);
+    public override void PostAI(NPC npc)
+    {
+        if (fullQuickdrawKillCreditTimer > 0)
+            fullQuickdrawKillCreditTimer--;
+    }
+
+    public override void OnKill(NPC npc)
+    {
+        FranEvolutionBossSystem.QueueBossCompletion(npc);
+        TryApplyFullQuickdrawKillHealing(npc);
+    }
+
+    private void MarkFullQuickdrawKillCredit(Player player)
+    {
+        if (player is null || !player.active)
+            return;
+
+        FranPlayer fran = player.GetModPlayer<FranPlayer>();
+        if (!fran.IsFullTacticLoadout(FranSkill.PressurizedQuickdraw))
+            return;
+
+        fullQuickdrawOwner = player.whoAmI;
+        fullQuickdrawKillCreditTimer = 300;
+    }
+
+    private void TryApplyFullQuickdrawKillHealing(NPC npc)
+    {
+        if (fullQuickdrawKillCreditTimer <= 0 || fullQuickdrawOwner < 0 || npc.boss || npc.friendly ||
+            npc.SpawnedFromStatue || NPCID.Sets.CountsAsCritter[npc.type])
+            return;
+        if (!Main.player.IndexInRange(fullQuickdrawOwner))
+            return;
+
+        Player player = Main.player[fullQuickdrawOwner];
+        if (!player.active || player.dead)
+            return;
+
+        FranPlayer fran = player.GetModPlayer<FranPlayer>();
+        if (!fran.IsFullTacticLoadout(FranSkill.PressurizedQuickdraw))
+            return;
+
+        int minimum = FranBalance.GetInt(nameof(FranBalance.QuickdrawFullLoadoutKillHealMinimum),
+            FranBalance.QuickdrawFullLoadoutKillHealMinimum);
+        int maximum = Math.Max(minimum, FranBalance.GetInt(nameof(FranBalance.QuickdrawFullLoadoutKillHealMaximum),
+            FranBalance.QuickdrawFullLoadoutKillHealMaximum));
+        fran.ApplyResonanceHealing(Main.rand.Next(minimum, maximum + 1));
+    }
 }

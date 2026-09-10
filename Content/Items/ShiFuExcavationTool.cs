@@ -9,14 +9,14 @@ using Terraria.ModLoader;
 
 namespace FranMod.Content.Items;
 
-internal readonly record struct TeacherToolStats(int Stage, int PickPower, int AxePower,
+internal readonly record struct ShiFuToolStats(int Stage, int PickPower, int AxePower,
     int HammerPower, int UseTime, int UseAnimation, int TileBoost, int Damage);
 
-internal static class TeacherToolProgression
+internal static class ShiFuToolProgression
 {
     internal const int FinalStage = 7;
 
-    internal static TeacherToolStats Current
+    internal static ShiFuToolStats Current
     {
         get
         {
@@ -30,14 +30,14 @@ internal static class TeacherToolProgression
 
             return stage switch
             {
-                1 => new TeacherToolStats(stage, 70, 75, 70, 12, 18, 2, 12),
-                2 => new TeacherToolStats(stage, 100, 100, 70, 10, 16, 3, 18),
-                3 => new TeacherToolStats(stage, 150, 125, 80, 8, 16, 4, 28),
-                4 => new TeacherToolStats(stage, 200, 175, 100, 7, 15, 5, 38),
-                5 => new TeacherToolStats(stage, 200, 200, 110, 6, 14, 6, 48),
-                6 => new TeacherToolStats(stage, 210, 225, 120, 5, 13, 7, 58),
-                7 => new TeacherToolStats(stage, 250, 250, 150, 4, 12, 8, 72),
-                _ => new TeacherToolStats(stage, 55, 50, 45, 14, 18, 1, 8)
+                1 => new ShiFuToolStats(stage, 70, 75, 70, 12, 18, 2, 12),
+                2 => new ShiFuToolStats(stage, 100, 100, 70, 10, 16, 3, 18),
+                3 => new ShiFuToolStats(stage, 150, 125, 80, 8, 16, 4, 28),
+                4 => new ShiFuToolStats(stage, 200, 175, 100, 7, 15, 5, 38),
+                5 => new ShiFuToolStats(stage, 200, 200, 110, 6, 14, 6, 48),
+                6 => new ShiFuToolStats(stage, 210, 225, 120, 5, 13, 7, 58),
+                7 => new ShiFuToolStats(stage, 250, 250, 150, 4, 12, 8, 72),
+                _ => new ShiFuToolStats(stage, 55, 50, 45, 14, 18, 1, 8)
             };
         }
     }
@@ -51,10 +51,10 @@ internal static class TeacherToolProgression
 }
 
 /// <summary>
-/// Teacher's restrained utility form. Left click is always a pickaxe; right click is always a hamaxe.
+/// ShiFu's restrained utility form. Left click is always a pickaxe; right click is always a hamaxe.
 /// All powers are derived from synchronized world progression, so the item carries no private upgrade state.
 /// </summary>
-public sealed class TeacherExcavationTool : ModItem
+public sealed class ShiFuExcavationTool : ModItem
 {
     public override string Texture => "Fran/Content/Items/StellarCleaver";
 
@@ -78,7 +78,7 @@ public sealed class TeacherExcavationTool : ModItem
         Item.value = 0;
         Item.rare = ItemRarityID.Quest;
         Item.favorited = true;
-        ApplyStats(TeacherToolProgression.Current, hamaxeMode: false);
+        ApplyStats(ShiFuToolProgression.Current, hamaxeMode: false);
     }
 
     public override Vector2? HoldoutOffset() => new(-25f, -25f);
@@ -87,7 +87,7 @@ public sealed class TeacherExcavationTool : ModItem
 
     public override bool CanUseItem(Player player)
     {
-        ApplyStats(TeacherToolProgression.Current, player.altFunctionUse == 2);
+        ApplyStats(ShiFuToolProgression.Current, player.altFunctionUse == 2);
         return base.CanUseItem(player);
     }
 
@@ -95,7 +95,7 @@ public sealed class TeacherExcavationTool : ModItem
     {
         Item.favorited = true;
         if (player.HeldItem != Item || player.itemAnimation <= 0)
-            ApplyStats(TeacherToolProgression.Current, hamaxeMode: false);
+            ApplyStats(ShiFuToolProgression.Current, hamaxeMode: false);
     }
 
     public override bool CanResearch() => false;
@@ -105,9 +105,9 @@ public sealed class TeacherExcavationTool : ModItem
         if (Main.dedServ || player.itemAnimation <= 0)
             return;
 
-        TeacherToolStats stats = TeacherToolProgression.Current;
+        ShiFuToolStats stats = ShiFuToolProgression.Current;
         Color bodyColor = Color.Lerp(new Color(104, 205, 255), new Color(255, 202, 78),
-            stats.Stage / (float)TeacherToolProgression.FinalStage * 0.34f);
+            stats.Stage / (float)ShiFuToolProgression.FinalStage * 0.34f);
         Vector2 effectCenter = hitbox.Center.ToVector2();
         Lighting.AddLight(effectCenter, bodyColor.ToVector3() * 0.32f);
         if (player.itemAnimation % 3 != 0)
@@ -136,20 +136,20 @@ public sealed class TeacherExcavationTool : ModItem
 
     public override void ModifyTooltips(List<TooltipLine> tooltips)
     {
-        TeacherToolStats stats = TeacherToolProgression.Current;
-        tooltips.Add(new TooltipLine(Mod, "TeacherToolStage",
+        ShiFuToolStats stats = ShiFuToolProgression.Current;
+        tooltips.Add(new TooltipLine(Mod, "ShiFuToolStage",
             Language.GetTextValue("Mods.Fran.ToolProgression.Current",
-                TeacherToolProgression.StageName(stats.Stage), stats.PickPower, stats.AxePower,
+                ShiFuToolProgression.StageName(stats.Stage), stats.PickPower, stats.AxePower,
                 stats.HammerPower, stats.TileBoost, stats.UseTime))
         { OverrideColor = new Color(145, 220, 255) });
-        tooltips.Add(new TooltipLine(Mod, "TeacherToolNext",
+        tooltips.Add(new TooltipLine(Mod, "ShiFuToolNext",
             Language.GetTextValue("Mods.Fran.ToolProgression.Next",
-                TeacherToolProgression.NextUnlock(stats.Stage)))
-        { OverrideColor = stats.Stage >= TeacherToolProgression.FinalStage
+                ShiFuToolProgression.NextUnlock(stats.Stage)))
+        { OverrideColor = stats.Stage >= ShiFuToolProgression.FinalStage
             ? new Color(241, 190, 76) : new Color(180, 190, 205) });
     }
 
-    private void ApplyStats(TeacherToolStats stats, bool hamaxeMode)
+    private void ApplyStats(ShiFuToolStats stats, bool hamaxeMode)
     {
         Item.damage = stats.Damage;
         Item.useTime = stats.UseTime;

@@ -17,7 +17,7 @@ namespace FranMod.Content.Projectiles;
 
 public sealed class FranTelekineticReturnBlade : ModProjectile
 {
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
     public override void SetStaticDefaults()
     {
         ProjectileID.Sets.TrailCacheLength[Type] = 12;
@@ -64,10 +64,10 @@ public sealed class FranTelekineticReturnBlade : ModProjectile
         FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center + direction * 14f,
             Color.White * 0.74f, direction.ToRotation(), new Vector2(48f, 28f));
         FranVfx.EndAdditive();
-        Texture2D texture = FranTeacherVisuals.Texture;
+        Texture2D texture = FranShiFuVisuals.Texture;
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(lightColor, Color.White, 0.26f), Projectile.rotation, texture.Size() * 0.5f,
-            0.82f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
+            0.82f * FranShiFuVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 }

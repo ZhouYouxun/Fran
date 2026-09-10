@@ -8,32 +8,32 @@ namespace FranMod.Core;
 
 internal static class FranTooltipTextEffects
 {
-    private static readonly Color[] TeacherPrismPalette =
+    private static readonly Color[] ShiFuPrismPalette =
     [
         new Color(76, 218, 255),  // telekinetic ice blue
         new Color(128, 145, 255), // sword-steel periwinkle
         new Color(211, 103, 244), // Fran violet
-        new Color(255, 183, 92),  // Teacher gold
+        new Color(255, 183, 92),  // ShiFu gold
         new Color(118, 239, 206)  // magic-stone mint
     ];
 
     public static Color PrismaticColor(float position)
     {
-        float wrapped = position % TeacherPrismPalette.Length;
+        float wrapped = position % ShiFuPrismPalette.Length;
         if (wrapped < 0f)
-            wrapped += TeacherPrismPalette.Length;
+            wrapped += ShiFuPrismPalette.Length;
         int index = (int)wrapped;
         float amount = wrapped - index;
         amount = amount * amount * (3f - 2f * amount);
-        return Color.Lerp(TeacherPrismPalette[index],
-            TeacherPrismPalette[(index + 1) % TeacherPrismPalette.Length], amount);
+        return Color.Lerp(ShiFuPrismPalette[index],
+            ShiFuPrismPalette[(index + 1) % ShiFuPrismPalette.Length], amount);
     }
 
     /// <summary>
-    /// Draws a restrained travelling prism across Teacher's name. The dark indigo shadow keeps the
+    /// Draws a restrained travelling prism across ShiFu's name. The dark indigo shadow keeps the
     /// letters readable; the one-pixel halo is deliberately kept smaller than heavy endgame blooms.
     /// </summary>
-    public static void DrawTeacherPrismaticName(DrawableTooltipLine line)
+    public static void DrawShiFuPrismaticName(DrawableTooltipLine line)
     {
         Vector2 position = new(line.X, line.Y);
         float time = Main.GlobalTimeWrappedHourly;

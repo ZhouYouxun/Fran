@@ -20,7 +20,7 @@ public enum FranEvolutionNode : byte
     ResonantPull,
     OneAsSword,
 
-    // Teacher constellation additions (7 stars total).
+    // ShiFu constellation additions (7 stars total).
     ArcaneCirculation,
     DeeperAnalysis,
     SwordSaintReasoning,
@@ -47,7 +47,7 @@ public enum FranEvolutionNode : byte
 
 public enum FranEvolutionBranch : byte
 {
-    Teacher,
+    ShiFu,
     Fran,
     Bond
 }
@@ -92,10 +92,10 @@ public static class FranEvolutionInfo
 
     private static readonly FranEvolutionNodeDefinition[] Definitions =
     [
-        new(FranEvolutionNode.EdgeCalibration, FranEvolutionBranch.Teacher, 1, 1, FranEvolutionNode.None),
-        new(FranEvolutionNode.ComboCalculation, FranEvolutionBranch.Teacher, 1, 2, FranEvolutionNode.EdgeCalibration),
-        new(FranEvolutionNode.MagicStoneAnalysis, FranEvolutionBranch.Teacher, 2, 3, FranEvolutionNode.ComboCalculation),
-        new(FranEvolutionNode.SelfEvolution, FranEvolutionBranch.Teacher, 2, 4, FranEvolutionNode.MagicStoneAnalysis),
+        new(FranEvolutionNode.EdgeCalibration, FranEvolutionBranch.ShiFu, 1, 1, FranEvolutionNode.None),
+        new(FranEvolutionNode.ComboCalculation, FranEvolutionBranch.ShiFu, 1, 2, FranEvolutionNode.EdgeCalibration),
+        new(FranEvolutionNode.MagicStoneAnalysis, FranEvolutionBranch.ShiFu, 2, 3, FranEvolutionNode.ComboCalculation),
+        new(FranEvolutionNode.SelfEvolution, FranEvolutionBranch.ShiFu, 2, 4, FranEvolutionNode.MagicStoneAnalysis),
 
         new(FranEvolutionNode.CatStep, FranEvolutionBranch.Fran, 1, 1, FranEvolutionNode.None),
         new(FranEvolutionNode.AerialHunt, FranEvolutionBranch.Fran, 1, 2, FranEvolutionNode.CatStep),
@@ -107,11 +107,11 @@ public static class FranEvolutionInfo
         new(FranEvolutionNode.ResonantPull, FranEvolutionBranch.Bond, 2, 3, FranEvolutionNode.SharedRhythm),
         new(FranEvolutionNode.OneAsSword, FranEvolutionBranch.Bond, 2, 4, FranEvolutionNode.ResonantPull),
 
-        new(FranEvolutionNode.ArcaneCirculation, FranEvolutionBranch.Teacher, 2, 2,
+        new(FranEvolutionNode.ArcaneCirculation, FranEvolutionBranch.ShiFu, 2, 2,
             FranEvolutionNode.EdgeCalibration),
-        new(FranEvolutionNode.DeeperAnalysis, FranEvolutionBranch.Teacher, 2, 3,
+        new(FranEvolutionNode.DeeperAnalysis, FranEvolutionBranch.ShiFu, 2, 3,
             FranEvolutionNode.MagicStoneAnalysis),
-        new(FranEvolutionNode.SwordSaintReasoning, FranEvolutionBranch.Teacher, 3, 4,
+        new(FranEvolutionNode.SwordSaintReasoning, FranEvolutionBranch.ShiFu, 3, 4,
             FranEvolutionNode.SelfEvolution),
 
         new(FranEvolutionNode.FelineReflex, FranEvolutionBranch.Fran, 1, 1,
@@ -190,7 +190,7 @@ public static class FranEvolutionInfo
 
     public static Color BranchColor(FranEvolutionBranch branch) => branch switch
     {
-        FranEvolutionBranch.Teacher => new Color(126, 105, 232),
+        FranEvolutionBranch.ShiFu => new Color(126, 105, 232),
         FranEvolutionBranch.Fran => new Color(244, 190, 70),
         _ => new Color(92, 218, 236)
     };

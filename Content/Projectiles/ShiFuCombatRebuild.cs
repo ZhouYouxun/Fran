@@ -18,8 +18,8 @@ using Terraria.ModLoader;
 
 namespace FranMod.Content.Projectiles;
 
-// The replacement runtime for Teacher's left-click chain. No player or NPC velocity is written here.
-public sealed class TeacherSwingRebuild : ModProjectile
+// The replacement runtime for ShiFu's left-click chain. No player or NPC velocity is written here.
+public sealed class ShiFuSwingRebuild : ModProjectile
 {
     private const int TrailSamples = 72;
     private const int SamplesPerTick = 4;
@@ -86,7 +86,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
     internal IReadOnlySet<int> HammerHitTargets => hammerHitTargets;
     internal bool HammerHitWindowEnded => Progress > 0.88f;
 
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
 
     public override void SetStaticDefaults()
     {
@@ -149,7 +149,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     public override void AI()
     {
-        if (!Owner.active || Owner.dead || Owner.HeldItem.type != ModContent.ItemType<Teacher>())
+        if (!Owner.active || Owner.dead || Owner.HeldItem.type != ModContent.ItemType<ShiFu>())
         {
             Projectile.Kill();
             return;
@@ -284,7 +284,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
         FourthWeaponPush(progress) * FourthWeaponMaximumPush;
 
     private float WeaponDrawScale() =>
-        (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranTeacherVisuals.TextureScale;
+        (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranShiFuVisuals.TextureScale;
 
     private float UnifiedBladeLength(float poseReach, FranEvolutionPlayer evolution)
     {
@@ -356,7 +356,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
         }
         EmitSwingCadenceParticles(blade, tangent, color, swingActivity);
         if (Combo != 3)
-            global::FranMod.FranLightingBoltsSystem.SpawnTeacherSwingAccent(
+            global::FranMod.FranLightingBoltsSystem.SpawnShiFuSwingAccent(
                 Vector2.Lerp(Owner.MountedCenter, tip, Combo == 1 ? 0.74f : 0.84f),
                 blade, tangent, color, Combo, swingActivity, (int)Projectile.localAI[0]);
 
@@ -434,7 +434,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
         }
 
         FranParticleSystem.Spawn(particle, spawnSupportingDust: false);
-        FranTeacherSwingEffects.Swing(Owner.MountedCenter, position, blade, localTangent,
+        FranShiFuSwingEffects.Swing(Owner.MountedCenter, position, blade, localTangent,
             color, Combo, (int)Projectile.localAI[0], swingActivity);
     }
 
@@ -442,13 +442,13 @@ public sealed class TeacherSwingRebuild : ModProjectile
     {
         float usableReach = Math.Max(48f, currentReach - WeaponHiltOffset - currentWeaponOffset);
         Vector2 origin = Owner.MountedCenter + blade * (WeaponHiltOffset + currentWeaponOffset);
-        FranTeacherSwingEffects.FinisherFlow(origin, blade, usableReach, color,
+        FranShiFuSwingEffects.FinisherFlow(origin, blade, usableReach, color,
             Progress, (int)Projectile.localAI[0]);
 
         // 用进度跨阈值触发，在最低 12 帧时长和高攻速下也不会漏掉任一段。
         while (fourthReleaseStage < 3 && Progress >= 0.10f + fourthReleaseStage * 0.16f)
         {
-            FranTeacherSwingEffects.FinisherPulse(origin, blade, usableReach, color, fourthReleaseStage);
+            FranShiFuSwingEffects.FinisherPulse(origin, blade, usableReach, color, fourthReleaseStage);
             fourthReleaseStage++;
         }
     }
@@ -523,7 +523,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
             FranSkill skill = (FranSkill)skillIndex;
             int layers = GetTacticStackCount(skill);
             if (layers > 0)
-                TeacherImprintCombat.TriggerSwing(Owner, Projectile, Combo, skill, layers,
+                ShiFuImprintCombat.TriggerSwing(Owner, Projectile, Combo, skill, layers,
                     currentAngle.ToRotationVector2(), currentReach);
         }
     }
@@ -615,7 +615,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
             FranSkill skill = (FranSkill)skillIndex;
             int layers = GetTacticStackCount(skill);
             if (layers > 0)
-                TeacherImprintCombat.OnSwordHit(Owner, Projectile, target, Combo, skill, layers,
+                ShiFuImprintCombat.OnSwordHit(Owner, Projectile, target, Combo, skill, layers,
                     incoming, damageDone);
         }
         Owner.GetModPlayer<FranPlayer>().ShakeScreen(target.Center,
@@ -754,8 +754,8 @@ public sealed class TeacherSwingRebuild : ModProjectile
 
     private void DrawWeapon(Color lightColor, Color energyColor)
     {
-        Texture2D texture = FranTeacherVisuals.Texture;
-        Texture2D ghostTexture = FranTeacherVisuals.GhostTexture;
+        Texture2D texture = FranShiFuVisuals.Texture;
+        Texture2D ghostTexture = FranShiFuVisuals.GhostTexture;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         Vector2 origin = new(facing < 0 ? texture.Width : 0f, texture.Height);
         Vector2 ghostOrigin = new(facing < 0 ? ghostTexture.Width : 0f, ghostTexture.Height);
@@ -770,7 +770,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
             float angle = (tipHistory[i] - Owner.MountedCenter).ToRotation();
             Main.EntitySpriteDraw(texture, center, null, energyColor * (0.10f * fade * trailStrength[i]),
                 angle + MathHelper.PiOver4 + extra, origin,
-                (1.05f + (Combo == 2 ? 0.05f : 0f)) * FranTeacherVisuals.TextureScale, effects, 0f);
+                (1.05f + (Combo == 2 ? 0.05f : 0f)) * FranShiFuVisuals.TextureScale, effects, 0f);
         }
 
         Vector2 drawPosition = Owner.MountedCenter + currentAngle.ToRotationVector2() *
@@ -782,15 +782,15 @@ public sealed class TeacherSwingRebuild : ModProjectile
             Vector2 offset = (MathHelper.TwoPi * i / GhostAuraDraws).ToRotationVector2() * auraRadius;
             Main.EntitySpriteDraw(ghostTexture, drawPosition + offset, null,
                 ghostColor * (0.15f * visualStrength), Projectile.rotation, ghostOrigin,
-                (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranTeacherVisuals.TextureScale, effects, 0f);
+                (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranShiFuVisuals.TextureScale, effects, 0f);
         }
         Main.EntitySpriteDraw(texture, drawPosition, null, lightColor, Projectile.rotation, origin,
-            (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranTeacherVisuals.TextureScale, effects, 0f);
+            (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranShiFuVisuals.TextureScale, effects, 0f);
     }
 }
 
-// WeaponOut-style idle presentation: draw Teacher behind the player and never pose the front arm.
-internal sealed class TeacherBackDrawPlayer : ModPlayer
+// WeaponOut-style idle presentation: draw ShiFu behind the player and never pose the front arm.
+internal sealed class ShiFuBackDrawPlayer : ModPlayer
 {
     public override void ModifyDrawInfo(ref PlayerDrawSet drawInfo)
     {
@@ -798,8 +798,8 @@ internal sealed class TeacherBackDrawPlayer : ModPlayer
             return;
 
         Player player = drawInfo.drawPlayer;
-        if (!player.active || player.dead || player.HeldItem.type != ModContent.ItemType<Teacher>() ||
-            player.itemAnimation > 0 || player.ownedProjectileCounts[ModContent.ProjectileType<TeacherSwingRebuild>()] > 0)
+        if (!player.active || player.dead || player.HeldItem.type != ModContent.ItemType<ShiFu>() ||
+            player.itemAnimation > 0 || player.ownedProjectileCounts[ModContent.ProjectileType<ShiFuSwingRebuild>()] > 0)
             return;
 
         bool deployed = player.ownedProjectileCounts[ModContent.ProjectileType<TelekineticCannonProjectile>()] > 0 ||
@@ -810,7 +810,7 @@ internal sealed class TeacherBackDrawPlayer : ModPlayer
         if (deployed)
             return;
 
-        Texture2D texture = FranTeacherVisuals.Texture;
+        Texture2D texture = FranShiFuVisuals.Texture;
         int facing = player.direction;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         // The sword is mounted through its mass centre. Using a bottom corner here pins the blade's
@@ -823,7 +823,7 @@ internal sealed class TeacherBackDrawPlayer : ModPlayer
 
         // Insert the normally lit sword first, then place the outline draws before it in the cache.
         // This keeps the gold strictly behind the sprite instead of tinting the whole blade like the old cyan ghost copies.
-        float textureScale = 1.02f * FranTeacherVisuals.TextureScale;
+        float textureScale = 1.02f * FranShiFuVisuals.TextureScale;
         DrawData sword = new(texture, position, null, drawInfo.colorArmorBody, rotation, origin, textureScale, effects, 0f)
         {
             shader = 0

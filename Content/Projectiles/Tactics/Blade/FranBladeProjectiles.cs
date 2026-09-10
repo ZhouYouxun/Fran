@@ -23,7 +23,7 @@ public sealed class FloatingSwordArrayProjectile : ModProjectile
     private Vector2 formationAim;
     private bool initialized;
 
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
     public override void SetDefaults()
     {
         Projectile.width = 42; Projectile.height = 42; Projectile.friendly = true;
@@ -145,7 +145,7 @@ public sealed class FloatingSwordArrayProjectile : ModProjectile
     }
     public override bool PreDraw(ref Color lightColor)
     {
-        Texture2D texture = FranTeacherVisuals.Texture;
+        Texture2D texture = FranShiFuVisuals.Texture;
         int cycle = CurrentCycle;
         float dashIntensity = FranMotion.Pulse(cycle, 13f, 18f, 30f, 38f);
         Vector2 direction = (Projectile.rotation - MathHelper.PiOver4).ToRotationVector2();
@@ -170,10 +170,10 @@ public sealed class FloatingSwordArrayProjectile : ModProjectile
         for (int i = 4; i >= 1; i--)
             Main.EntitySpriteDraw(texture, Projectile.Center - direction * i * 9f - Main.screenPosition, null,
                 resonanceBlue * (dashIntensity * 0.11f * (5 - i)), Projectile.rotation,
-                texture.Size() * 0.5f, 0.72f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
+                texture.Size() * 0.5f, 0.72f * FranShiFuVisuals.TextureScale, SpriteEffects.None, 0f);
         FranVfx.EndAdditive();
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null, lightColor, Projectile.rotation,
-            texture.Size() * 0.5f, 0.72f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
+            texture.Size() * 0.5f, 0.72f * FranShiFuVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 }
@@ -345,13 +345,13 @@ public sealed class AirDrawSlashProjectile : ModProjectile
         }
         FranVfx.EndAdditive();
 
-        Texture2D teacherTexture = FranTeacherVisuals.Texture;
+        Texture2D shiFuTexture = FranShiFuVisuals.Texture;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
-        Vector2 origin = new(facing < 0 ? teacherTexture.Width : 0f, teacherTexture.Height);
+        Vector2 origin = new(facing < 0 ? shiFuTexture.Width : 0f, shiFuTexture.Height);
         Vector2 bladeCenter = owner.MountedCenter + currentBladeAngle.ToRotationVector2() * 8f - Main.screenPosition;
         Color bladeColor = Color.Lerp(lightColor, Color.White, released ? 0.28f : 0.12f);
-        Main.EntitySpriteDraw(teacherTexture, bladeCenter, null, bladeColor, Projectile.rotation,
-            origin, 1.05f * FranTeacherVisuals.TextureScale, effects, 0f);
+        Main.EntitySpriteDraw(shiFuTexture, bladeCenter, null, bladeColor, Projectile.rotation,
+            origin, 1.05f * FranShiFuVisuals.TextureScale, effects, 0f);
         return false;
     }
 }
@@ -444,7 +444,7 @@ public sealed class ShipCutterProjectile : ModProjectile
     private float slashIntensity;
     private bool released;
     private int facing;
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
     public override void SetDefaults()
     {
         Projectile.width = 210; Projectile.height = 210; Projectile.friendly = true;
@@ -526,7 +526,7 @@ public sealed class ShipCutterProjectile : ModProjectile
     }
     public override bool PreDraw(ref Color lightColor)
     {
-        Texture2D texture = FranTeacherVisuals.Texture;
+        Texture2D texture = FranShiFuVisuals.Texture;
         Player owner = Main.player[Projectile.owner];
         float releaseOpacity = slashIntensity;
         Vector2 direction = currentAngle.ToRotationVector2();
@@ -581,7 +581,7 @@ public sealed class ShipCutterProjectile : ModProjectile
         Vector2 origin = new(facing < 0 ? texture.Width : 0f, texture.Height);
         Main.EntitySpriteDraw(texture, owner.MountedCenter + direction * 10f - Main.screenPosition, null,
             new Color(255, 225, 175), Projectile.rotation, origin,
-            3.25f * FranTeacherVisuals.TextureScale, effects, 0f);
+            3.25f * FranShiFuVisuals.TextureScale, effects, 0f);
         return false;
     }
 }

@@ -5,11 +5,11 @@ using Terraria.ModLoader;
 
 namespace FranMod.Content.NPCs;
 
-public sealed class FranTeacherShop : GlobalNPC
+public sealed class FranShiFuShop : GlobalNPC
 {
     public override void ModifyShop(NPCShop shop)
     {
         if (shop.NpcType == NPCID.Merchant)
-            shop.Add(new Item(ModContent.ItemType<Teacher>()) { shopCustomPrice = Item.buyPrice(gold: 20) });
+            shop.Add(new Item(ModContent.ItemType<ShiFu>()) { shopCustomPrice = Item.buyPrice(gold: 20) });
     }
 }

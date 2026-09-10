@@ -626,16 +626,16 @@ public sealed class FranUltimateController : ModProjectile
         Color body = FinalStrike ? new Color(255, 218, 126) : new Color(96, 203, 242);
         Color edge = FinalStrike ? Color.White : new Color(207, 159, 255);
 
-        Texture2D teacherTexture = FranTeacherVisuals.Texture;
+        Texture2D shiFuTexture = FranShiFuVisuals.Texture;
         int facing = direction.X < 0f ? -1 : 1;
         SpriteEffects swordEffects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
-        Vector2 swordOrigin = new(facing < 0 ? teacherTexture.Width : 0f, teacherTexture.Height);
+        Vector2 swordOrigin = new(facing < 0 ? shiFuTexture.Width : 0f, shiFuTexture.Height);
         float swordRotation = direction.ToRotation() + MathHelper.PiOver4 +
             (facing < 0 ? MathHelper.PiOver2 : 0f);
         Vector2 swordPosition = owner.MountedCenter + direction * 8f - Main.screenPosition;
-        Main.EntitySpriteDraw(teacherTexture, swordPosition, null,
+        Main.EntitySpriteDraw(shiFuTexture, swordPosition, null,
             Color.Lerp(lightColor, Color.White, 0.62f), swordRotation, swordOrigin,
-            (FinalStrike ? 1.42f : 1.24f) * FranTeacherVisuals.TextureScale, swordEffects, 0f);
+            (FinalStrike ? 1.42f : 1.24f) * FranShiFuVisuals.TextureScale, swordEffects, 0f);
 
         FranVfx.BeginAdditive();
         if (phase is UltimatePhase.NormalStrike or UltimatePhase.FinalStrike)
@@ -659,9 +659,9 @@ public sealed class FranUltimateController : ModProjectile
             {
                 float ghostProgress = MathHelper.Clamp(progress - i * (FinalStrike ? 0.055f : 0.08f), 0f, 1f);
                 Vector2 ghostPosition = Vector2.Lerp(strikeStart, strikeEnd, ghostProgress);
-                Main.EntitySpriteDraw(teacherTexture, ghostPosition + direction * 8f - Main.screenPosition, null,
+                Main.EntitySpriteDraw(shiFuTexture, ghostPosition + direction * 8f - Main.screenPosition, null,
                     body * (0.15f * (1f - i / (ghostCount + 1f)) * flash), swordRotation,
-                    swordOrigin, (FinalStrike ? 1.38f : 1.20f) * FranTeacherVisuals.TextureScale,
+                    swordOrigin, (FinalStrike ? 1.38f : 1.20f) * FranShiFuVisuals.TextureScale,
                     swordEffects, 0f);
             }
         }

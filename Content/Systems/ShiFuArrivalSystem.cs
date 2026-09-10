@@ -14,7 +14,7 @@ using Terraria.ModLoader.IO;
 
 namespace FranMod.Content.Systems;
 
-internal sealed class TeacherArrivalRecord
+internal sealed class ShiFuArrivalRecord
 {
     public int Id;
     public Guid CharacterId;
@@ -28,17 +28,17 @@ internal sealed class TeacherArrivalRecord
 
 // Server owns the ledger, spawning and world persistence. Vanilla owns inventory pickup.
 // Character lifetime and world lifetime are deliberately separate: other players may take the sword.
-public sealed class TeacherArrivalSystem : ModSystem
+public sealed class ShiFuArrivalSystem : ModSystem
 {
     private enum Message : byte { Profile, Acknowledgement, Event, Pickup, Removed, Readiness, DebugArrival }
     // Keep the world-sync payload comfortably below Terraria's 16-bit packet length.
     private const int MaximumPending = 512;
-    private readonly Dictionary<int, TeacherArrivalRecord> arrivals = new();
+    private readonly Dictionary<int, ShiFuArrivalRecord> arrivals = new();
     private readonly HashSet<Guid> spentCharacters = new();
     private int nextId = 1;
-    internal static TeacherArrivalSystem Instance => ModContent.GetInstance<TeacherArrivalSystem>();
-    internal IEnumerable<TeacherArrivalRecord> Arrivals => arrivals.Values;
-    internal bool TryGet(int id, out TeacherArrivalRecord record) => arrivals.TryGetValue(id, out record);
+    internal static ShiFuArrivalSystem Instance => ModContent.GetInstance<ShiFuArrivalSystem>();
+    internal IEnumerable<ShiFuArrivalRecord> Arrivals => arrivals.Values;
+    internal bool TryGet(int id, out ShiFuArrivalRecord record) => arrivals.TryGetValue(id, out record);
 
     public override void ClearWorld()
     {
@@ -50,29 +50,29 @@ public sealed class TeacherArrivalSystem : ModSystem
     public override void SaveWorldData(TagCompound tag)
     {
         var saved = new List<TagCompound>();
-        foreach (TeacherArrivalRecord record in arrivals.Values)
+        foreach (ShiFuArrivalRecord record in arrivals.Values)
             saved.Add(new TagCompound {
                 ["Id"] = record.Id, ["Character"] = record.CharacterId.ToString("N"),
                 ["Debug"] = record.IsDebug,
                 ["X"] = record.Landing.X, ["Y"] = record.Landing.Y,
                 // Reload restores the planted sword, never a second thunder performance.
-                ["Age"] = TeacherArrivalRules.SettledAge
+                ["Age"] = ShiFuArrivalRules.SettledAge
             });
-        tag["TeacherArrivals"] = saved;
+        tag["ShiFuArrivals"] = saved;
         var spent = new List<string>();
         foreach (Guid id in spentCharacters)
             spent.Add(id.ToString("N"));
-        tag["TeacherArrivalSpent"] = spent;
-        tag["TeacherArrivalNextId"] = nextId;
+        tag["ShiFuArrivalSpent"] = spent;
+        tag["ShiFuArrivalNextId"] = nextId;
     }
 
     public override void LoadWorldData(TagCompound tag)
     {
         ClearWorld();
-        foreach (string value in tag.GetList<string>("TeacherArrivalSpent"))
+        foreach (string value in tag.GetList<string>("ShiFuArrivalSpent"))
             if (Guid.TryParse(value, out Guid id) && id != Guid.Empty)
                 spentCharacters.Add(id);
-        foreach (TagCompound saved in tag.GetList<TagCompound>("TeacherArrivals"))
+        foreach (TagCompound saved in tag.GetList<TagCompound>("ShiFuArrivals"))
         {
             int id = saved.GetInt("Id");
             Vector2 landing = new(saved.GetFloat("X"), saved.GetFloat("Y"));
@@ -80,21 +80,21 @@ public sealed class TeacherArrivalSystem : ModSystem
             if (id <= 0 || id == int.MaxValue || !ValidPosition(landing) ||
                 !Guid.TryParse(saved.GetString("Character"), out Guid character) || !isDebug && character == Guid.Empty)
                 continue;
-            arrivals[id] = new TeacherArrivalRecord {
+            arrivals[id] = new ShiFuArrivalRecord {
                 Id = id, CharacterId = character, IsDebug = isDebug,
-                Landing = landing, Age = TeacherArrivalRules.SettledAge
+                Landing = landing, Age = ShiFuArrivalRules.SettledAge
             };
             if (!isDebug)
                 spentCharacters.Add(character);
             nextId = Math.Max(nextId, id + 1);
         }
-        nextId = Math.Max(nextId, Math.Clamp(tag.GetInt("TeacherArrivalNextId"), 1, int.MaxValue - 1));
+        nextId = Math.Max(nextId, Math.Clamp(tag.GetInt("ShiFuArrivalNextId"), 1, int.MaxValue - 1));
     }
 
     public override void NetSend(BinaryWriter writer)
     {
         writer.Write(arrivals.Count);
-        foreach (TeacherArrivalRecord record in arrivals.Values)
+        foreach (ShiFuArrivalRecord record in arrivals.Values)
             WriteRecord(writer, record);
     }
 
@@ -102,11 +102,11 @@ public sealed class TeacherArrivalSystem : ModSystem
     {
         int count = reader.ReadInt32();
         if (count < 0 || count > MaximumPending)
-            throw new InvalidDataException("Invalid Teacher arrival count.");
+            throw new InvalidDataException("Invalid ShiFu arrival count.");
         arrivals.Clear();
         for (int i = 0; i < count; i++)
         {
-            TeacherArrivalRecord record = ReadRecord(reader);
+            ShiFuArrivalRecord record = ReadRecord(reader);
             if (ValidPosition(record.Landing))
                 arrivals[record.Id] = record;
         }
@@ -115,24 +115,24 @@ public sealed class TeacherArrivalSystem : ModSystem
     // PostUpdateWorld is server/single-player only. Presentation clocks must also tick on clients.
     public override void PostUpdateTime()
     {
-        foreach (TeacherArrivalRecord record in arrivals.Values)
+        foreach (ShiFuArrivalRecord record in arrivals.Values)
         {
-            record.Age = Math.Min(record.Age + 1, TeacherArrivalRules.SettledAge);
+            record.Age = Math.Min(record.Age + 1, ShiFuArrivalRules.SettledAge);
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                if (record.Age >= TeacherArrivalRules.LandingAge)
+                if (record.Age >= ShiFuArrivalRules.LandingAge)
                     MaintainWorldItem(record);
                 MaintainProjection(record);
             }
             if (!Main.dedServ)
-                TeacherArrivalVisuals.Update(record);
+                ShiFuArrivalVisuals.Update(record);
         }
         if (Main.netMode == NetmodeID.MultiplayerClient)
             return;
 
         foreach (Player player in Main.ActivePlayers)
         {
-            TeacherArrivalPlayer arrival = player.GetModPlayer<TeacherArrivalPlayer>();
+            ShiFuArrivalPlayer arrival = player.GetModPlayer<ShiFuArrivalPlayer>();
             if (!arrival.ProfileReady)
                 continue;
             if (spentCharacters.Contains(arrival.CharacterId) && !arrival.OpportunitySpent)
@@ -143,8 +143,8 @@ public sealed class TeacherArrivalSystem : ModSystem
             bool presentationReady = arrival.PresentationReady && (Main.netMode == NetmodeID.SinglePlayer ||
                 Main.GameUpdateCount - arrival.LastReadinessTick < 180);
             if (!player.dead && presentationReady)
-                arrival.EntryAge = Math.Min(arrival.EntryAge + 1, TeacherArrivalRules.EntryDelay + 120);
-            if (!TeacherArrivalRules.Eligible(arrival.ProfileReady, arrival.OpportunitySpent,
+                arrival.EntryAge = Math.Min(arrival.EntryAge + 1, ShiFuArrivalRules.EntryDelay + 120);
+            if (!ShiFuArrivalRules.Eligible(arrival.ProfileReady, arrival.OpportunitySpent,
                     spentCharacters.Contains(arrival.CharacterId), !player.dead, arrival.EntryAge) ||
                 (Main.GameUpdateCount + (ulong)player.whoAmI * 7) % 60 != 0 ||
                 arrivals.Count >= MaximumPending || nextId == int.MaxValue || !presentationReady)
@@ -154,9 +154,9 @@ public sealed class TeacherArrivalSystem : ModSystem
         }
     }
 
-    private void StartArrival(Player player, TeacherArrivalPlayer arrival, Vector2 landing)
+    private void StartArrival(Player player, ShiFuArrivalPlayer arrival, Vector2 landing)
     {
-        var record = new TeacherArrivalRecord {
+        var record = new ShiFuArrivalRecord {
             Id = nextId++, CharacterId = arrival.CharacterId, Landing = landing
         };
         arrivals.Add(record.Id, record);
@@ -182,11 +182,11 @@ public sealed class TeacherArrivalSystem : ModSystem
     private void StartDebugArrival(Vector2 target)
     {
         // Only engine safety limits apply. No profile, lifetime, delay, surface, roof or visibility gate.
-        if (Main.netMode == NetmodeID.MultiplayerClient || !TeacherArrivalRules.Finite(target) ||
+        if (Main.netMode == NetmodeID.MultiplayerClient || !ShiFuArrivalRules.Finite(target) ||
             arrivals.Count >= MaximumPending || nextId == int.MaxValue)
             return;
         Vector2 landing = FindDebugLanding(target);
-        var record = new TeacherArrivalRecord {
+        var record = new ShiFuArrivalRecord {
             Id = nextId++, CharacterId = Guid.Empty, IsDebug = true, Landing = landing
         };
         arrivals.Add(record.Id, record);
@@ -214,7 +214,7 @@ public sealed class TeacherArrivalSystem : ModSystem
         return new Vector2(x * 16f + 8f, y * 16f + 7f);
     }
 
-    private void BeginPresentation(TeacherArrivalRecord record)
+    private void BeginPresentation(ShiFuArrivalRecord record)
     {
         Broadcast(record);
         MaintainProjection(record);
@@ -229,29 +229,29 @@ public sealed class TeacherArrivalSystem : ModSystem
         }
     }
 
-    private void MaintainProjection(TeacherArrivalRecord record)
+    private void MaintainProjection(ShiFuArrivalRecord record)
     {
-        bool needProjection = record.Age < TeacherArrivalRules.LandingAge || record.ItemIndex < 0;
+        bool needProjection = record.Age < ShiFuArrivalRules.LandingAge || record.ItemIndex < 0;
         if (!needProjection)
             return;
         if (Main.projectile.IndexInRange(record.ProjectionIndex) &&
             Main.projectile[record.ProjectionIndex] is Projectile current && current.active &&
-            current.type == ModContent.ProjectileType<TeacherArrivalProjectile>() && (int)current.ai[0] == record.Id)
+            current.type == ModContent.ProjectileType<ShiFuArrivalProjectile>() && (int)current.ai[0] == record.Id)
             return;
         if (Main.GameUpdateCount % 30 != 0 && record.Age > 0)
             return;
-        record.ProjectionIndex = Projectile.NewProjectile(new EntitySource_Misc("TeacherArrival"),
-            record.Landing, Vector2.Zero, ModContent.ProjectileType<TeacherArrivalProjectile>(),
+        record.ProjectionIndex = Projectile.NewProjectile(new EntitySource_Misc("ShiFuArrival"),
+            record.Landing, Vector2.Zero, ModContent.ProjectileType<ShiFuArrivalProjectile>(),
             0, 0f, Main.myPlayer, record.Id);
     }
 
-    private void MaintainWorldItem(TeacherArrivalRecord record)
+    private void MaintainWorldItem(ShiFuArrivalRecord record)
     {
         if (Main.item.IndexInRange(record.ItemIndex))
         {
             Item current = Main.item[record.ItemIndex];
-            if (current.active && current.type == ModContent.ItemType<Teacher>() &&
-                current.GetGlobalItem<TeacherArrivalWorldItem>().ArrivalId == record.Id)
+            if (current.active && current.type == ModContent.ItemType<ShiFu>() &&
+                current.GetGlobalItem<ShiFuArrivalWorldItem>().ArrivalId == record.Id)
             {
                 record.MissingItemTicks = 0;
                 return;
@@ -263,8 +263,8 @@ public sealed class TeacherArrivalSystem : ModSystem
         }
         // Cooperate with world-item persistence mods / soft reloads: adopt an existing projection.
         for (int i = 0; i < Main.maxItems; i++)
-            if (Main.item[i].active && Main.item[i].type == ModContent.ItemType<Teacher>() &&
-                Main.item[i].GetGlobalItem<TeacherArrivalWorldItem>().ArrivalId == record.Id)
+            if (Main.item[i].active && Main.item[i].type == ModContent.ItemType<ShiFu>() &&
+                Main.item[i].GetGlobalItem<ShiFuArrivalWorldItem>().ArrivalId == record.Id)
             {
                 record.ItemIndex = i;
                 return;
@@ -275,12 +275,12 @@ public sealed class TeacherArrivalSystem : ModSystem
             if (!Main.item[i].active && Main.timeItemSlotCannotBeReusedFor[i] == 0) { free = true; break; }
         if (!free)
             return;
-        int index = Item.NewItem(new EntitySource_Misc("TeacherArrivalLanding"), record.Landing,
-            ModContent.ItemType<Teacher>(), 1, noBroadcast: true, noGrabDelay: true);
+        int index = Item.NewItem(new EntitySource_Misc("ShiFuArrivalLanding"), record.Landing,
+            ModContent.ItemType<ShiFu>(), 1, noBroadcast: true, noGrabDelay: true);
         if (index < 0 || index >= Main.maxItems)
             return;
         Item item = Main.item[index];
-        item.GetGlobalItem<TeacherArrivalWorldItem>().Plant(record.Id, record.Landing, record.Age);
+        item.GetGlobalItem<ShiFuArrivalWorldItem>().Plant(record.Id, record.Landing, record.Age);
         item.velocity = Vector2.Zero;
         item.Center = record.Landing - Vector2.UnitY * 30f;
         item.newAndShiny = false;
@@ -294,7 +294,7 @@ public sealed class TeacherArrivalSystem : ModSystem
     private bool TryFindLanding(Player player, out Vector2 landing)
     {
         landing = default;
-        if (!TeacherArrivalRules.Finite(player.Center) || player.Center.Y > Main.worldSurface * 16f ||
+        if (!ShiFuArrivalRules.Finite(player.Center) || player.Center.Y > Main.worldSurface * 16f ||
             player.Center.Y < 320f || player.pulley)
             return false;
         int px = (int)(player.Center.X / 16f);
@@ -323,7 +323,7 @@ public sealed class TeacherArrivalSystem : ModSystem
                         candidate - Vector2.UnitY * 44f, 1, 1))
                     continue;
                 bool occupied = false;
-                foreach (TeacherArrivalRecord other in arrivals.Values)
+                foreach (ShiFuArrivalRecord other in arrivals.Values)
                     if (Vector2.DistanceSquared(other.Landing, candidate) < 80f * 80f) { occupied = true; break; }
                 if (occupied)
                     continue;
@@ -342,18 +342,18 @@ public sealed class TeacherArrivalSystem : ModSystem
             tile.LiquidAmount == 0;
     }
 
-    private static bool ValidPosition(Vector2 p) => TeacherArrivalRules.Finite(p) &&
+    private static bool ValidPosition(Vector2 p) => ShiFuArrivalRules.Finite(p) &&
         p.X >= 160f && p.Y >= 160f && p.X < (Main.maxTilesX - 10) * 16f && p.Y < (Main.maxTilesY - 10) * 16f;
 
     private static ModPacket Packet(Message message)
     {
         ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
-        packet.Write(FranModMain.TeacherArrivalMessage);
+        packet.Write(FranModMain.ShiFuArrivalMessage);
         packet.Write((byte)message);
         return packet;
     }
 
-    internal static void SendProfile(TeacherArrivalPlayer player)
+    internal static void SendProfile(ShiFuArrivalPlayer player)
     {
         if (Main.netMode != NetmodeID.MultiplayerClient)
             return;
@@ -372,7 +372,7 @@ public sealed class TeacherArrivalSystem : ModSystem
         packet.Send();
     }
 
-    private static void Acknowledge(int playerIndex, TeacherArrivalPlayer player)
+    private static void Acknowledge(int playerIndex, ShiFuArrivalPlayer player)
     {
         if (Main.netMode != NetmodeID.Server)
             return;
@@ -382,7 +382,7 @@ public sealed class TeacherArrivalSystem : ModSystem
         packet.Send(playerIndex);
     }
 
-    private static void Broadcast(TeacherArrivalRecord record)
+    private static void Broadcast(ShiFuArrivalRecord record)
     {
         if (Main.netMode != NetmodeID.Server)
             return;
@@ -416,7 +416,7 @@ public sealed class TeacherArrivalSystem : ModSystem
                 Vector2 target = new(reader.ReadSingle(), reader.ReadSingle());
                 // Validate the requesting item, not the ordinary ceremony's eligibility conditions.
                 if (Main.player.IndexInRange(sender) && Main.player[sender].active &&
-                    Main.player[sender].HeldItem.type == ModContent.ItemType<TeacherArrivalDebugger>())
+                    Main.player[sender].HeldItem.type == ModContent.ItemType<ShiFuArrivalDebugger>())
                     Instance.StartDebugArrival(target);
                 break;
             }
@@ -425,7 +425,7 @@ public sealed class TeacherArrivalSystem : ModSystem
                 bool ready = reader.ReadBoolean();
                 if (!Main.player.IndexInRange(sender) || !Main.player[sender].active)
                     return;
-                var player = Main.player[sender].GetModPlayer<TeacherArrivalPlayer>();
+                var player = Main.player[sender].GetModPlayer<ShiFuArrivalPlayer>();
                 player.PresentationReady = ready;
                 player.LastReadinessTick = Main.GameUpdateCount;
                 break;
@@ -436,19 +436,19 @@ public sealed class TeacherArrivalSystem : ModSystem
                 bool spent = reader.ReadBoolean();
                 if (!Main.player.IndexInRange(sender) || !Main.player[sender].active)
                     return;
-                var player = Main.player[sender].GetModPlayer<TeacherArrivalPlayer>();
+                var player = Main.player[sender].GetModPlayer<ShiFuArrivalPlayer>();
                 if (!player.AcceptProfile(id, spent || Instance.spentCharacters.Contains(id)))
                     return;
                 Acknowledge(sender, player);
                 break;
             }
             case Message.Acknowledgement when client:
-                Main.LocalPlayer.GetModPlayer<TeacherArrivalPlayer>().Acknowledge(
+                Main.LocalPlayer.GetModPlayer<ShiFuArrivalPlayer>().Acknowledge(
                     new Guid(reader.ReadBytes(16)), reader.ReadBoolean());
                 break;
             case Message.Event when client:
             {
-                TeacherArrivalRecord record = ReadRecord(reader);
+                ShiFuArrivalRecord record = ReadRecord(reader);
                 if (ValidPosition(record.Landing) && record.Id > 0)
                     Instance.arrivals[record.Id] = record;
                 break;
@@ -459,8 +459,8 @@ public sealed class TeacherArrivalSystem : ModSystem
                 int index = reader.ReadInt16();
                 // Death can arrive ahead of this notification under latency; native item ownership is authoritative.
                 if (!Main.player.IndexInRange(sender) || !Main.player[sender].active ||
-                    !Instance.arrivals.TryGetValue(id, out TeacherArrivalRecord record) || record.ItemIndex != index ||
-                    record.Age < TeacherArrivalRules.LandingAge + TeacherArrivalRules.HighlightHold ||
+                    !Instance.arrivals.TryGetValue(id, out ShiFuArrivalRecord record) || record.ItemIndex != index ||
+                    record.Age < ShiFuArrivalRules.LandingAge + ShiFuArrivalRules.HighlightHold ||
                     index < 0 || index >= Main.maxItems ||
                     (Main.item[index].playerIndexTheItemIsReservedFor != sender &&
                      Vector2.DistanceSquared(Main.player[sender].Center, record.Landing) > 240f * 240f))
@@ -478,7 +478,7 @@ public sealed class TeacherArrivalSystem : ModSystem
         }
     }
 
-    private static void WriteRecord(BinaryWriter writer, TeacherArrivalRecord record)
+    private static void WriteRecord(BinaryWriter writer, ShiFuArrivalRecord record)
     {
         writer.Write(record.Id);
         writer.Write(record.CharacterId.ToByteArray());
@@ -489,10 +489,10 @@ public sealed class TeacherArrivalSystem : ModSystem
         writer.Write(record.IsDebug);
     }
 
-    private static TeacherArrivalRecord ReadRecord(BinaryReader reader) => new() {
+    private static ShiFuArrivalRecord ReadRecord(BinaryReader reader) => new() {
         Id = reader.ReadInt32(), CharacterId = new Guid(reader.ReadBytes(16)),
         Landing = new Vector2(reader.ReadSingle(), reader.ReadSingle()),
-        Age = Math.Clamp(reader.ReadInt32(), 0, TeacherArrivalRules.SettledAge),
+        Age = Math.Clamp(reader.ReadInt32(), 0, ShiFuArrivalRules.SettledAge),
         ItemIndex = reader.ReadInt16(), IsDebug = reader.ReadBoolean()
     };
 }

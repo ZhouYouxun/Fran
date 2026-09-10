@@ -30,7 +30,7 @@ public sealed class FranModMain : Mod
     private const byte SubmitEvolutionProfileMessage = 8;
     private const byte RequestBossProgressChangeMessage = 9;
     private const byte SyncTacticLoadoutMessage = 10;
-    internal const byte TeacherArrivalMessage = 11;
+    internal const byte ShiFuArrivalMessage = 11;
     public static ModKeybind SkillWheelKey { get; private set; }
     public static ModKeybind UltimateKey { get; private set; }
     public static ModKeybind DashKey { get; private set; }
@@ -40,7 +40,7 @@ public sealed class FranModMain : Mod
 
     public override void Load()
     {
-        SkillWheelKey = KeybindLoader.RegisterKeybind(this, "SkillWheel", "V");
+        SkillWheelKey = KeybindLoader.RegisterKeybind(this, "SkillWheel", "None");
         UltimateKey = KeybindLoader.RegisterKeybind(this, "PotentialRelease", "G");
         DashKey = KeybindLoader.RegisterKeybind(this, "FranDash", "LeftShift");
         EvolutionKey = FranEvolutionInfo.SystemEnabled
@@ -58,7 +58,7 @@ public sealed class FranModMain : Mod
             catch (Exception exception)
             {
                 // A visual-only asset must never prevent the entire character mod from loading.
-                // TeacherSwingRebuild  keeps its layered additive ribbons and weapon afterimages as a fallback.
+                // ShiFuSwingRebuild  keeps its layered additive ribbons and weapon afterimages as a fallback.
                 SlashEffect = null;
                 SlashShaderAvailable = false;
                 Logger.Warn($"Fran slash shader could not be loaded. Falling back to additive drawing. {exception}");
@@ -263,8 +263,8 @@ public sealed class FranModMain : Mod
         byte messageType = reader.ReadByte();
         switch (messageType)
         {
-            case TeacherArrivalMessage:
-                TeacherArrivalSystem.HandlePacket(reader, whoAmI);
+            case ShiFuArrivalMessage:
+                ShiFuArrivalSystem.HandlePacket(reader, whoAmI);
                 break;
             case SyncFranModeMessage:
             {

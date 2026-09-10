@@ -58,8 +58,8 @@ public static partial class FranBalance
     // =====================================================================
     // 基础剑术与弗兰固有属性
     // =====================================================================
-    public static int TeacherUseTimeFrames = 25;             // 师父物品基础使用时间
-    public static float TeacherKnockback = 7f;                // 师父基础击退
+    public static int ShiFuUseTimeFrames = 25;             // 师父物品基础使用时间
+    public static float ShiFuKnockback = 7f;                // 师父基础击退
     public static float FranMeleeDamageBonus = 0.10f;         // 弗兰模式：近战伤害 +10%
     public static float FranMeleeAttackSpeedBonus = 0.10f;    // 弗兰模式：近战攻速 +10%
 
@@ -322,7 +322,7 @@ public static partial class FranBalance
 
     public static float GetComboBaseDuration(int combo) =>
         GetArrayValue(nameof(ComboBaseDurationFrames), ComboBaseDurationFrames, combo,
-            GetFloat(nameof(TeacherUseTimeFrames), TeacherUseTimeFrames));
+            GetFloat(nameof(ShiFuUseTimeFrames), ShiFuUseTimeFrames));
 
     public static int GetQuickdrawAirburstCount(int combo) =>
         GetArrayValue(nameof(QuickdrawAirburstCounts), QuickdrawAirburstCounts, combo, 1);

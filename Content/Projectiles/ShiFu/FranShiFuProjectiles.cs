@@ -18,9 +18,9 @@ using Terraria.ModLoader;
 namespace FranMod.Content.Projectiles;
 
 
-public sealed class FloatingTeacherVisual : ModProjectile
+public sealed class FloatingShiFuVisual : ModProjectile
 {
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
 
     public override void SetDefaults()
     {
@@ -40,11 +40,11 @@ public sealed class FloatingTeacherVisual : ModProjectile
         FranPlayer fran = owner.GetModPlayer<FranPlayer>();
         int flightVisualType = ModContent.ProjectileType<FranTelekineticFlightVisual>();
         bool disabledByOwner = Projectile.owner == Main.myPlayer &&
-            !ModContent.GetInstance<FranClientConfig>().EnableFloatingTeacherVisual;
-        if (disabledByOwner || !owner.active || owner.dead || !fran.HasTeacher || fran.TelekineticFlightVisualActive ||
+            !ModContent.GetInstance<FranClientConfig>().EnableFloatingShiFuVisual;
+        if (disabledByOwner || !owner.active || owner.dead || !fran.HasShiFu || fran.TelekineticFlightVisualActive ||
             owner.ownedProjectileCounts[flightVisualType] > 0 ||
-            owner.HeldItem.type == ModContent.ItemType<Content.Items.Teacher>() ||
-            owner.HeldItem.type == ModContent.ItemType<Content.Items.TeacherExcavationTool>())
+            owner.HeldItem.type == ModContent.ItemType<Content.Items.ShiFu>() ||
+            owner.HeldItem.type == ModContent.ItemType<Content.Items.ShiFuExcavationTool>())
         {
             Projectile.Kill();
             return;
@@ -60,23 +60,23 @@ public sealed class FloatingTeacherVisual : ModProjectile
     public override bool PreDraw(ref Color lightColor)
     {
         Player owner = Main.player[Projectile.owner];
-        Texture2D texture = FranTeacherVisuals.Texture;
+        Texture2D texture = FranShiFuVisuals.Texture;
         Vector2 position = Projectile.Center - Main.screenPosition;
         Vector2 origin = texture.Size() * 0.5f;
         SpriteEffects effects = owner.direction == 1 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         for (int i = 0; i < 5; i++)
             Main.EntitySpriteDraw(texture, position + (MathHelper.TwoPi * i / 5f).ToRotationVector2() * 2f, null,
                 new Color(100, 205, 255) * 0.28f, Projectile.rotation, origin,
-                0.82f * FranTeacherVisuals.TextureScale, effects, 0f);
+                0.82f * FranShiFuVisuals.TextureScale, effects, 0f);
         Main.EntitySpriteDraw(texture, position, null, lightColor, Projectile.rotation, origin,
-            0.82f * FranTeacherVisuals.TextureScale, effects, 0f);
+            0.82f * FranShiFuVisuals.TextureScale, effects, 0f);
         return false;
     }
 }
 
 public sealed class TelekineticCannonProjectile : ModProjectile
 {
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
     public override void SetStaticDefaults()
     {
         ProjectileID.Sets.TrailCacheLength[Type] = 10;
@@ -170,10 +170,10 @@ public sealed class TelekineticCannonProjectile : ModProjectile
             -Projectile.rotation * 0.35f, 0.10f * pulse);
         FranVfx.EndAdditive();
 
-        Texture2D texture = FranTeacherVisuals.Texture;
+        Texture2D texture = FranShiFuVisuals.Texture;
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(lightColor, Color.White, 0.22f), Projectile.rotation, texture.Size() * 0.5f,
-            0.92f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
+            0.92f * FranShiFuVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 
@@ -199,7 +199,7 @@ public sealed class TelekineticCannonProjectile : ModProjectile
     }
 }
 
-internal static class TeacherWaveVisuals
+internal static class ShiFuWaveVisuals
 {
     public static void GetPalette(int stage, int element, out Color deep, out Color body, out Color edge)
     {
@@ -239,7 +239,7 @@ internal static class TeacherWaveVisuals
 }
 
 // 五层错位灰度波纹分别控制横向与纵向扩张，避免所有层完全重合。
-public sealed class TeacherCrescentWave : ModProjectile
+public sealed class ShiFuCrescentWave : ModProjectile
 {
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -295,7 +295,7 @@ public sealed class TeacherCrescentWave : ModProjectile
         Projectile.rotation = Projectile.velocity.ToRotation();
         if (!Main.dedServ && age > 3f && age < 58f)
         {
-            TeacherWaveVisuals.GetPalette(Stage, Element, out _, out Color wakeColor, out _);
+            ShiFuWaveVisuals.GetPalette(Stage, Element, out _, out Color wakeColor, out _);
             FranParticleEffects.CrescentWake(Projectile.Center, Projectile.velocity, wakeColor, FaceLength);
         }
         if (!Main.dedServ && age > 3f && age < 58f)
@@ -311,7 +311,7 @@ public sealed class TeacherCrescentWave : ModProjectile
                 dust.noGravity = true;
             }
         }
-        TeacherWaveVisuals.Light(Projectile.Center, Element, 0.9f);
+        ShiFuWaveVisuals.Light(Projectile.Center, Element, 0.9f);
     }
 
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
@@ -327,7 +327,7 @@ public sealed class TeacherCrescentWave : ModProjectile
         float age = 72f - Projectile.timeLeft;
         float opacity = FranMotion.Smooth(FranMotion.Segment(age, 0f, 5f)) *
             (1f - FranMotion.Smooth(FranMotion.Segment(age, 57f, 72f)));
-        TeacherWaveVisuals.GetPalette(Stage, Element, out Color deep, out Color body, out Color edge);
+        ShiFuWaveVisuals.GetPalette(Stage, Element, out Color deep, out Color body, out Color edge);
         Texture2D wave = FranVfx.Shared("FranVfx_JudgementWave");
         float waveFade = Utils.GetLerpValue(0f, 57f, Projectile.timeLeft, true);
         float expansion = MathHelper.Lerp(0.72f, 1.08f, FranMotion.Smooth(FranMotion.Segment(age, 0f, 27f)));
@@ -378,13 +378,13 @@ public sealed class TeacherCrescentWave : ModProjectile
     }
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone) =>
-        TeacherWaveVisuals.Hit(Projectile, target, Element, 0.48f, 7, 4.5f);
+        ShiFuWaveVisuals.Hit(Projectile, target, Element, 0.48f, 7, 4.5f);
 
-    public override void OnKill(int timeLeft) => TeacherWaveVisuals.Death(Projectile, Element, 0.42f, 10, 4.2f);
+    public override void OnKill(int timeLeft) => ShiFuWaveVisuals.Death(Projectile, Element, 0.42f, 10, 4.2f);
 }
 
 // 星光质量体依次经历悬停、锁定与突进；主体淡出后，拖尾继续完成闭合。
-public sealed class TeacherStarlightMass : ModProjectile
+public sealed class ShiFuStarlightMass : ModProjectile
 {
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -459,7 +459,7 @@ public sealed class TeacherStarlightMass : ModProjectile
 
         if (!Main.dedServ)
         {
-            TeacherWaveVisuals.GetPalette(Stage, Element, out _, out Color body, out Color edge);
+            ShiFuWaveVisuals.GetPalette(Stage, Element, out _, out Color body, out Color edge);
             if (age < 30f)
                 FranParticleEffects.StarlightOrbit(Projectile.Center, Color.Lerp(body, edge, 0.5f), age);
             else
@@ -473,7 +473,7 @@ public sealed class TeacherStarlightMass : ModProjectile
                 60, default, Main.rand.NextFloat(0.78f, 1.08f));
             dust.noGravity = true;
         }
-        TeacherWaveVisuals.Light(Projectile.Center, Element, age < 30f ? 0.82f : 1.05f);
+        ShiFuWaveVisuals.Light(Projectile.Center, Element, age < 30f ? 0.82f : 1.05f);
     }
 
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
@@ -488,7 +488,7 @@ public sealed class TeacherStarlightMass : ModProjectile
     {
         float age = Projectile.localAI[0];
         float fakeOpacity = FakeKilling ? 1f - FranMotion.Clamp01(Projectile.localAI[1] / 36f) : 1f;
-        TeacherWaveVisuals.GetPalette(Stage, Element, out Color deep, out Color body, out Color edge);
+        ShiFuWaveVisuals.GetPalette(Stage, Element, out Color deep, out Color body, out Color edge);
         Color deepAdditive = deep;
         Color bodyAdditive = body;
         Color edgeAdditive = edge;
@@ -546,7 +546,7 @@ public sealed class TeacherStarlightMass : ModProjectile
         Projectile.netUpdate = true;
         if (!Main.dedServ)
         {
-            TeacherWaveVisuals.GetPalette(Stage, Element, out _, out Color body, out Color edge);
+            ShiFuWaveVisuals.GetPalette(Stage, Element, out _, out Color body, out Color edge);
             FranParticleEffects.Implosion(Projectile.Center, Color.Lerp(body, edge, 0.55f), 1.05f);
             for (int i = 0; i < 8; i++)
             {
@@ -560,13 +560,13 @@ public sealed class TeacherStarlightMass : ModProjectile
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
-        TeacherWaveVisuals.Hit(Projectile, target, Element, 0.48f, 8, 5.2f);
+        ShiFuWaveVisuals.Hit(Projectile, target, Element, 0.48f, 8, 5.2f);
         TriggerFakeKill();
     }
 }
 
 // 终结波先减速压缩，再蓄势突进并在末端坍缩。
-public sealed class TeacherCompressionWave : ModProjectile
+public sealed class ShiFuCompressionWave : ModProjectile
 {
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -622,7 +622,7 @@ public sealed class TeacherCompressionWave : ModProjectile
 
         if (!Main.dedServ && age > 3f && Projectile.timeLeft > 8)
         {
-            TeacherWaveVisuals.GetPalette(Stage, Element, out _, out Color body, out Color edge);
+            ShiFuWaveVisuals.GetPalette(Stage, Element, out _, out Color body, out Color edge);
             FranParticleEffects.Compression(Projectile.Center, Projectile.velocity,
                 Color.Lerp(body, edge, age > 22f ? 0.58f : 0.22f), age, age >= 22f);
         }
@@ -636,7 +636,7 @@ public sealed class TeacherCompressionWave : ModProjectile
                 70, default, Main.rand.NextFloat(0.88f, 1.24f));
             dust.noGravity = true;
         }
-        TeacherWaveVisuals.Light(Projectile.Center, Element, 1.05f);
+        ShiFuWaveVisuals.Light(Projectile.Center, Element, 1.05f);
     }
 
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
@@ -662,7 +662,7 @@ public sealed class TeacherCompressionWave : ModProjectile
         float release = FranMotion.Smooth(FranMotion.Segment(age, 22f, 34f));
         float radius = MathHelper.Lerp(43f, Stage >= 5 ? 68f : 61f, windup) + release * 7f;
         float spin = Projectile.localAI[1];
-        TeacherWaveVisuals.GetPalette(Stage, Element, out Color deep, out Color body, out Color edge);
+        ShiFuWaveVisuals.GetPalette(Stage, Element, out Color deep, out Color body, out Color edge);
 
         Color deepAdditive = deep;
         Color bodyAdditive = body;
@@ -732,8 +732,8 @@ public sealed class TeacherCompressionWave : ModProjectile
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
         Projectile.velocity *= 0.78f;
-        TeacherWaveVisuals.Hit(Projectile, target, Element, 0.74f, 12, 6.3f);
+        ShiFuWaveVisuals.Hit(Projectile, target, Element, 0.74f, 12, 6.3f);
     }
 
-    public override void OnKill(int timeLeft) => TeacherWaveVisuals.Death(Projectile, Element, 0.72f, 16, 5.8f);
+    public override void OnKill(int timeLeft) => ShiFuWaveVisuals.Death(Projectile, Element, 0.72f, 16, 5.8f);
 }

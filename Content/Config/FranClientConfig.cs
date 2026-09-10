@@ -40,7 +40,10 @@ public sealed class FranClientConfig : ModConfig
     public bool EnableVideoPlayback = true;
 
     [DefaultValue(false)]
-    public bool EnableFloatingTeacherVisual;
+    public bool EnableFloatingShiFuVisual;
+
+    [DefaultValue(false)]
+    public bool HoldSkillWheelToOpen;
 
     // The old setting was named ShowUltimateGauge and defaulted to false, which made the
     // three-minute resource invisible on a fresh install.  A negative option also migrates

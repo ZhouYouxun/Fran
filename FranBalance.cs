@@ -10,7 +10,7 @@ public static partial class FranBalance
     // 核心攻击力按流程只升不降；读取时也会以前面各节点的最高值保底。
     public static object[,] CoreProgression =
     {
-        // 世界 Boss / 条件                              攻击力   大小   冲刺伤害
+        // 世界 Boss / 条件                                       攻击力   大小   冲刺伤害
         { FranProgressionMilestone.Initial,                          23,  1.00f,      16 }, // 开局
         { FranProgressionMilestone.EyeOfCthulhu,                     23,  1.00f,      16 }, // 克苏鲁之眼
         { FranProgressionMilestone.AnyEvilBoss,                      26,  1.00f,      16 }, // 邪恶 Boss

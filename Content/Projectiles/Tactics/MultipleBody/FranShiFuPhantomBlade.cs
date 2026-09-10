@@ -14,7 +14,7 @@ using Terraria.ModLoader;
 namespace FranMod.Content.Projectiles;
 
 
-public sealed class FranTeacherPhantomBlade : ModProjectile
+public sealed class FranShiFuPhantomBlade : ModProjectile
 {
     // 分身剑高速突进，接触目标后减速并逐步散去。
     private const float SeraphimInitialSpeed = 64f;
@@ -34,7 +34,7 @@ public sealed class FranTeacherPhantomBlade : ModProjectile
     private float LaunchDelay => HasInitialEnemy ? StoredDelay : 1f;
     private float Age => Projectile.localAI[0];
 
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
 
     public override void SetStaticDefaults()
     {
@@ -231,7 +231,7 @@ public sealed class FranTeacherPhantomBlade : ModProjectile
 
     public override bool PreDraw(ref Color lightColor)
     {
-        Texture2D texture = FranTeacherVisuals.Texture;
+        Texture2D texture = FranShiFuVisuals.Texture;
         Vector2 origin = texture.Size() * 0.5f;
         if (!Dissipating && Age >= LaunchDelay && !FranProjectileTrailRenderer.TryDraw(Projectile,
                 FranProjectileTrailProfile.SpectralBlade, new Color(18, 40, 62),
@@ -244,15 +244,15 @@ public sealed class FranTeacherPhantomBlade : ModProjectile
             Projectile.velocity).SafeNormalize(Vector2.UnitX);
         if (Dissipating)
         {
-            Texture2D ghostTexture = FranTeacherVisuals.GhostTexture;
+            Texture2D ghostTexture = FranShiFuVisuals.GhostTexture;
             Vector2 ghostOrigin = ghostTexture.Size() * 0.5f;
             Vector2 baseDrawPosition = Projectile.Center - Main.screenPosition;
             float endFade = Utils.GetLerpValue(0f, 12f, Projectile.timeLeft, true);
-            float drawScale = 0.68f * FranTeacherVisuals.TextureScale;
+            float drawScale = 0.68f * FranShiFuVisuals.TextureScale;
             float flashPulse = DissipationFlashPulse();
             float spreadCompletion = FranMotion.Smooth(FranMotion.Segment(
                 DissipationAge, 0f, SeraphimSlowdownTime * 0.64f));
-            float spreadRadius = spreadCompletion * 16f * FranTeacherVisuals.WorldSizeMultiplier;
+            float spreadRadius = spreadCompletion * 16f * FranShiFuVisuals.WorldSizeMultiplier;
             Color spreadColor = Color.Lerp(new Color(35, 125, 255),
                 new Color(190, 235, 255), flashPulse) *
                 (endFade * MathF.Sqrt(Math.Max(0f, Projectile.Opacity)) *
@@ -316,7 +316,7 @@ public sealed class FranTeacherPhantomBlade : ModProjectile
 
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(new Color(90, 135, 175), Color.White, 0.66f) * Projectile.Opacity,
-            Projectile.rotation, origin, 0.68f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
+            Projectile.rotation, origin, 0.68f * FranShiFuVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 

@@ -36,13 +36,13 @@ public sealed class FranEvolutionUISystem : ModSystem
     // by branch so old saves continue to mean the same thing.
     private static readonly Vector2[] NormalizedNodePositions =
     [
-        // Teacher: original four-star spine.
+        // ShiFu: original four-star spine.
         new(0.50f, 0.43f), new(0.44f, 0.35f), new(0.40f, 0.25f), new(0.45f, 0.14f),
         // Fran: original four-star spine.
         new(0.43f, 0.54f), new(0.35f, 0.58f), new(0.27f, 0.65f), new(0.18f, 0.74f),
         // Bond: original four-star spine.
         new(0.57f, 0.54f), new(0.65f, 0.58f), new(0.73f, 0.65f), new(0.82f, 0.74f),
-        // Teacher additions: 7 stars total.
+        // ShiFu additions: 7 stars total.
         new(0.56f, 0.35f), new(0.61f, 0.25f), new(0.55f, 0.14f),
         // Fran additions: 9 stars total.
         new(0.39f, 0.68f), new(0.31f, 0.76f), new(0.24f, 0.55f), new(0.15f, 0.61f),
@@ -108,7 +108,7 @@ public sealed class FranEvolutionUISystem : ModSystem
 
         Player player = Main.LocalPlayer;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
-        bool allowed = !player.dead && (fran.FranMode || fran.HasTeacher);
+        bool allowed = !player.dead && (fran.FranMode || fran.HasShiFu);
         Rectangle entryButton = GetEntryButton();
         bool entryHovered = allowed && !open && entryButton.Contains(Main.MouseScreen.ToPoint());
 
@@ -158,7 +158,7 @@ public sealed class FranEvolutionUISystem : ModSystem
         if (Main.gameMenu || Main.LocalPlayer is null)
             return true;
         FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
-        if (!fran.FranMode && !fran.HasTeacher)
+        if (!fran.FranMode && !fran.HasShiFu)
             return true;
 
         if (!open)
@@ -324,9 +324,9 @@ public sealed class FranEvolutionUISystem : ModSystem
 
     private static void DrawBranchLabels(Rectangle canvas)
     {
-        DrawCenteredText(Language.GetTextValue("Mods.Fran.Evolution.Branches.Teacher"),
+        DrawCenteredText(Language.GetTextValue("Mods.Fran.Evolution.Branches.ShiFu"),
             canvas.TopLeft() + new Vector2(0.50f, 0.085f) * canvas.Size(),
-            FranEvolutionInfo.BranchColor(FranEvolutionBranch.Teacher), 0.72f);
+            FranEvolutionInfo.BranchColor(FranEvolutionBranch.ShiFu), 0.72f);
         DrawCenteredText(Language.GetTextValue("Mods.Fran.Evolution.Branches.Fran"),
             canvas.TopLeft() + new Vector2(0.17f, 0.49f) * canvas.Size(),
             FranEvolutionInfo.BranchColor(FranEvolutionBranch.Fran), 0.72f);

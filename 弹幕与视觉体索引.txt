@@ -10,11 +10,11 @@ Fran 弹幕与视觉体索引
 
 【师父本体与基础剑术】
 
-内部英文名：TeacherSwingRebuild
+内部英文名：ShiFuSwingRebuild
 显示中文名：未本地化：师父四段剑术
 一句话描述：师父左键四段基础近战连击的核心持剑弹幕，负责挥砍轨迹、剑体命中和战术印记触发。
 
-内部英文名：FloatingTeacherVisual
+内部英文名：FloatingShiFuVisual
 显示中文名：未本地化：浮游师父
 一句话描述：当师父不在手持状态时显示在玩家身后的背包浮游视觉体。
 
@@ -22,15 +22,15 @@ Fran 弹幕与视觉体索引
 显示中文名：未本地化：念动炮形态
 一句话描述：师父的旧式/通用念动炮视觉与发射载体，用于部分师父投射表现。
 
-内部英文名：TeacherCrescentWave
+内部英文名：ShiFuCrescentWave
 显示中文名：未本地化：师父月牙斩波
 一句话描述：师父释放的月牙形剑气弹幕，沿前方飞行并造成近战系伤害。
 
-内部英文名：TeacherStarlightMass
+内部英文名：ShiFuStarlightMass
 显示中文名：未本地化：师父星光团
 一句话描述：师父释放的星光团弹幕，负责蓄积、追踪或爆发式星光打击。
 
-内部英文名：TeacherCompressionWave
+内部英文名：ShiFuCompressionWave
 显示中文名：未本地化：师父压缩波
 一句话描述：师父释放的压缩能量波，用于空气压缩或重压式远程斩击表现。
 
@@ -114,7 +114,7 @@ Fran 弹幕与视觉体索引
 
 【多重分体】
 
-内部英文名：FranTeacherPhantomBlade
+内部英文名：FranShiFuPhantomBlade
 显示中文名：师父幻影剑
 一句话描述：多重分体召唤出的师父幻影剑，短暂停驻后向目标突进。
 
@@ -318,7 +318,7 @@ Fran 弹幕与视觉体索引
 
 【师父降临与世界演出】
 
-内部英文名：TeacherArrivalProjectile
+内部英文名：ShiFuArrivalProjectile
 显示中文名：师父·雷霆降临
 一句话描述：新角色正式遇见师父时从天降下的降临演出和可拾取物提示。
 

@@ -307,7 +307,7 @@ internal sealed class FranLightingBoltsSystem : ModSystem
     /// 普通前三剑的原版池化闪光点缀。三种节奏分别使用十字闪、沿弧双闪与向刃聚拢，
     /// 只补充原有自定义粒子，不把不同剑式统一成同一种雷电效果。
     /// </summary>
-    public static void SpawnTeacherSwingAccent(Vector2 position, Vector2 bladeDirection,
+    public static void SpawnShiFuSwingAccent(Vector2 position, Vector2 bladeDirection,
         Vector2 tangent, Color color, int combo, float intensity, int tick)
     {
         if (Main.dedServ || combo is < 0 or > 2 || intensity <= 0.08f)
@@ -360,7 +360,7 @@ internal sealed class FranLightingBoltsSystem : ModSystem
     }
 
     /// <summary>第四刀的螺旋点列、横向闪星与退场碎光，按阶段切换运动方向。</summary>
-    public static void SpawnTeacherFinisherTrack(Vector2 origin, Vector2 bladeDirection,
+    public static void SpawnShiFuFinisherTrack(Vector2 origin, Vector2 bladeDirection,
         float reach, Color color, float progress, int tick)
     {
         if (Main.dedServ || (tick & 1) != 0)
@@ -382,7 +382,7 @@ internal sealed class FranLightingBoltsSystem : ModSystem
     }
 
     /// <summary>CLCB 星格的布局思路：少量错落光点加一枚十字主星，不铺满白色光带。</summary>
-    public static void SpawnTeacherFinisherBurst(Vector2 center, Vector2 bladeDirection,
+    public static void SpawnShiFuFinisherBurst(Vector2 center, Vector2 bladeDirection,
         Color color, float scale = 1f)
     {
         if (Main.dedServ)

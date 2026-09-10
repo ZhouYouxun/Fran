@@ -16,14 +16,22 @@ using Terraria.UI.Chat;
 
 namespace FranMod.Content.Items;
 
-public sealed class Teacher : ModItem
+public sealed class ShiFu : ModItem
 {
-    private const string LeftClickTechniqueLineName = "LeftClickTechnique";
+    private const string GuidanceLinePrefix = "ShiFuGuidance";
+    private const string GoldenEvolutionRoadLineName = "GoldenEvolutionRoad";
     private const string TacticSelectionLineName = "TacticSelection";
     private const string FullLoadoutStatusLineName = "FullLoadoutStatus";
     private const int TacticIconTooltipWidthPadding = 36;
+    private static readonly Color[] GuidanceLineColors =
+    [
+        new(126, 212, 255),
+        new(157, 226, 255),
+        new(150, 235, 190),
+        new(190, 198, 255)
+    ];
 
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
 
     // The held projectile draws the sword; hiding the item graphic must not exclude melee prefixes.
     public override bool MeleePrefix() => true;
@@ -39,17 +47,17 @@ public sealed class Teacher : ModItem
         Item.height = 74;
         Item.damage = FranBalance.GetInitialBaseDamage();
         Item.DamageType = DamageClass.Melee;
-        Item.knockBack = FranBalance.GetFloat(nameof(FranBalance.TeacherKnockback), FranBalance.TeacherKnockback);
-        Item.useTime = FranBalance.GetInt(nameof(FranBalance.TeacherUseTimeFrames), FranBalance.TeacherUseTimeFrames);
+        Item.knockBack = FranBalance.GetFloat(nameof(FranBalance.ShiFuKnockback), FranBalance.ShiFuKnockback);
+        Item.useTime = FranBalance.GetInt(nameof(FranBalance.ShiFuUseTimeFrames), FranBalance.ShiFuUseTimeFrames);
         Item.useAnimation = Item.useTime;
         Item.useStyle = ItemUseStyleID.Shoot;
         Item.noUseGraphic = true;
         Item.noMelee = true;
         Item.channel = true;
         Item.autoReuse = true;
-        Item.shoot = ModContent.ProjectileType<TeacherSwingRebuild>();
+        Item.shoot = ModContent.ProjectileType<ShiFuSwingRebuild>();
         Item.shootSpeed = 1f;
-        Item.rare = ModContent.RarityType<TeacherPrismaticRarity>();
+        Item.rare = ModContent.RarityType<ShiFuPrismaticRarity>();
         Item.value = 0;
     }
 
@@ -71,15 +79,15 @@ public sealed class Teacher : ModItem
             return false;
         }
 
-        Item.useTime = FranBalance.GetInt(nameof(FranBalance.TeacherUseTimeFrames), FranBalance.TeacherUseTimeFrames);
+        Item.useTime = FranBalance.GetInt(nameof(FranBalance.ShiFuUseTimeFrames), FranBalance.ShiFuUseTimeFrames);
         Item.useAnimation = Item.useTime;
-        Item.knockBack = FranBalance.GetFloat(nameof(FranBalance.TeacherKnockback), FranBalance.TeacherKnockback);
+        Item.knockBack = FranBalance.GetFloat(nameof(FranBalance.ShiFuKnockback), FranBalance.ShiFuKnockback);
         Item.channel = true;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
         Item.shoot = fran.IsFullTacticLoadout(FranSkill.PressurizedQuickdraw)
             ? ModContent.ProjectileType<FranQuickdrawDiscHoldout>()
-            : ModContent.ProjectileType<TeacherSwingRebuild>();
-        return player.ownedProjectileCounts[ModContent.ProjectileType<TeacherSwingRebuild>()] == 0 &&
+            : ModContent.ProjectileType<ShiFuSwingRebuild>();
+        return player.ownedProjectileCounts[ModContent.ProjectileType<ShiFuSwingRebuild>()] == 0 &&
             player.ownedProjectileCounts[ModContent.ProjectileType<FranQuickdrawDiscHoldout>()] == 0;
     }
 
@@ -98,8 +106,11 @@ public sealed class Teacher : ModItem
             fran.ComboReset = 0;
             int layers = Math.Clamp(fran.GetSkillStacks(FranSkill.PressurizedQuickdraw),
                 1, FranPlayer.MaximumTacticSlots);
+            float discKnockback = knockback * FranBalance.GetFloat(
+                nameof(FranBalance.QuickdrawFullDiscKnockbackMultiplier),
+                FranBalance.QuickdrawFullDiscKnockbackMultiplier);
             Projectile.NewProjectile(source, player.MountedCenter, aim,
-                ModContent.ProjectileType<FranQuickdrawDiscHoldout>(), damage, knockback,
+                ModContent.ProjectileType<FranQuickdrawDiscHoldout>(), damage, discKnockback,
                 player.whoAmI, layers);
             return false;
         }
@@ -120,7 +131,7 @@ public sealed class Teacher : ModItem
         int projectileIndex = Projectile.NewProjectile(source, player.MountedCenter, aim, type, damage, knockback, player.whoAmI,
             combo, duration, packedImprint);
         if (Main.projectile.IndexInRange(projectileIndex) &&
-            Main.projectile[projectileIndex].ModProjectile is TeacherSwingRebuild swing)
+            Main.projectile[projectileIndex].ModProjectile is ShiFuSwingRebuild swing)
         {
             swing.SetTactics(fran.GetActiveTacticSnapshot());
             Main.projectile[projectileIndex].netUpdate = true;
@@ -135,46 +146,38 @@ public sealed class Teacher : ModItem
 
     public override void ModifyTooltips(List<TooltipLine> tooltips)
     {
-        ApplyLeftClickTechniqueGoldenEffect(tooltips);
+        ApplyGuidanceLineColors(tooltips);
         FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
         InsertUltimateTooltip(tooltips, fran);
         InsertTacticStatus(tooltips, fran);
+        InsertEvolutionAndMovementStatus(tooltips, fran);
 
-        if (FranEvolutionInfo.SystemEnabled)
-            tooltips.Add(new TooltipLine(Mod, "Evolution", Language.GetTextValue("Mods.Fran.Evolution.Tooltip"))
-            { OverrideColor = new Color(195, 178, 245) });
-
-        tooltips.Add(new TooltipLine(Mod, "FranDashStatus", BuildDashStatus())
-        { OverrideColor = new Color(130, 235, 195) });
-
-        bool flightEnabled = Main.hardMode && !fran.HasExternalWings;
-        tooltips.Add(new TooltipLine(Mod, "FranFlightStatus", BuildFlightStatus(fran))
-        { OverrideColor = flightEnabled ? new Color(105, 205, 255) : new Color(165, 175, 190) });
-
+        tooltips.Add(new TooltipLine(Mod, GoldenEvolutionRoadLineName,
+            Language.GetTextValue("Mods.Fran.Items.ShiFu.GoldenEvolutionRoad"))
+        { OverrideColor = new Color(241, 190, 76) });
     }
 
-    // Tooltip0 是本地化 Description 的第一行：左键剑术说明。
-    // 单独替换为模组行后，才能复用原占位行所用的金色动态绘制。
-    private void ApplyLeftClickTechniqueGoldenEffect(List<TooltipLine> tooltips)
+    private void ApplyGuidanceLineColors(List<TooltipLine> tooltips)
     {
-        int leftClickLineIndex = tooltips.FindIndex(line => line.Mod == "Terraria" && line.Name == "Tooltip0");
-        if (leftClickLineIndex < 0)
-            return;
+        for (int i = 0; i < GuidanceLineColors.Length; i++)
+        {
+            int index = tooltips.FindIndex(line => line.Mod == "Terraria" && line.Name == $"Tooltip{i}");
+            if (index < 0)
+                continue;
 
-        string text = tooltips[leftClickLineIndex].Text;
-        tooltips[leftClickLineIndex] = new TooltipLine(Mod, LeftClickTechniqueLineName, text)
-        { OverrideColor = new Color(241, 190, 76) };
+            tooltips[index] = new TooltipLine(Mod, $"{GuidanceLinePrefix}{i}", tooltips[index].Text)
+            { OverrideColor = GuidanceLineColors[i] };
+        }
     }
 
     private void InsertUltimateTooltip(List<TooltipLine> tooltips, FranPlayer fran)
     {
         string key = fran.UltimateUnlocked ? "UltimateTooltip" : "UltimateLocked";
         string text = fran.UltimateUnlocked
-            ? Language.GetTextValue($"Mods.Fran.Items.Teacher.{key}",
+            ? Language.GetTextValue($"Mods.Fran.Items.ShiFu.{key}",
                 GetAssignedKeyOrUnbound(FranModMain.UltimateKey))
-            : Language.GetTextValue($"Mods.Fran.Items.Teacher.{key}");
-        int index = tooltips.FindLastIndex(line =>
-            line.Mod == "Terraria" && line.Name.StartsWith("Tooltip", StringComparison.Ordinal)) + 1;
+            : Language.GetTextValue($"Mods.Fran.Items.ShiFu.{key}");
+        int index = FindGuidanceEndIndex(tooltips);
         int lineNumber = 0;
         foreach (string line in text.Split('\n'))
             tooltips.Insert(index++, new TooltipLine(Mod, $"Ultimate{lineNumber++}", line.TrimEnd('\r')));
@@ -183,7 +186,7 @@ public sealed class Teacher : ModItem
     private void InsertTacticStatus(List<TooltipLine> tooltips, FranPlayer fran)
     {
         TooltipLine selectionLine = new(Mod, TacticSelectionLineName,
-            Language.GetTextValue("Mods.Fran.Items.Teacher.TacticSelection") +
+            Language.GetTextValue("Mods.Fran.Items.ShiFu.TacticSelection") +
             new string(' ', TacticIconTooltipWidthPadding) + "\n ")
         { OverrideColor = new Color(150, 215, 255) };
 
@@ -191,9 +194,9 @@ public sealed class Teacher : ModItem
         bool fullLoadoutActive = FranSkillInfo.IsRealSkill(fullLoadoutSkill) &&
             fran.IsFullTacticLoadout(fullLoadoutSkill);
         string fullLoadoutText = fullLoadoutActive
-            ? Language.GetTextValue("Mods.Fran.Items.Teacher.FullLoadoutActive",
+            ? Language.GetTextValue("Mods.Fran.Items.ShiFu.FullLoadoutActive",
                 FranSkillInfo.Name(fullLoadoutSkill), GetFullLoadoutEffectText(fullLoadoutSkill))
-            : Language.GetTextValue("Mods.Fran.Items.Teacher.FullLoadoutInactive");
+            : Language.GetTextValue("Mods.Fran.Items.ShiFu.FullLoadoutInactive");
         TooltipLine fullLoadoutLine = new(Mod, FullLoadoutStatusLineName, fullLoadoutText)
         {
             OverrideColor = fullLoadoutActive
@@ -202,13 +205,49 @@ public sealed class Teacher : ModItem
         };
 
         int rightClickLineIndex = tooltips.FindIndex(line =>
-            line.Mod == "Terraria" && line.Name == "Tooltip1");
+            IsGuidanceLine(line, 1));
         int insertionIndex = rightClickLineIndex >= 0
             ? rightClickLineIndex + 1
             : Math.Min(2, tooltips.Count);
         tooltips.Insert(insertionIndex, selectionLine);
         tooltips.Insert(insertionIndex + 1, fullLoadoutLine);
     }
+
+    private void InsertEvolutionAndMovementStatus(List<TooltipLine> tooltips, FranPlayer fran)
+    {
+        int index = FindGuidanceEndIndex(tooltips);
+
+        if (FranEvolutionInfo.SystemEnabled)
+            tooltips.Insert(index++, new TooltipLine(Mod, "Evolution",
+                Language.GetTextValue("Mods.Fran.Evolution.Tooltip"))
+            { OverrideColor = new Color(195, 178, 245) });
+
+        tooltips.Insert(index++, new TooltipLine(Mod, "FranDashStatus", BuildDashStatus())
+        { OverrideColor = new Color(130, 235, 195) });
+
+        bool flightEnabled = Main.hardMode && !fran.HasExternalWings;
+        tooltips.Insert(index, new TooltipLine(Mod, "FranFlightStatus", BuildFlightStatus(fran))
+        { OverrideColor = flightEnabled ? new Color(105, 205, 255) : new Color(165, 175, 190) });
+    }
+
+    private int FindGuidanceEndIndex(List<TooltipLine> tooltips)
+    {
+        int index = tooltips.FindLastIndex(line =>
+            (line.Mod == "Terraria" && line.Name.StartsWith("Tooltip", StringComparison.Ordinal)) ||
+            (line.Mod == Mod.Name && (
+                line.Name.StartsWith(GuidanceLinePrefix, StringComparison.Ordinal) ||
+                line.Name.StartsWith("Ultimate", StringComparison.Ordinal) ||
+                line.Name == TacticSelectionLineName ||
+                line.Name == FullLoadoutStatusLineName ||
+                line.Name == "Evolution" ||
+                line.Name == "FranDashStatus" ||
+                line.Name == "FranFlightStatus")));
+        return index >= 0 ? index + 1 : Math.Min(2, tooltips.Count);
+    }
+
+    private bool IsGuidanceLine(TooltipLine line, int number) =>
+        (line.Mod == "Terraria" && line.Name == $"Tooltip{number}") ||
+        (line.Mod == Mod.Name && line.Name == $"{GuidanceLinePrefix}{number}");
 
     private static string GetFullLoadoutEffectText(FranSkill skill)
     {
@@ -228,7 +267,7 @@ public sealed class Teacher : ModItem
 
     private static string GetAssignedKeyOrUnbound(ModKeybind keybind) =>
         TryGetAssignedKey(keybind, out string key) ? key :
-            Language.GetTextValue("Mods.Fran.Items.Teacher.UnboundKey");
+            Language.GetTextValue("Mods.Fran.Items.ShiFu.UnboundKey");
 
     private static bool TryGetAssignedKey(ModKeybind keybind, out string assignedKey)
     {
@@ -263,7 +302,7 @@ public sealed class Teacher : ModItem
 
     public override bool PreDrawTooltipLine(DrawableTooltipLine line, ref int yOffset)
     {
-        if (line.Mod == Mod.Name && line.Name == LeftClickTechniqueLineName)
+        if (line.Mod == Mod.Name && line.Name == GoldenEvolutionRoadLineName)
         {
             FranTooltipTextEffects.DrawGolden(line);
             return false;
@@ -277,7 +316,7 @@ public sealed class Teacher : ModItem
 
         if (line.Mod == "Terraria" && line.Name == "ItemName")
         {
-            FranTooltipTextEffects.DrawTeacherPrismaticName(line);
+            FranTooltipTextEffects.DrawShiFuPrismaticName(line);
             return false;
         }
 

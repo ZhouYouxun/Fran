@@ -6,7 +6,7 @@ using Terraria;
 
 namespace FranMod.Core.Graphics;
 
-// Teacher's blade light is made entirely from short, locally validated sprite segments.
+// ShiFu's blade light is made entirely from short, locally validated sprite segments.
 // No history buffer or user primitive reaches the GPU, so a bad point cannot become a
 // screen-spanning triangle. Animated radial waves provide the flowing Exoblade-like material.
 internal static class FranBladeTrailRenderer

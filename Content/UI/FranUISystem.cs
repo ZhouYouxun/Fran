@@ -58,9 +58,10 @@ public sealed class FranUISystem : ModSystem
 
     public override void UpdateUI(GameTime gameTime)
     {
-        bool wheelHeld = Main.mouseRight || FranModMain.SkillWheelKey.Current;
+        bool wheelHeld = IsSkillWheelHeld();
         bool wheelPressed = wheelHeld && !previousWheelHeld;
         bool leftPressed = Main.mouseLeft && !previousLeftMouseHeld;
+        bool holdToOpen = ModContent.GetInstance<FranClientConfig>().HoldSkillWheelToOpen;
         previousWheelHeld = wheelHeld;
         previousLeftMouseHeld = Main.mouseLeft;
 
@@ -74,7 +75,7 @@ public sealed class FranUISystem : ModSystem
         Player player = Main.LocalPlayer;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
         bool allowed = !FranEvolutionUISystem.IsOpen && !Main.playerInventory && !player.dead &&
-            player.HeldItem.type == ModContent.ItemType<Teacher>();
+            player.HeldItem.type == ModContent.ItemType<ShiFu>();
         if (!allowed)
         {
             if (wheelOpen)
@@ -83,7 +84,22 @@ public sealed class FranUISystem : ModSystem
             return;
         }
 
-        if (wheelPressed)
+        if (holdToOpen)
+        {
+            if (wheelHeld)
+            {
+                if (!wheelOpen)
+                {
+                    wheelOpen = true;
+                    OpenWheelAtMouse();
+                }
+            }
+            else if (wheelOpen)
+            {
+                CloseWheel();
+            }
+        }
+        else if (wheelPressed)
         {
             if (wheelOpen)
             {
@@ -92,14 +108,7 @@ public sealed class FranUISystem : ModSystem
             else
             {
                 wheelOpen = true;
-                float minX = Math.Min(300f, Main.screenWidth * 0.5f);
-                float maxX = Math.Max(minX, Main.screenWidth - minX);
-                float minY = Math.Min(180f, Main.screenHeight * 0.40f);
-                float maxY = Math.Max(minY, Main.screenHeight - 344f);
-                wheelCenter = new Vector2(MathHelper.Clamp(Main.MouseScreen.X, minX, maxX),
-                    MathHelper.Clamp(Main.MouseScreen.Y, minY, maxY));
-                previousHovered = -2;
-                SoundEngine.PlaySound(SoundID.MenuOpen with { Volume = 0.55f });
+                OpenWheelAtMouse();
             }
         }
 
@@ -130,6 +139,46 @@ public sealed class FranUISystem : ModSystem
             Main.blockMouse = true;
             player.mouseInterface = true;
         }
+    }
+
+    private static bool IsSkillWheelHeld()
+    {
+        bool keyBound = IsSkillWheelKeyBound();
+        return keyBound ? FranModMain.SkillWheelKey.Current : Main.mouseRight;
+    }
+
+    private static bool IsSkillWheelKeyBound()
+    {
+        if (FranModMain.SkillWheelKey is null)
+            return false;
+
+        try
+        {
+            foreach (string key in FranModMain.SkillWheelKey.GetAssignedKeys())
+            {
+                if (string.IsNullOrWhiteSpace(key) || key.Equals("None", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                return true;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    private static void OpenWheelAtMouse()
+    {
+        float minX = Math.Min(300f, Main.screenWidth * 0.5f);
+        float maxX = Math.Max(minX, Main.screenWidth - minX);
+        float minY = Math.Min(180f, Main.screenHeight * 0.40f);
+        float maxY = Math.Max(minY, Main.screenHeight - 344f);
+        wheelCenter = new Vector2(MathHelper.Clamp(Main.MouseScreen.X, minX, maxX),
+            MathHelper.Clamp(Main.MouseScreen.Y, minY, maxY));
+        previousHovered = -2;
+        SoundEngine.PlaySound(SoundID.MenuOpen with { Volume = 0.55f });
     }
 
     private static void CloseWheel()
@@ -171,8 +220,8 @@ public sealed class FranUISystem : ModSystem
 
         Player player = Main.LocalPlayer;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
-        bool holdingTeacher = player.HeldItem.type == ModContent.ItemType<Teacher>();
-        if (fran.FranMode || holdingTeacher)
+        bool holdingShiFu = player.HeldItem.type == ModContent.ItemType<ShiFu>();
+        if (fran.FranMode || holdingShiFu)
             DrawMatrix(fran);
         return true;
     }
@@ -190,8 +239,8 @@ public sealed class FranUISystem : ModSystem
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
         // Keep input and drawing inside the same UI-scaled layer, including during autopause.
         UpdateUltimateGaugeDrag(player, fran);
-        bool holdingTeacher = player.HeldItem.type == ModContent.ItemType<Teacher>();
-        if (!fran.FranMode && !holdingTeacher)
+        bool holdingShiFu = player.HeldItem.type == ModContent.ItemType<ShiFu>();
+        if (!fran.FranMode && !holdingShiFu)
             return true;
 
         if (fran.FranMode && fran.UltimateUnlocked && !ModContent.GetInstance<FranClientConfig>().HideUltimateGauge)

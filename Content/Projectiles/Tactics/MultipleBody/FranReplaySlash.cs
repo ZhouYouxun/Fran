@@ -17,7 +17,7 @@ namespace FranMod.Content.Projectiles;
 
 public sealed class FranReplaySlash : ModProjectile
 {
-    public override string Texture => FranTeacherVisuals.TexturePath;
+    public override string Texture => FranShiFuVisuals.TexturePath;
     public override void SetStaticDefaults()
     {
         ProjectileID.Sets.TrailCacheLength[Type] = 10;
@@ -75,11 +75,11 @@ public sealed class FranReplaySlash : ModProjectile
             FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center + direction * 18f,
                 Color.White * (0.74f * Projectile.Opacity), direction.ToRotation(), new Vector2(58f, 32f));
         FranVfx.EndAdditive();
-        Texture2D texture = FranTeacherVisuals.Texture;
+        Texture2D texture = FranShiFuVisuals.Texture;
         Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null,
             Color.Lerp(new Color(80, 115, 145), Color.White, 0.52f) * Projectile.Opacity,
             Projectile.rotation, texture.Size() * 0.5f,
-            0.68f * FranTeacherVisuals.TextureScale, SpriteEffects.None, 0f);
+            0.68f * FranShiFuVisuals.TextureScale, SpriteEffects.None, 0f);
         return false;
     }
 }
