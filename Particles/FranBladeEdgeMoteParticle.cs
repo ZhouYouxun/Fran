@@ -39,7 +39,7 @@ internal sealed class FranBladeEdgeMoteParticle : FranParticle
         float length = startLength * MathHelper.Lerp(1f, 0.28f, Completion);
         float width = Math.Max(1.2f, startWidth * MathHelper.Lerp(2.8f, 0.8f, Completion));
 
-        // Calamity-style squished sprite particle: its size is local and independently capped by
+        // Squished sprite particle: its size is local and independently capped by
         // DrawPixels. It never constructs a segment from two world-space endpoints.
         FranParticleAssets.DrawParticlePixels(spriteBatch, nameof(FranBladeEdgeMoteParticle), Position,
             Color * (0.78f * fade), Rotation + MathHelper.PiOver2, new Vector2(width * 2.8f, length));

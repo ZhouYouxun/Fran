@@ -31,7 +31,7 @@ internal static class FranTooltipTextEffects
 
     /// <summary>
     /// Draws a restrained travelling prism across Teacher's name. The dark indigo shadow keeps the
-    /// letters readable; the one-pixel halo is deliberately smaller than Calamity's endgame blooms.
+    /// letters readable; the one-pixel halo is deliberately kept smaller than heavy endgame blooms.
     /// </summary>
     public static void DrawTeacherPrismaticName(DrawableTooltipLine line)
     {

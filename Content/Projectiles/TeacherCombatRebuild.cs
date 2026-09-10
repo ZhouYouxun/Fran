@@ -28,7 +28,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
     private const float SuppliedTextureBladeLength = 193.04f;
     private const float WeaponHiltOffset = 8f;
     private const float FirstAndThirdSlashVisualReachMultiplier = 0.80f;
-    // 与 Ark of the Ancients 的右键一致：持剑起点只额外前移 8 像素，且永不随成长放大。
+    // 第四剑持剑起点只额外前移 8 像素，且永不随成长放大。
     private const float FourthWeaponMaximumPush = 8f;
     private readonly Vector2[] tipHistory = new Vector2[TrailSamples];
     private readonly Vector2[] midHistory = new Vector2[TrailSamples];
@@ -263,7 +263,7 @@ public sealed class TeacherSwingRebuild : ModProjectile
             }
             default:
             {
-                // 参考 Ark of the Ancients 右键：方向在出刀时锁定，只沿该轴线推出再收回。
+                // 第四剑方向在出刀时锁定，只沿该轴线推出再收回。
                 // 1.2x 剑身长度仍随武器范围成长；整把剑的推出距离固定，不随流程或进化放大。
                 angle = aim;
                 reach = 132f * 1.20f;

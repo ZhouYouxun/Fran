@@ -127,7 +127,7 @@ public sealed class FranBlackTigerImpactVisual : ModProjectile
         Color violet = ImpactStyle == 2 ? new Color(181, 102, 236) : new Color(112, 54, 177);
         FranVfx.DrawRing(Projectile.Center, violet,
             MathHelper.Lerp(18f, ImpactStyle == 2 ? 176f : 92f, expansion) * scale,
-            opacity * 0.58f, Projectile.ai[2], "Cal_BloomRing");
+            opacity * 0.58f, Projectile.ai[2], "FranVfx_BloomRing");
         FranVfx.DrawOriginalPixels("FranImpactBurst", Projectile.Center,
             violet * (opacity * 0.42f), Axis.ToRotation(),
             new Vector2(Math.Min(500f, halfLength * 2.15f), width * 1.12f));

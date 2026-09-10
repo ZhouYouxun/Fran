@@ -8,7 +8,7 @@ using Terraria;
 namespace FranMod.Core.Graphics;
 
 /// <summary>
-/// Continuous multi-pass lightning ribbons. Calamity's strongest lightning avoids assembling a long
+/// Continuous multi-pass lightning ribbons. Strong lightning avoids assembling a long
 /// bolt from individually tapered sprites: one jagged point list is rendered as a primitive ribbon,
 /// then repeated as a dark body, broad emission, colored conductor and overexposed white core.
 /// </summary>

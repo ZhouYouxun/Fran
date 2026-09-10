@@ -216,14 +216,14 @@ public sealed class FranBlueResonanceEcho : ModProjectile
                 continue;
             float fade = (1f - i / (float)Projectile.oldPos.Length) * opacity;
             FranVfx.DrawVertical("BloomLineSoftEdge", old, newer, cyan * (0.24f * fade), 9f * fade + 2f);
-            FranVfx.DrawVertical("Cal_ThinEndedLine", old, newer, Color.White * (0.42f * fade), 2.2f);
+            FranVfx.DrawVertical("FranVfx_ThinEndedLine", old, newer, Color.White * (0.42f * fade), 2.2f);
         }
         FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,
             new Color(cyan.R, cyan.G, cyan.B, 0) * (0.78f * opacity), Projectile.rotation,
             0.18f * pulse);
         FranVfx.DrawSharedPixels("FranMysticGlyph1", Projectile.Center,
             cyan * (0.34f * opacity), -Projectile.rotation * 0.62f, Vector2.One * (28f * pulse));
-        FranVfx.DrawShared("Cal_PulseStar", Projectile.Center, Color.White * (0.72f * opacity),
+        FranVfx.DrawShared("FranVfx_PulseStar", Projectile.Center, Color.White * (0.72f * opacity),
             Projectile.rotation * 0.35f, 0.105f * pulse);
         FranVfx.DrawBloom(Projectile.Center, Color.White, 13f * pulse, 0.64f * opacity, true);
         FranVfx.EndAdditive();

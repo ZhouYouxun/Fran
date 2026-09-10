@@ -58,7 +58,7 @@ public sealed class FranSkillSealDetonation : ModProjectile
         {
             float angle = i * MathHelper.Pi / Math.Max(1, 2 + Projectile.ai[0]) + Projectile.rotation;
             Vector2 axis = angle.ToRotationVector2();
-            FranVfx.DrawVertical("Cal_ThinEndedLine", Projectile.Center - axis * radius * 0.72f,
+            FranVfx.DrawVertical("FranVfx_ThinEndedLine", Projectile.Center - axis * radius * 0.72f,
                 Projectile.Center + axis * radius * 0.72f, Color.White * (opacity * 0.62f), 4f);
         }
         FranVfx.DrawBloom(Projectile.Center, new Color(220, 120, 255), 42f, opacity * 0.5f);

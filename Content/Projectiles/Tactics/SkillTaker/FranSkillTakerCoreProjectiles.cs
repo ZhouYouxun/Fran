@@ -72,23 +72,23 @@ public sealed class SkillTakerPhantom : ModProjectile
             if (point == Projectile.Size * 0.5f)
                 continue;
             float completion = 1f - i / (float)Projectile.oldPos.Length;
-            FranVfx.DrawStretched("Cal_DrainLineBloom2", point, previous,
+            FranVfx.DrawStretched("FranVfx_DrainLineBloom2", point, previous,
                 Color.Lerp(phantomColor, starlight, completion) * (0.52f * completion * opacity),
                 9f + completion * 7f);
             if (i % 3 == 0)
-                FranVfx.DrawShared("Cal_SimpleStar", point, starlight * (0.32f * completion * opacity),
+                FranVfx.DrawShared("FranVfx_SimpleStar", point, starlight * (0.32f * completion * opacity),
                     Projectile.rotation + i * 0.73f, 0.035f + completion * 0.025f);
             previous = point;
         }
 
         float spin = Main.GlobalTimeWrappedHourly * 2.2f + Projectile.identity;
-        FranVfx.DrawShared("Cal_FadedStarRing", Projectile.Center, phantomColor * (0.38f * opacity),
+        FranVfx.DrawShared("FranVfx_FadedStarRing", Projectile.Center, phantomColor * (0.38f * opacity),
             spin, 0.115f + speedRatio * 0.025f);
-        FranVfx.DrawShared("Cal_FadedStarRing", Projectile.Center, starlight * (0.24f * opacity),
+        FranVfx.DrawShared("FranVfx_FadedStarRing", Projectile.Center, starlight * (0.24f * opacity),
             -spin * 0.72f, 0.075f + speedRatio * 0.018f);
-        FranVfx.DrawShared("Cal_PulseStar", Projectile.Center, phantomColor * (0.76f * opacity),
+        FranVfx.DrawShared("FranVfx_PulseStar", Projectile.Center, phantomColor * (0.76f * opacity),
             Projectile.rotation, new Vector2(0.15f, 0.095f));
-        FranVfx.DrawShared("Cal_StarProj", Projectile.Center, Color.White * (0.92f * opacity),
+        FranVfx.DrawShared("FranVfx_StarProj", Projectile.Center, Color.White * (0.92f * opacity),
             -Projectile.rotation * 0.45f, 0.18f);
         FranVfx.DrawBloom(Projectile.Center, starlight, 22f, 0.48f * opacity);
         FranVfx.EndAdditive();
@@ -157,13 +157,13 @@ public sealed class SkillTakerGlobalNPC : GlobalNPC
         float radius = Math.Max(npc.width, npc.height) * 0.72f + 16f;
         FranVfx.BeginAdditive();
         FranVfx.DrawRing(npc.Center, new Color(170, 65, 235), radius, 0.28f * fade,
-            Main.GlobalTimeWrappedHourly * 0.7f, "Cal_FadedStarRing");
+            Main.GlobalTimeWrappedHourly * 0.7f, "FranVfx_FadedStarRing");
         FranVfx.DrawRing(npc.Center, new Color(225, 165, 255), radius * 0.72f, 0.18f * fade,
-            -Main.GlobalTimeWrappedHourly * 0.9f, "Cal_BloomRing");
+            -Main.GlobalTimeWrappedHourly * 0.9f, "FranVfx_BloomRing");
         for (int i = 0; i < 5; i++)
         {
             float angle = Main.GlobalTimeWrappedHourly * 0.46f + i * MathHelper.TwoPi / 5f;
-            FranVfx.DrawShared("Cal_SimpleStar", npc.Center + angle.ToRotationVector2() * radius * 0.72f,
+            FranVfx.DrawShared("FranVfx_SimpleStar", npc.Center + angle.ToRotationVector2() * radius * 0.72f,
                 Color.White * (0.22f * fade), -angle, 0.035f);
         }
         FranVfx.EndAdditive();
@@ -241,11 +241,11 @@ public sealed class SkillTakerSoul : ModProjectile
     {
         float pulse = 0.85f + MathF.Sin(Main.GlobalTimeWrappedHourly * 9f + Projectile.identity) * 0.12f;
         FranVfx.BeginAdditive();
-        FranVfx.DrawShared("Cal_FadedStarRing", Projectile.Center, new Color(145, 75, 255) * 0.42f,
+        FranVfx.DrawShared("FranVfx_FadedStarRing", Projectile.Center, new Color(145, 75, 255) * 0.42f,
             Main.GlobalTimeWrappedHourly * 1.8f, 0.055f * pulse);
-        FranVfx.DrawShared("Cal_SimpleStar", Projectile.Center, new Color(215, 125, 255) * 0.72f,
+        FranVfx.DrawShared("FranVfx_SimpleStar", Projectile.Center, new Color(215, 125, 255) * 0.72f,
             -Main.GlobalTimeWrappedHourly * 2.3f, 0.055f * pulse);
-        FranVfx.DrawShared("Cal_StarProj", Projectile.Center, Color.White * 0.86f,
+        FranVfx.DrawShared("FranVfx_StarProj", Projectile.Center, Color.White * 0.86f,
             Projectile.velocity.ToRotation(), 0.10f * pulse);
         FranVfx.DrawBloom(Projectile.Center, new Color(215, 125, 255), 14f * pulse, 0.56f);
         FranVfx.EndAdditive();

@@ -71,8 +71,8 @@ public sealed class FranPlayer : ModPlayer
     public int AvailableTacticSlots => FranBalance.GetAvailableTacticSlots();
     public FranSkill SelectedSkill => GetEquippedTactic(0);
     public bool HasSelectedSkill => GetActiveTacticCount() > 0;
-    // dashDelay is runtime state, not proof that another dash is equipped. In particular,
-    // Calamity's built-in DefaultDash may touch it before Fran reads input this frame.
+    // dashDelay is runtime state, not proof that another dash is equipped. Some external
+    // dash frameworks may touch it before Fran reads input this frame.
     public bool HasExternalDash => Player.dashType != 0 || HasNamedExternalDash();
     public bool HasExternalWings => Player.wingsLogic > 0 &&
         !FranTelekineticFlightSystem.IsTelekineticWingSlot(Player.wingsLogic);
@@ -82,8 +82,8 @@ public sealed class FranPlayer : ModPlayer
 
     private bool HasNamedExternalDash()
     {
-        // Calamity and several other dash frameworks expose their selected dash as DashID while
-        // keeping Player.dashType at zero. Read that convention without taking a hard dependency.
+        // Some dash frameworks expose their selected dash as DashID while keeping Player.dashType
+        // at zero. Read that convention without taking a hard dependency.
         foreach (ModPlayer modPlayer in Player.ModPlayers)
         {
             if (ReferenceEquals(modPlayer, this))
@@ -112,9 +112,9 @@ public sealed class FranPlayer : ModPlayer
 
     private static bool IsNonBlockingFrameworkDefaultDash(Type modPlayerType, string dashId)
     {
-        // Calamity reports DefaultDash through DashID even when no dash accessory is equipped.
-        // Fran replaces only this fallback while Fran mode is active; real Calamity/vanilla
-        // accessory dashes still win through their distinct DashID or Player.dashType.
+        // One common fallback dash can be reported even when no dash accessory is equipped.
+        // Fran replaces only this fallback while Fran mode is active; real accessory dashes
+        // still win through their distinct DashID or Player.dashType.
         return modPlayerType.FullName == "CalamityMod.CalPlayer.CalamityPlayer" &&
             dashId.EndsWith("/DefaultDash", StringComparison.OrdinalIgnoreCase);
     }
@@ -896,7 +896,7 @@ public sealed class FranPlayer : ModPlayer
             if (canDash && FranModMain.DashKey.JustPressed)
                 StartDash(ResolveManualDashDirection());
 
-            // Match Calamity's input contract: once a manual dash key is assigned, vanilla
+            // Once a manual dash key is assigned, vanilla
             // left/right double taps are not a secondary trigger.
             return;
         }

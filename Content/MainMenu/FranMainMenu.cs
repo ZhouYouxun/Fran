@@ -104,7 +104,7 @@ public sealed class FranMainMenu : ModMenu
             FallingFlame flame = flames[i];
             flame.Age++;
 
-            // Follow Calamity's menu-cinder approach: every particle owns a finite sprite,
+            // Every particle owns a finite sprite,
             // lifetime and smoothly changing velocity. The direction is inverted here so
             // these flames fall from the top instead of rising from the bottom.
             float sway = MathF.Sin(flame.Age * 0.045f + flame.Phase);

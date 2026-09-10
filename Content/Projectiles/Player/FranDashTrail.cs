@@ -168,16 +168,16 @@ public sealed class FranDashTrail : ModProjectile
                 20f * ageFade + 2.5f);
             FranVfx.DrawVertical("TraceLong", start, end, new Color(218, 184, 255) * (opacity * ageFade * 0.40f),
                 5.8f * ageFade + 1f);
-            FranVfx.DrawVertical("Cal_ThinEndedLine", start, end, Color.White * (opacity * ageFade * 0.54f),
+            FranVfx.DrawVertical("FranVfx_ThinEndedLine", start, end, Color.White * (opacity * ageFade * 0.54f),
                 1.9f * ageFade + 0.5f);
 
             if (i % 2 == 0)
             {
                 float railOffset = 9f + ageFade * 8f;
-                FranVfx.DrawVertical("Cal_ThinEndedLine", start + normal * railOffset,
+                FranVfx.DrawVertical("FranVfx_ThinEndedLine", start + normal * railOffset,
                     end + normal * railOffset, new Color(133, 74, 195) * (opacity * ageFade * 0.34f),
                     2.2f + ageFade * 1.6f);
-                FranVfx.DrawVertical("Cal_ThinEndedLine", start - normal * railOffset,
+                FranVfx.DrawVertical("FranVfx_ThinEndedLine", start - normal * railOffset,
                     end - normal * railOffset, new Color(206, 157, 250) * (opacity * ageFade * 0.25f),
                     1.6f + ageFade * 1.2f);
             }
@@ -220,7 +220,7 @@ public sealed class FranDashTrail : ModProjectile
                         normal * side * (15f + claw * 5f);
                     FranVfx.DrawVertical("TraceLong", clawStart, clawEnd,
                         new Color(123, 66, 188) * (opacity * 0.22f), 4.4f - claw * 0.55f);
-                    FranVfx.DrawVertical("Cal_ThinEndedLine", clawStart, clawEnd,
+                    FranVfx.DrawVertical("FranVfx_ThinEndedLine", clawStart, clawEnd,
                         new Color(211, 182, 249) * (opacity * 0.15f), 1.35f);
                 }
             }
@@ -241,7 +241,7 @@ public sealed class FranDashTrail : ModProjectile
                 new Color(188, 154, 235) * (launchOpacity * 0.13f), tigerRotation,
                 launchTigerSize * 0.88f);
             FranVfx.DrawRing(dashOrigin, new Color(117, 55, 178), 22f + launchProgress * 45f,
-                launchOpacity * 0.62f, rotation, "Cal_BloomRing");
+                launchOpacity * 0.62f, rotation, "FranVfx_BloomRing");
             FranVfx.DrawOriginalPixels("FranImpactBurst", dashOrigin - dashDirection * 5f,
                 new Color(194, 140, 238) * (launchOpacity * 0.54f), rotation,
                 new Vector2(116f + launchProgress * 42f, 58f));
@@ -257,7 +257,7 @@ public sealed class FranDashTrail : ModProjectile
                 new Color(76, 27, 122) * (brakeOpacity * 0.28f), tigerRotation,
                 Vector2.One * MathHelper.Lerp(92f, 164f, brakeProgress));
             FranVfx.DrawRing(dashEnd, new Color(106, 47, 165), 18f + brakeProgress * 54f,
-                brakeOpacity * 0.66f, -rotation, "Cal_HighResHollowCircle");
+                brakeOpacity * 0.66f, -rotation, "FranVfx_HighResHollowCircle");
             FranVfx.DrawOriginalPixels("FranImpactBurst", dashEnd, new Color(169, 105, 220) * (brakeOpacity * 0.52f),
                 rotation, new Vector2(104f + brakeProgress * 54f, 52f));
             FranVfx.DrawOriginalPixels("FranFlashFourPoint", dashEnd, Color.White * (brakeOpacity * 0.78f),

@@ -1,4 +1,4 @@
-// Terratomere pierce response, original BlobbyNoise/Extra_189 inputs, with Fran's blue palette.
+// Layered blue energy filament for Fran's condensed mind core.
 float globalTime;
 float3 uBodyColor;
 float3 uEdgeColor;
@@ -42,16 +42,22 @@ float4 PixelShaderFunction(VertexShaderOutput input) : COLOR0
     coords.y = (coords.y - 0.5) / max(input.TextureCoordinates.z, 0.0001) + 0.5;
     coords = saturate(coords);
 
-    float bloom = pow(saturate(sin(coords.y * 3.141)), 5.6);
-    float noise = tex2D(uMaterialSampler, coords * 3.0 - float2(globalTime * 2.44, 0)).r;
-    float streak = tex2D(uDetailSampler,
-        coords * float2(2.0, 1.0) - float2(globalTime * 1.61, 0)).r + noise * bloom;
-    float3 energy = lerp(uBodyColor, uEdgeColor, noise);
-    float envelope = bloom * input.Color.a * saturate(uOpacity) * pow(1.0 - coords.x, 1.6);
+    float center = saturate(1.0 - abs(coords.y * 2.0 - 1.0));
+    float core = center * center;
+    core *= core * center;
 
-    // A single premultiplied pass, with luminous detail added to RGB rather than thresholded away.
-    // Preserve the reference alpha response too; do not apply a second source-alpha multiplication.
-    return float4(energy + uCoreColor * streak, 1.0 + streak) * envelope;
+    float2 flowA = coords * float2(2.65, 1.18) + float2(globalTime * -1.87, globalTime * 0.10);
+    float2 flowB = coords * float2(1.18, 2.34) + float2(globalTime * -0.74, globalTime * -0.21);
+    float vapor = tex2D(uMaterialSampler, flowA).r;
+    float filament = tex2D(uDetailSampler, flowB).r;
+    float crossing = saturate(vapor * 0.72 + filament * 0.62);
+    float edgeLift = pow(saturate(center + crossing * 0.45), 3.4);
+    float tail = pow(saturate(1.0 - coords.x), 1.48);
+    float envelope = edgeLift * tail * input.Color.a * saturate(uOpacity);
+
+    float3 energy = lerp(uBodyColor, uEdgeColor, saturate(vapor * 0.82 + filament * 0.22));
+    float hotLine = core * (0.70 + filament * 0.85);
+    return float4(energy + uCoreColor * hotLine, 1.0 + hotLine) * envelope;
 }
 
 technique FranTelekineticCore

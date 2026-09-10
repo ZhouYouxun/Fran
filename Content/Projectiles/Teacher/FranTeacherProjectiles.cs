@@ -156,17 +156,17 @@ public sealed class TelekineticCannonProjectile : ModProjectile
             if (oldCenter == Projectile.Size * 0.5f || newerCenter == Projectile.Size * 0.5f)
                 continue;
             float completion = 1f - i / (float)Projectile.oldPos.Length;
-            FranVfx.DrawStretched("Cal_FadeStreak", oldCenter, newerCenter,
+            FranVfx.DrawStretched("FranVfx_FadeStreak", oldCenter, newerCenter,
                 Color.Lerp(deepColor, edgeColor, completion) * (completion * 0.32f * opacity),
                 MathHelper.Lerp(4f, 18f, completion));
         }
         FranVfx.DrawVertical("TraceSoft", Projectile.Center - direction * (72f + speedRatio * 36f),
             Projectile.Center + direction * 12f, edgeColor * (0.38f * opacity), 18f + speedRatio * 8f);
-        FranVfx.DrawShared("Cal_BloomCirclePinpoint", Projectile.Center, edgeColor * (0.72f * opacity),
+        FranVfx.DrawShared("FranVfx_BloomCirclePinpoint", Projectile.Center, edgeColor * (0.72f * opacity),
             0f, 0.13f * pulse);
-        FranVfx.DrawShared("Cal_BloomFlare", Projectile.Center, Color.White * (0.56f * opacity),
+        FranVfx.DrawShared("FranVfx_BloomFlare", Projectile.Center, Color.White * (0.56f * opacity),
             Projectile.rotation, new Vector2(0.055f, 0.018f) * pulse);
-        FranVfx.DrawShared("Cal_PulseStar", Projectile.Center, Color.White * (0.88f * opacity),
+        FranVfx.DrawShared("FranVfx_PulseStar", Projectile.Center, Color.White * (0.88f * opacity),
             -Projectile.rotation * 0.35f, 0.10f * pulse);
         FranVfx.EndAdditive();
 
@@ -328,20 +328,20 @@ public sealed class TeacherCrescentWave : ModProjectile
         float opacity = FranMotion.Smooth(FranMotion.Segment(age, 0f, 5f)) *
             (1f - FranMotion.Smooth(FranMotion.Segment(age, 57f, 72f)));
         TeacherWaveVisuals.GetPalette(Stage, Element, out Color deep, out Color body, out Color edge);
-        Texture2D wave = FranVfx.Shared("Cal_JudgementWave");
+        Texture2D wave = FranVfx.Shared("FranVfx_JudgementWave");
         float waveFade = Utils.GetLerpValue(0f, 57f, Projectile.timeLeft, true);
         float expansion = MathHelper.Lerp(0.72f, 1.08f, FranMotion.Smooth(FranMotion.Segment(age, 0f, 27f)));
         float baseScale = FaceLength * 2f / wave.Width * expansion;
         float drawRotation = Projectile.rotation - MathHelper.PiOver2 + (Combo == 1 ? MathHelper.Pi : 0f);
         Vector2 forward = Projectile.velocity.SafeNormalize(Vector2.UnitX);
         Vector2 normal = forward.RotatedBy(MathHelper.PiOver2);
-        // This block already uses BlendState.Additive. Unlike Calamity's A=0 trick inside
+        // This block already uses BlendState.Additive. Unlike the common A=0 additive trick inside
         // AlphaBlend, a zero source alpha here suppresses the entire contribution.
         Color layerColor = body;
         Color coreColor = edge;
 
         FranVfx.BeginAdditive();
-        FranVfx.DrawShared("Cal_VerticalSmearLarge", Projectile.Center - forward * 8f,
+        FranVfx.DrawShared("FranVfx_VerticalSmearLarge", Projectile.Center - forward * 8f,
             deep * (0.16f * opacity), drawRotation,
             new Vector2(baseScale * 0.78f, baseScale * 0.46f));
         for (int i = 0; i < 5; i++)
@@ -372,7 +372,7 @@ public sealed class TeacherCrescentWave : ModProjectile
             Vector2 position = wing + outward * sparkAge * (0.72f + i * 0.12f) +
                 outward.RotatedBy(MathHelper.PiOver2) * MathF.Sin(age * 0.24f + i * 2.1f) * 4f;
             Color color = Color.Lerp(edge, body, completion);
-            FranVfx.DrawShared("Cal_HalfStar", position, color * (opacity * (1f - completion) * 0.72f),
+            FranVfx.DrawShared("FranVfx_HalfStar", position, color * (opacity * (1f - completion) * 0.72f),
                 outward.ToRotation(), new Vector2(0.38f, 1.05f) * (0.72f + i * 0.14f));
         }
     }
@@ -526,9 +526,9 @@ public sealed class TeacherStarlightMass : ModProjectile
             float pulse = 0.92f + MathF.Sin(Main.GlobalTimeWrappedHourly * 12f + Projectile.identity) * 0.08f;
             FranVfx.DrawShared("Red_WhiteFlare", Projectile.Center, bodyAdditive * 0.82f,
                 Projectile.rotation, 0.64f * pulse);
-            FranVfx.DrawShared("Cal_StarOfJudgement", Projectile.Center, bodyAdditive * 0.86f,
+            FranVfx.DrawShared("FranVfx_StarOfJudgement", Projectile.Center, bodyAdditive * 0.86f,
                 Projectile.rotation, 0.62f * pulse);
-            FranVfx.DrawShared("Cal_StarOfJudgement", Projectile.Center, Color.White,
+            FranVfx.DrawShared("FranVfx_StarOfJudgement", Projectile.Center, Color.White,
                 Projectile.rotation, 0.48f * pulse);
         }
         FranVfx.EndAdditive();
@@ -667,9 +667,9 @@ public sealed class TeacherCompressionWave : ModProjectile
         Color deepAdditive = deep;
         Color bodyAdditive = body;
         Color edgeAdditive = edge;
-        float circularScale = radius * 2f / FranVfx.Shared("Cal_CircularSmearSmokey").Width;
-        float trientScale = radius * 1.72f / FranVfx.Shared("Cal_TrientCircularSmear").Width;
-        float slashScale = radius * 2.15f / FranVfx.Shared("Cal_SlashSmear").Width;
+        float circularScale = radius * 2f / FranVfx.Shared("FranVfx_CircularSmearSmokey").Width;
+        float trientScale = radius * 1.72f / FranVfx.Shared("FranVfx_TrientCircularSmear").Width;
+        float slashScale = radius * 2.15f / FranVfx.Shared("FranVfx_SlashSmear").Width;
 
         FranVfx.BeginAdditive();
         for (int i = 10; i >= 4; i -= 3)
@@ -677,15 +677,15 @@ public sealed class TeacherCompressionWave : ModProjectile
             if (Projectile.oldPos[i] == Vector2.Zero)
                 continue;
             float completion = 1f - i / 14f;
-            FranVfx.DrawShared("Cal_CircularSmearSmokey", Projectile.oldPos[i] + Projectile.Size * 0.5f,
+            FranVfx.DrawShared("FranVfx_CircularSmearSmokey", Projectile.oldPos[i] + Projectile.Size * 0.5f,
                 deepAdditive * (opacity * completion * 0.16f), spin - i * 0.14f,
                 circularScale * completion);
         }
 
-        FranVfx.DrawShared("Cal_CircularSmearSmokey", Projectile.Center,
+        FranVfx.DrawShared("FranVfx_CircularSmearSmokey", Projectile.Center,
             deepAdditive * (0.46f * opacity), -spin * 0.72f,
             new Vector2(circularScale * 1.15f, circularScale * 0.94f));
-        FranVfx.DrawShared("Cal_CircularSmearSmokey",
+        FranVfx.DrawShared("FranVfx_CircularSmearSmokey",
             Projectile.Center + Projectile.velocity.SafeNormalize(Vector2.UnitX) * 6f,
             bodyAdditive * (0.42f * opacity), spin * 0.48f,
             new Vector2(circularScale * 0.92f, circularScale * 1.16f));
@@ -696,19 +696,19 @@ public sealed class TeacherCompressionWave : ModProjectile
             Vector2 radial = angle.ToRotationVector2();
             Vector2 bladeCenter = Projectile.Center + radial * radius * (0.12f + i * 0.07f);
             Color arcColor = Color.Lerp(body, edge, i * 0.24f);
-            FranVfx.DrawShared("Cal_TrientCircularSmear", bladeCenter,
+            FranVfx.DrawShared("FranVfx_TrientCircularSmear", bladeCenter,
                 arcColor * ((0.58f - i * 0.07f) * opacity), angle + MathHelper.PiOver2,
                 trientScale * (1f - i * 0.08f));
-            FranVfx.DrawShared("Cal_SlashSmear", bladeCenter + radial * 8f,
+            FranVfx.DrawShared("FranVfx_SlashSmear", bladeCenter + radial * 8f,
                 edgeAdditive * ((0.28f - i * 0.035f) * opacity), angle,
                 new Vector2(slashScale * (0.90f - i * 0.08f), slashScale * (0.72f + i * 0.05f)));
         }
 
-        float jawScale = radius * 2.15f / FranVfx.Shared("Cal_VerticalSmearLarge").Width;
-        FranVfx.DrawShared("Cal_VerticalSmearLarge", Projectile.Center, bodyAdditive * (0.22f * opacity),
+        float jawScale = radius * 2.15f / FranVfx.Shared("FranVfx_VerticalSmearLarge").Width;
+        FranVfx.DrawShared("FranVfx_VerticalSmearLarge", Projectile.Center, bodyAdditive * (0.22f * opacity),
             Projectile.rotation + MathHelper.PiOver2 - spin * 0.11f,
             new Vector2(jawScale * (0.82f + release * 0.24f), jawScale * 0.62f));
-        FranVfx.DrawShared("Cal_VerticalSmearLarge", Projectile.Center, edgeAdditive * (0.16f * opacity),
+        FranVfx.DrawShared("FranVfx_VerticalSmearLarge", Projectile.Center, edgeAdditive * (0.16f * opacity),
             Projectile.rotation - MathHelper.PiOver2 + spin * 0.08f,
             new Vector2(jawScale * 0.72f, jawScale * (0.54f + release * 0.18f)));
 
@@ -721,7 +721,7 @@ public sealed class TeacherCompressionWave : ModProjectile
             float angle = Projectile.rotation + i * MathHelper.TwoPi / 5f + spin * 0.18f;
             Vector2 sparkPosition = Projectile.Center + angle.ToRotationVector2() *
                 MathHelper.Lerp(radius * 0.18f, radius * 1.15f, FranMotion.Smooth(completion));
-            FranVfx.DrawShared("Cal_HalfStar", sparkPosition,
+            FranVfx.DrawShared("FranVfx_HalfStar", sparkPosition,
                 edgeAdditive * ((1f - completion) * 0.74f * opacity), angle,
                 new Vector2(0.44f, 1.18f) * (1f - completion * 0.46f));
         }

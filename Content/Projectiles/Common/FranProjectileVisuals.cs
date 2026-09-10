@@ -191,7 +191,7 @@ internal static class FranVfx
         DrawShared(textureName, center, color * opacity, rotation, scale);
     }
 
-    // Calamity-style laser language: a broad colored halo, a tighter body and an overexposed white core.
+    // Three-layer beam language: a broad colored halo, a tighter body and an overexposed white core.
     // All three layers use real greyscale beam textures; none of the beam is assembled from a single-pixel strip.
     public static void DrawCappedLaser(Vector2 start, Vector2 end, Color haloColor, Color bodyColor,
         float width, float opacity)
@@ -203,15 +203,15 @@ internal static class FranVfx
         width = MathHelper.Clamp(width, 0.5f, 256f);
         opacity = MathHelper.Clamp(opacity, 0f, 2f);
 
-        DrawVertical("Cal_AresLaserMiddle", start, end, haloColor * (0.34f * opacity), width * 2.8f);
-        DrawVertical("Cal_AresLaserMiddle", start, end, bodyColor * (0.78f * opacity), width * 1.12f);
-        DrawVertical("Cal_AresLaserMiddle", start, end, Color.White * (0.92f * opacity), width * 0.34f);
+        DrawVertical("FranVfx_AresLaserMiddle", start, end, haloColor * (0.34f * opacity), width * 2.8f);
+        DrawVertical("FranVfx_AresLaserMiddle", start, end, bodyColor * (0.78f * opacity), width * 1.12f);
+        DrawVertical("FranVfx_AresLaserMiddle", start, end, Color.White * (0.92f * opacity), width * 0.34f);
 
-        float capScale = width * 2.55f / Math.Max(1f, Shared("Cal_AresLaserEnd").Width);
+        float capScale = width * 2.55f / Math.Max(1f, Shared("FranVfx_AresLaserEnd").Width);
         float rotation = edge.ToRotation() - MathHelper.PiOver2;
-        DrawShared("Cal_AresLaserEnd", start, haloColor * (0.42f * opacity), rotation + MathHelper.Pi,
+        DrawShared("FranVfx_AresLaserEnd", start, haloColor * (0.42f * opacity), rotation + MathHelper.Pi,
             new Vector2(capScale, capScale * 0.82f));
-        DrawShared("Cal_AresLaserEnd", end, bodyColor * (0.72f * opacity), rotation,
+        DrawShared("FranVfx_AresLaserEnd", end, bodyColor * (0.72f * opacity), rotation,
             new Vector2(capScale, capScale * 0.82f));
     }
 
@@ -238,9 +238,9 @@ internal static class FranVfx
             float jitterB = MathF.Sin(seed * 0.61f + i * 7.318f) * 0.42f;
             Vector2 next = Vector2.Lerp(start, end, completion) + normal *
                 (jitterA + jitterB) * envelope * (5f + width * 0.9f);
-            DrawVertical("Cal_ThinEndedLine", previous, next, color * (0.36f * opacity), width * 3.2f);
-            DrawVertical("Cal_ThinEndedLine", previous, next, color * (0.86f * opacity), width * 1.22f);
-            DrawVertical("Cal_ThinEndedLine", previous, next, Color.White * (0.92f * opacity), width * 0.34f);
+            DrawVertical("FranVfx_ThinEndedLine", previous, next, color * (0.36f * opacity), width * 3.2f);
+            DrawVertical("FranVfx_ThinEndedLine", previous, next, color * (0.86f * opacity), width * 1.22f);
+            DrawVertical("FranVfx_ThinEndedLine", previous, next, Color.White * (0.92f * opacity), width * 0.34f);
             previous = next;
         }
     }
@@ -257,8 +257,8 @@ internal static class FranVfx
         direction = direction.SafeNormalize(Vector2.UnitY);
         Vector2 start = center - direction * length * 0.24f;
         Vector2 end = center + direction * length * 0.76f;
-        DrawVertical("Cal_ThinEndedLine", start, end, color * (0.42f * opacity), width * 2.6f);
-        DrawVertical("Cal_ThinEndedLine", start, end, Color.White * (0.82f * opacity), width * 0.58f);
+        DrawVertical("FranVfx_ThinEndedLine", start, end, color * (0.42f * opacity), width * 2.6f);
+        DrawVertical("FranVfx_ThinEndedLine", start, end, Color.White * (0.82f * opacity), width * 0.58f);
     }
 
     public static void DustLine(Vector2 start, Vector2 end, int dustType, float spacing = 10f, float scale = 1.2f)

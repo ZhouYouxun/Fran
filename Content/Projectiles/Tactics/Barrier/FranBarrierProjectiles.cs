@@ -238,7 +238,7 @@ public sealed class FranBarrierCounterCut : ModProjectile
         FranVfx.DrawOriginalPixels("FranSmearForward", midpoint,
             new Color(90, 185, 255) * (opacity * 0.72f), direction.ToRotation(),
             new Vector2(length, 42f + Projectile.ai[0] * 6f));
-        FranVfx.DrawVertical("Cal_ThinEndedLine", Projectile.Center, end, Color.White * (opacity * 0.82f), 5f);
+        FranVfx.DrawVertical("FranVfx_ThinEndedLine", Projectile.Center, end, Color.White * (opacity * 0.82f), 5f);
         FranVfx.DrawOriginalPixels("FranFlashFourPoint", end, Color.White * (opacity * 0.84f),
             direction.ToRotation(), new Vector2(76f, 42f));
         FranVfx.EndAdditive();

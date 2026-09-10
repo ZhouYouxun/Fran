@@ -12,13 +12,13 @@ Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存
 ## 使用边界
 
 - `FranGlowOrbParticle.png` 与 `FranSmallBloomParticle.png` 的资源许可已经确认；本目录保存原文件
-  哈希一致的副本，不再通过 Calamity 运行时路径加载。
+  哈希一致的副本，不通过外部模组运行时路径加载。
 - `FranBoltParticle.cs/.png`、`FranSkillGlyphParticle.cs/.png`、`FranGlowOrbParticle.cs/.png`、
   `FranSmallBloomParticle.cs/.png` 是当前强制执行的一一对应专属资源。
 - `Textures/Particles` 的共享材质在本目录保留哈希一致副本；`FranParticleAssets` 只从 VIP 路径读取。
 - 粒子用到的 `FranPressureNeedle`、`FranFlashFourPoint`、`FranResonanceOrb` 同样在 VIP 保存副本，不跨区读取 `Assets/OriginalVFX`。
 - `LargeBloom.png` 即使已进入 VIP，仍属于大面积完整绘制素材，只能作为受控绘制层使用，禁止交给粒子生成器批量释放。
-- KS 等已确认许可库资源保持原样；`FranMysticGlyph1`～`5` 是作者从自己的 `CalamityThrowingSpear` 项目明确授权直接复制的五张自绘字形。
+- KS 等已确认许可库资源保持原样；`FranMysticGlyph1`～`5` 是作者从自己的旧项目明确授权直接复制的五张自绘字形。
 - 若未来增加任何外来图片，必须先记录来源与许可，并重新执行资源指纹审计。
 
 ## 自定义粒子类型
@@ -104,7 +104,7 @@ Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存
 
 ### 第四段：定向推出
 
-- 参考 `Ark of the Ancients` 右键的持剑运动：出刀时锁定鼠标方向，剑沿轴线推出再收回；
+- 出刀时锁定鼠标方向，剑沿轴线推出再收回；
 - 整段不改变剑的角度，不让玩家本体跟随位移；
 - 第二、第四段攻击距离均为第一、第三段的 `1.2` 倍；
 - 不移植参考武器的格挡、无敌帧、充能或敌对弹幕减伤；
@@ -124,8 +124,8 @@ Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存
 
 ## 雷电专用资源（2026-09-03）
 
-- `FranArcParticle.cs/.png`：单帧灰白透明电弧。素材由内置图像生成功能从文字描述创建，未输入或复制 Calamity 的 `Bolt.png`、`Bolt2.png`；PNG 保留生成时的透明通道。长轴为竖直方向，运行时按像素尺寸缩放、旋转、镜像和着色，不按三帧裁切。
-- `FranFissionArcParticle.cs`：短时裂变主雷，无配套 PNG。`Core/Graphics/FranFissionArc.cs` 在创建时生成有限的分叉折线，用原版 `MagicPixel` 的 1×1 区域加法绘制，不使用 Calamity 粒子、贴图或外部 shader。
+- `FranArcParticle.cs/.png`：单帧灰白透明电弧。素材由内置图像生成功能从文字描述创建；PNG 保留生成时的透明通道。长轴为竖直方向，运行时按像素尺寸缩放、旋转、镜像和着色，不按三帧裁切。
+- `FranFissionArcParticle.cs`：短时裂变主雷，无配套 PNG。`Core/Graphics/FranFissionArc.cs` 在创建时生成有限的分叉折线，用原版 `MagicPixel` 的 1×1 区域加法绘制，不使用外部粒子、贴图或 shader。
 - 闪电链在导通前沿和命中窗口内补余电；雷锤落点先劈主雷，再展开地面裂纹。所有新增电弧粒子只负责视觉，伤害由原有弹幕管理。
 
 ## 原版 Dust 的 20% 辅助层

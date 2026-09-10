@@ -145,9 +145,9 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
         float radius = Math.Max(npc.width, npc.height) * 0.62f + 12f + progress * 9f;
         Color markColor = Color.Lerp(new Color(175, 70, 255), new Color(245, 165, 255), progress);
         FranVfx.DrawRing(npc.Center, markColor, radius, (0.08f + progress * 0.08f) * fade,
-            Main.GlobalTimeWrappedHourly * (0.7f + progress * 1.3f), "Cal_FadedStarRing");
+            Main.GlobalTimeWrappedHourly * (0.7f + progress * 1.3f), "FranVfx_FadedStarRing");
         FranVfx.DrawRing(npc.Center, Color.White, radius * 0.72f, (0.035f + progress * 0.055f) * fade,
-            -Main.GlobalTimeWrappedHourly * (1.1f + progress * 1.7f), "Cal_BloomRing");
+            -Main.GlobalTimeWrappedHourly * (1.1f + progress * 1.7f), "FranVfx_BloomRing");
         FranVfx.EndAdditive();
     }
 }

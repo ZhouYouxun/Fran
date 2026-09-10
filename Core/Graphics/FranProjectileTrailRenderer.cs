@@ -29,7 +29,7 @@ internal static class FranProjectileTrailRenderer
     private static bool shaderTrailFaulted;
     private static bool telekineticWaveShaderFaulted;
     private static bool telekineticCoreShaderFaulted;
-    // TerratomereSwordBeam: SlashLifetime + 1 history positions, rendered with 30 samples.
+    // Long enough for the core to keep a continuous ribbon at maximum chase speed.
     internal const int TelekineticCoreHistoryLength = 136;
     internal const int TelekineticCoreSamples = 30;
 
@@ -67,12 +67,12 @@ internal static class FranProjectileTrailRenderer
             shader.TrySetParameter("uCoreColor", coreColor);
             shader.TrySetParameter("uOpacity", MathHelper.Clamp(opacity, 0f, 1f));
             shader.TrySetParameter("uDistanceProgress", distanceProgress);
-            shader.SetTexture(ModContent.Request<Texture2D>("Fran/Assets/TerratomereReference/BlobbyNoise").Value,
+            shader.SetTexture(ModContent.Request<Texture2D>("Fran/Assets/TrailNoiseReference/FranTrailBlobNoise").Value,
                 1, SamplerState.LinearWrap);
             shader.SetTexture(ModContent.Request<Texture2D>("Terraria/Images/Extra_189").Value,
                 2, SamplerState.LinearWrap);
             device.BlendState = BlendState.AlphaBlend;
-            // Use the reference's visual width (12), independently of Fran's gameplay hitbox.
+            // Keep the visual ribbon narrow, independently of Fran's gameplay hitbox.
             PrimitiveSettings settings = new(
                 completion => 12f * projectile.scale * Utils.GetLerpValue(0f, 0.1f,
                     distanceProgress[Math.Clamp((int)MathF.Round(completion * TelekineticCoreSamples), 0, TelekineticCoreSamples)], true),
@@ -116,8 +116,7 @@ internal static class FranProjectileTrailRenderer
         }
         if (controls.Count < 2)
             return new List<Vector2>();
-        // Calamity's current renderer requests 30 samples and then appends the final endpoint.
-        // Width and UV.x use cumulative distance, not the uniform sample index used by Luminance.
+        // Width and UV.x use cumulative distance rather than Luminance's uniform sample index.
         List<Vector2> points = new(TelekineticCoreSamples + 1);
         for (int j = 0; j < TelekineticCoreSamples; j++)
         {
@@ -231,7 +230,7 @@ internal static class FranProjectileTrailRenderer
                 float segmentWidth = WidthEnvelope(profile, width, completion);
                 FranVfx.DrawVertical("BloomLineSoftEdge", points[i], points[i - 1],
                     color * (fade * 0.32f), MathHelper.Clamp(segmentWidth * 1.9f, 2f, 86f));
-                FranVfx.DrawVertical("Cal_ThinEndedLine", points[i], points[i - 1],
+                FranVfx.DrawVertical("FranVfx_ThinEndedLine", points[i], points[i - 1],
                     Color.Lerp(color, Color.White, 0.64f) * (fade * 0.68f),
                     MathHelper.Clamp(segmentWidth * 0.24f, 1.2f, 8f));
             }
@@ -365,7 +364,7 @@ internal static class FranProjectileTrailRenderer
             FranProjectileTrailProfile.SpectralBlade => MathHelper.Lerp(0.22f, 1f,
                 FranMotion.Smooth(FranMotion.Segment(completion, 0f, 0.22f))) *
                 (0.90f + MathF.Sin(completion * MathHelper.Pi) * 0.18f),
-            // 对标 UnholyEssence_Wave：中段饱满，两端保留圆钝宽度，不收成尖角。
+            // 中段饱满，两端保留圆钝宽度，不收成尖角。
             FranProjectileTrailProfile.TelekineticWave => MathHelper.Lerp(0.25f, 1f,
                 MathF.Pow(MathF.Max(0f, MathF.Sin(completion * MathHelper.Pi)), 0.60f)),
             // Hammer wakes retain mass and break into repeating compression knots.
@@ -502,9 +501,8 @@ internal static class FranProjectileTrailRenderer
         return ResampleCatmullRomByDistance(controls, 60);
     }
 
-    // Calamity's renderer smooths the eight oldPos controls to sixty points and then evaluates
-    // width/color by travelled distance. Luminance uses point index, so equal-distance resampling
-    // reproduces the same visible profile while keeping every generated segment bounded.
+    // Smooth the oldPos controls to sixty equal-distance points. Luminance uses point index,
+    // so equal-distance resampling keeps the generated width profile stable and bounded.
     private static List<Vector2> ResampleCatmullRomByDistance(List<Vector2> controls, int resultCount)
     {
         if (controls.Count < 5)

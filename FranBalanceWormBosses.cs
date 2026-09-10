@@ -7,10 +7,10 @@ namespace FranMod.Core;
 
 public static partial class FranBalance
 {
-    // aiStyle == Worm 无法覆盖灾厄自定义 AI；realLife 也不是蠕虫专用标记。
+    // aiStyle == Worm 无法覆盖大型模组的自定义 AI；realLife 也不是蠕虫专用标记。
     // 按命中的节段类型判断，不依赖 npc.boss、头部存活或 realLife，兼容世吞分裂。
-    // 灾厄使用内部名称软兼容；未加载灾厄时无需引用其程序集。
-    private static readonly HashSet<string> CalamityWormBossSegments = new(StringComparer.Ordinal)
+    // 使用内部名称软兼容；未加载对应模组时无需引用其程序集。
+    private static readonly HashSet<string> ExternalWormBossSegments = new(StringComparer.Ordinal)
     {
         // 荒漠灾虫及 Boss 战附属的小荒漠灾虫。
         "DesertScourgeHead", "DesertScourgeBody", "DesertScourgeTail",
@@ -39,6 +39,6 @@ public static partial class FranBalance
             return true;
 
         return target.ModNPC?.Mod.Name == "CalamityMod" &&
-            CalamityWormBossSegments.Contains(target.ModNPC.Name);
+            ExternalWormBossSegments.Contains(target.ModNPC.Name);
     }
 }

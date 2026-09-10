@@ -359,14 +359,14 @@ public sealed class FranThunderCircuitFinisher : ModProjectile
 
         FranVfx.BeginAdditive();
         FranVfx.DrawRing(Projectile.Center, violet, collapseRadius, opacity * 0.78f,
-            rotation, "Cal_BloomRing");
+            rotation, "FranVfx_BloomRing");
         FranVfx.DrawRing(Projectile.Center, Color.White, collapseRadius * 0.62f, opacity * 0.48f,
-            -rotation * 1.35f, "Cal_FadedStarRing");
+            -rotation * 1.35f, "FranVfx_FadedStarRing");
 
         if (!Fired)
         {
             Vector2 guideStart = Projectile.Center - Vector2.UnitY * MathHelper.Lerp(230f, 520f, charge);
-            FranVfx.DrawSharedPixels("Cal_DrainLineBloom", (guideStart + Projectile.Center) * 0.5f,
+            FranVfx.DrawSharedPixels("FranVfx_DrainLineBloom", (guideStart + Projectile.Center) * 0.5f,
                 azure * (opacity * charge * 0.30f), 0f,
                 new Vector2(9f + charge * 6f, Vector2.Distance(guideStart, Projectile.Center)));
         }

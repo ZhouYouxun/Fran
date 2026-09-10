@@ -49,7 +49,7 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
     {
         // 击败克苏鲁之眼后才解锁念核穿墙；追踪仍由发射时的全选标记独立控制。
         Projectile.tileCollide = !NPC.downedBoss1;
-        // Terratomere calls HomeInOnNPC every sub-update. The helper itself raises extraUpdates
+        // This helper updates homing every sub-update and raises extraUpdates
         // from 1 to 2 while a target is available; velocity is NOT divided by MaxUpdates.
         NPC closest = null;
         float closestDistance = 25000f;

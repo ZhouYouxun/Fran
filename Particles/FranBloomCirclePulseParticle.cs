@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace FranMod.Particles;
 
 
-// A Calamity BloomCircle-only pulse for nova projectiles. Unlike FranBloomParticle it has
+// A single-texture circle pulse for nova projectiles. Unlike FranBloomParticle it has
 // no SoftBloom/HardBloom backing plate, matching the clean circular body of the reference nova.
 internal sealed class FranBloomCirclePulseParticle : FranParticle
 {

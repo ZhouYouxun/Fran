@@ -153,16 +153,16 @@ public sealed class FloatingSwordArrayProjectile : ModProjectile
             0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 5f + Projectile.identity));
         FranVfx.BeginAdditive();
 
-        FranVfx.DrawShared("Cal_ForwardSmear", Projectile.Center - direction * 28f,
+        FranVfx.DrawShared("FranVfx_ForwardSmear", Projectile.Center - direction * 28f,
             resonanceBlue * (0.16f + dashIntensity * 0.48f), Projectile.rotation - MathHelper.PiOver4,
             new Vector2(0.13f + dashIntensity * 0.09f, 0.06f + dashIntensity * 0.035f));
-        FranVfx.DrawVertical("Cal_ThinEndedLine", Projectile.Center - direction * 96f,
+        FranVfx.DrawVertical("FranVfx_ThinEndedLine", Projectile.Center - direction * 96f,
             Projectile.Center + direction * 14f, resonanceBlue * (0.22f + dashIntensity * 0.52f),
             9f + dashIntensity * 12f);
-        FranVfx.DrawVertical("Cal_ThinEndedLine", Projectile.Center - direction * 61f,
+        FranVfx.DrawVertical("FranVfx_ThinEndedLine", Projectile.Center - direction * 61f,
             Projectile.Center + direction * 12f, Color.White * (0.14f + dashIntensity * 0.68f),
             3f + dashIntensity * 4f);
-        FranVfx.DrawShared("Cal_ShineFlare", Projectile.Center + direction * 8f,
+        FranVfx.DrawShared("FranVfx_ShineFlare", Projectile.Center + direction * 8f,
             Color.White * (0.24f + dashIntensity * 0.54f), Projectile.rotation,
             new Vector2(0.045f, 0.018f));
         FranVfx.DrawBloom(Projectile.Center, resonanceBlue, 15f + dashIntensity * 9f,
@@ -209,7 +209,7 @@ public sealed class FloatingSwordLaser : ModProjectile
         FranVfx.BeginAdditive();
         FranVfx.DrawCappedLaser(Projectile.Center - direction * 56f, Projectile.Center + direction * 10f,
             new Color(55, 180, 70), malachite, 4.4f, opacity);
-        FranVfx.DrawShared("Cal_PulseStar", Projectile.Center, Color.White * (0.84f * opacity),
+        FranVfx.DrawShared("FranVfx_PulseStar", Projectile.Center, Color.White * (0.84f * opacity),
             Projectile.rotation, 0.065f);
         FranVfx.DrawBloom(Projectile.Center, malachite, 11f, 0.42f * opacity);
         FranVfx.EndAdditive();
@@ -304,24 +304,24 @@ public sealed class AirDrawSlashProjectile : ModProjectile
             Vector2 end = owner.MountedCenter + direction * 248f;
 
             // One-frame-draw precision: a broad curved air shell, a compressed inner blade and split wakes.
-            FranVfx.DrawShared("Cal_SemiCircularSmearSwipe", owner.MountedCenter + direction * 42f,
+            FranVfx.DrawShared("FranVfx_SemiCircularSmearSwipe", owner.MountedCenter + direction * 42f,
                 new Color(105, 205, 245) * (0.48f * opacity), currentBladeAngle + MathHelper.PiOver2,
                 new Vector2(1.36f, 0.72f));
-            FranVfx.DrawShared("Cal_SemiCircularSmearSwipe", owner.MountedCenter + direction * 58f,
+            FranVfx.DrawShared("FranVfx_SemiCircularSmearSwipe", owner.MountedCenter + direction * 58f,
                 Color.White * (0.32f * opacity), currentBladeAngle - MathHelper.PiOver2,
                 new Vector2(1.02f, 0.54f));
-            FranVfx.DrawVertical("Cal_GlowBlade", start, end,
+            FranVfx.DrawVertical("FranVfx_GlowBlade", start, end,
                 new Color(115, 225, 255) * (0.46f * opacity), 54f);
-            FranVfx.DrawVertical("Cal_ThinEndedLine", start + direction * 28f, end,
+            FranVfx.DrawVertical("FranVfx_ThinEndedLine", start + direction * 28f, end,
                 Color.White * (0.82f * opacity), 9f);
             for (int i = -1; i <= 1; i += 2)
             {
                 Vector2 normal = direction.RotatedBy(MathHelper.PiOver2) * (24f + age * 1.2f) * i;
-                FranVfx.DrawStretched("Cal_FadeStreak", owner.MountedCenter + normal,
+                FranVfx.DrawStretched("FranVfx_FadeStreak", owner.MountedCenter + normal,
                     owner.MountedCenter + direction * 205f + normal * 0.28f,
                     new Color(120, 205, 235) * (0.24f * opacity), 13f);
             }
-            FranVfx.DrawShared("Cal_ShineFlare", owner.MountedCenter + direction * 104f,
+            FranVfx.DrawShared("FranVfx_ShineFlare", owner.MountedCenter + direction * 104f,
                 Color.White * (0.68f * opacity), currentBladeAngle,
                 new Vector2(0.14f, 0.035f));
         }
@@ -331,8 +331,8 @@ public sealed class AirDrawSlashProjectile : ModProjectile
             float radius = MathHelper.Lerp(62f, 19f, charge);
             Color chargeColor = Color.Lerp(new Color(90, 175, 215), Color.White, charge * 0.72f);
             FranVfx.DrawRing(owner.MountedCenter, chargeColor, radius, 0.14f + charge * 0.34f,
-                Main.GlobalTimeWrappedHourly * (0.8f + charge * 2.4f), "Cal_BloomRing");
-            FranVfx.DrawShared("Cal_CircularSmear", owner.MountedCenter,
+                Main.GlobalTimeWrappedHourly * (0.8f + charge * 2.4f), "FranVfx_BloomRing");
+            FranVfx.DrawShared("FranVfx_CircularSmear", owner.MountedCenter,
                 chargeColor * (0.10f + charge * 0.30f),
                 Main.GlobalTimeWrappedHourly * (1.1f + charge * 2f), 0.30f + charge * 0.10f);
             for (int i = 0; i < 3; i++)
@@ -536,8 +536,8 @@ public sealed class ShipCutterProjectile : ModProjectile
             float charge = FranMotion.EaseInCubic(FranMotion.Segment(progress, 0f, 0.36f));
             Color chargeColor = Color.Lerp(new Color(205, 150, 75), Color.White, charge * 0.64f);
             FranVfx.DrawRing(owner.MountedCenter, chargeColor, MathHelper.Lerp(102f, 38f, charge),
-                0.12f + charge * 0.34f, -Main.GlobalTimeWrappedHourly * (0.45f + charge * 1.7f), "Cal_BloomRing");
-            FranVfx.DrawShared("Cal_CircularSmear", owner.MountedCenter,
+                0.12f + charge * 0.34f, -Main.GlobalTimeWrappedHourly * (0.45f + charge * 1.7f), "FranVfx_BloomRing");
+            FranVfx.DrawShared("FranVfx_CircularSmear", owner.MountedCenter,
                 new Color(255, 170, 70) * (0.11f + charge * 0.24f),
                 Main.GlobalTimeWrappedHourly * (0.6f + charge * 1.4f), 0.52f - charge * 0.18f);
             for (int i = 0; i < 4; i++)
@@ -558,20 +558,20 @@ public sealed class ShipCutterProjectile : ModProjectile
             {
                 float echo = 1f - i * 0.24f;
                 float angle = currentAngle + MathHelper.PiOver2 - facing * i * 0.075f;
-                FranVfx.DrawShared("Cal_SemiCircularSmearSwipe", owner.MountedCenter + direction * (45f + i * 18f),
+                FranVfx.DrawShared("FranVfx_SemiCircularSmearSwipe", owner.MountedCenter + direction * (45f + i * 18f),
                     outer * (0.40f * echo * releaseOpacity), angle,
                     new Vector2(2.05f - i * 0.18f, 1.12f - i * 0.12f));
             }
-            FranVfx.DrawShared("Cal_ForwardSmear", center, outer * (0.52f * releaseOpacity),
+            FranVfx.DrawShared("FranVfx_ForwardSmear", center, outer * (0.52f * releaseOpacity),
                 currentAngle - MathHelper.PiOver2, new Vector2(0.54f, 0.16f));
-            FranVfx.DrawSharedPixels("CLCB_BrinySlash", center + direction * 26f,
+            FranVfx.DrawSharedPixels("FranLegacyBrinySlash", center + direction * 26f,
                 new Color(105, 235, 255) * (0.46f * releaseOpacity),
                 currentAngle + MathHelper.PiOver2, new Vector2(460f, 28f));
-            FranVfx.DrawVertical("Cal_GlowBlade", owner.MountedCenter - direction * 42f,
+            FranVfx.DrawVertical("FranVfx_GlowBlade", owner.MountedCenter - direction * 42f,
                 owner.MountedCenter + direction * 435f, outer * (0.56f * releaseOpacity), 86f);
-            FranVfx.DrawVertical("Cal_ThinEndedLine", owner.MountedCenter + direction * 18f,
+            FranVfx.DrawVertical("FranVfx_ThinEndedLine", owner.MountedCenter + direction * 18f,
                 owner.MountedCenter + direction * 410f, Color.White * (0.82f * releaseOpacity), 13f);
-            FranVfx.DrawShared("Cal_ShineFlare", center + direction * 62f,
+            FranVfx.DrawShared("FranVfx_ShineFlare", center + direction * 62f,
                 Color.White * (0.72f * releaseOpacity), currentAngle,
                 new Vector2(0.24f, 0.045f));
             FranVfx.DrawBloom(center, new Color(255, 205, 135), 82f, 0.28f * releaseOpacity);

@@ -200,9 +200,9 @@ public sealed class FranThunderDropVisual : ModProjectile
             float warningRadius = MathHelper.Lerp(Finisher ? 142f : 108f, Finisher ? 30f : 24f, warningProgress);
             float warningOpacity = MathF.Sin(warningProgress * MathHelper.Pi) * (Finisher ? 0.92f : 0.72f);
             FranVfx.DrawRing(end, new Color(100, 145, 255), warningRadius, warningOpacity,
-                -Main.GlobalTimeWrappedHourly * 3.4f, "Cal_BloomRing");
+                -Main.GlobalTimeWrappedHourly * 3.4f, "FranVfx_BloomRing");
             FranVfx.DrawRing(end, Color.White, warningRadius * 0.62f, warningOpacity * 0.62f,
-                Main.GlobalTimeWrappedHourly * 4.8f, "Cal_FadedStarRing");
+                Main.GlobalTimeWrappedHourly * 4.8f, "FranVfx_FadedStarRing");
             for (int i = 0; i < (Finisher ? 8 : 6); i++)
             {
                 float angle = MathHelper.TwoPi * i / (Finisher ? 8f : 6f) + Seed * 0.03f;
@@ -231,9 +231,9 @@ public sealed class FranThunderDropVisual : ModProjectile
                     Finisher ? 0.58f : 0.34f);
                 float ringRadius = MathHelper.Lerp(34f, Finisher ? 190f : 142f, expansion);
                 FranVfx.DrawRing(end, ringColor, ringRadius, impact * 0.76f,
-                    Seed * 0.1f + expansion, "Cal_BloomRing");
+                    Seed * 0.1f + expansion, "FranVfx_BloomRing");
                 FranVfx.DrawRing(end, Color.White, ringRadius * 0.66f, impact * 0.48f,
-                    -Seed * 0.07f - expansion, "Cal_HighResHollowCircle");
+                    -Seed * 0.07f - expansion, "FranVfx_HighResHollowCircle");
             }
             FranVfx.DrawBloom(end, Color.White, MainStrike ? (Finisher ? 106f : 82f) : 38f,
                 impact * (MainStrike ? 0.62f : 0.32f), MainStrike);

@@ -123,7 +123,7 @@ public sealed class FranBurst : ModProjectile
         Color color = StyleColor(Style);
 
         if (Style == FranBurstStyle.Barrier)
-            FranVfx.DrawShared("Cal_CircularSmearSmokey", Projectile.Center,
+            FranVfx.DrawShared("FranVfx_CircularSmearSmokey", Projectile.Center,
                 new Color(10, 5, 22, 190) * opacity, VisualRotation + progress,
                 0.24f * VisualScale * (0.72f + eased * 0.42f));
 
@@ -135,7 +135,7 @@ public sealed class FranBurst : ModProjectile
                     VisualRotation, 0.28f * VisualScale * (0.75f + eased * 0.35f));
                 break;
             case FranBurstStyle.Telekinetic:
-                FranVfx.DrawRing(Projectile.Center, color, radius, 0.58f * opacity, VisualRotation, "Cal_BloomRing");
+                FranVfx.DrawRing(Projectile.Center, color, radius, 0.58f * opacity, VisualRotation, "FranVfx_BloomRing");
                 FranVfx.DrawOriginalPixels("FranImpactBurst", Projectile.Center, color * (0.68f * opacity),
                     VisualRotation, new Vector2(radius * 2.15f, radius * 1.18f));
                 FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
@@ -153,12 +153,12 @@ public sealed class FranBurst : ModProjectile
                     new Color(244, 214, 255, 0) * (0.78f * opacity),
                     -VisualRotation, radius * 0.72f / 200f);
                 FranVfx.DrawRing(Projectile.Center, new Color(225, 160, 255), radius * 1.12f,
-                    0.56f * opacity, VisualRotation + progress * 1.4f, "Cal_BloomRing");
+                    0.56f * opacity, VisualRotation + progress * 1.4f, "FranVfx_BloomRing");
                 break;
             case FranBurstStyle.Barrier:
                 FranVfx.DrawRing(Projectile.Center, color, radius, 0.46f * opacity,
-                    VisualRotation, "Cal_HighResHollowCircle");
-                FranVfx.DrawShared("Cal_SemiCircularSmearSwipe", Projectile.Center,
+                    VisualRotation, "FranVfx_HighResHollowCircle");
+                FranVfx.DrawShared("FranVfx_SemiCircularSmearSwipe", Projectile.Center,
                     new Color(105, 75, 255) * (0.42f * opacity), VisualRotation,
                     0.52f * VisualScale * (0.72f + eased * 0.36f));
                 FranVfx.DrawShared("Crack", Projectile.Center, color * (0.34f * opacity),
@@ -172,25 +172,25 @@ public sealed class FranBurst : ModProjectile
                 {
                     float angle = VisualRotation + i * MathHelper.PiOver2;
                     Vector2 point = Projectile.Center + angle.ToRotationVector2() * radius * 0.46f;
-                    FranVfx.DrawShared("Cal_ForwardSmear", point,
+                    FranVfx.DrawShared("FranVfx_ForwardSmear", point,
                         new Color(145, 255, 120) * (0.42f * opacity), angle - MathHelper.PiOver2,
                         new Vector2(0.10f, 0.035f) * VisualScale);
                 }
-                FranVfx.DrawShared("Cal_ShineFlare", Projectile.Center, Color.White * (0.68f * opacity),
+                FranVfx.DrawShared("FranVfx_ShineFlare", Projectile.Center, Color.White * (0.68f * opacity),
                     -VisualRotation, new Vector2(0.09f, 0.025f) * VisualScale);
                 FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
                     new Color(210, 255, 195) * (0.72f * opacity), VisualRotation,
                     new Vector2(radius * 1.42f, radius * 0.78f));
                 break;
             case FranBurstStyle.Flame:
-                FranVfx.DrawShared("Cal_CircularSmear", Projectile.Center,
+                FranVfx.DrawShared("FranVfx_CircularSmear", Projectile.Center,
                     new Color(95, 255, 80) * (0.38f * opacity), VisualRotation + progress * 1.4f,
                     0.42f * VisualScale * (0.82f + eased * 0.4f));
-                FranVfx.DrawShared("Cal_SemiCircularSmearSwipe", Projectile.Center,
+                FranVfx.DrawShared("FranVfx_SemiCircularSmearSwipe", Projectile.Center,
                     color * (0.48f * opacity), -VisualRotation - progress * 1.8f,
                     0.48f * VisualScale * (0.72f + eased * 0.38f));
                 FranVfx.DrawRing(Projectile.Center, new Color(185, 255, 95), radius * 0.76f, 0.42f * opacity,
-                    -VisualRotation, "Cal_BloomRing");
+                    -VisualRotation, "FranVfx_BloomRing");
                 break;
             case FranBurstStyle.AirDraw:
                 FranVfx.DrawOriginalPixels("FranImpactBurst", Projectile.Center, color * (0.74f * opacity),
@@ -204,7 +204,7 @@ public sealed class FranBurst : ModProjectile
                 FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
                     Color.White * (0.84f * opacity), VisualRotation, new Vector2(radius * 1.54f, radius * 0.86f));
                 FranVfx.DrawRing(Projectile.Center, color, radius, 0.42f * opacity,
-                    VisualRotation, "Cal_BloomRing");
+                    VisualRotation, "FranVfx_BloomRing");
                 for (int i = 0; i < 6; i++)
                     FranVfx.DrawTexturedSpark(Projectile.Center,
                         (VisualRotation + i * MathHelper.TwoPi / 6f).ToRotationVector2(), color,
@@ -212,10 +212,10 @@ public sealed class FranBurst : ModProjectile
                 break;
             case FranBurstStyle.ShipCutter:
                 for (int i = 0; i < 3; i++)
-                    FranVfx.DrawShared("Cal_SemiCircularSmearSwipe", Projectile.Center,
+                    FranVfx.DrawShared("FranVfx_SemiCircularSmearSwipe", Projectile.Center,
                         color * ((0.58f - i * 0.12f) * opacity), VisualRotation - i * 0.12f,
                         (0.82f - i * 0.10f) * VisualScale * (0.72f + eased * 0.42f));
-                FranVfx.DrawShared("Cal_ShineFlare", Projectile.Center, Color.White * (0.56f * opacity),
+                FranVfx.DrawShared("FranVfx_ShineFlare", Projectile.Center, Color.White * (0.56f * opacity),
                     -VisualRotation, new Vector2(0.16f, 0.035f) * VisualScale);
                 break;
             case FranBurstStyle.ThorsHammer:
@@ -238,9 +238,9 @@ public sealed class FranBurst : ModProjectile
                 FranVfx.DrawShared("Crack", Projectile.Center, color * (0.42f * hammerAfterglow),
                     -VisualRotation, 0.34f * VisualScale * (0.72f + hammerExpansion * 0.46f));
                 FranVfx.DrawRing(Projectile.Center, color, hammerRadius, 0.64f * hammerAfterglow,
-                    VisualRotation, "Cal_HighResHollowCircle");
+                    VisualRotation, "FranVfx_HighResHollowCircle");
                 FranVfx.DrawRing(Projectile.Center, Color.White, hammerRadius * 0.62f,
-                    0.46f * hammerAfterglow, -VisualRotation, "Cal_BloomRing");
+                    0.46f * hammerAfterglow, -VisualRotation, "FranVfx_BloomRing");
                 for (int i = 0; i < 12; i++)
                 {
                     float angle = VisualRotation + MathHelper.TwoPi * i / 12f;
@@ -250,7 +250,7 @@ public sealed class FranBurst : ModProjectile
                         hammerRadius * (i % 2 == 0 ? 1.16f : 0.82f),
                         4.6f * VisualScale, hammerAfterglow * 0.68f);
                 }
-                FranVfx.DrawShared("Cal_ShineFlare", Projectile.Center,
+                FranVfx.DrawShared("FranVfx_ShineFlare", Projectile.Center,
                     Color.White * (0.96f * hammerFlash + 0.52f * hammerAfterglow),
                     VisualRotation, new Vector2(0.38f, 0.078f) * VisualScale);
                 break;
@@ -262,7 +262,7 @@ public sealed class FranBurst : ModProjectile
                     new Color(205, 165, 255) * (0.46f * opacity), VisualRotation,
                     new Vector2(radius * 2.05f, radius * 0.58f));
                 FranVfx.DrawRing(Projectile.Center, new Color(105, 55, 155), radius,
-                    0.46f * opacity, -VisualRotation, "Cal_BloomRing");
+                    0.46f * opacity, -VisualRotation, "FranVfx_BloomRing");
                 FranVfx.DrawShared("Star", Projectile.Center, new Color(205, 165, 255) * (0.34f * opacity),
                     -VisualRotation, 0.13f * VisualScale);
                 break;

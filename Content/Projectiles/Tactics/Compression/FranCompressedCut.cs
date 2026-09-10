@@ -53,7 +53,7 @@ public sealed class FranCompressedCut : ModProjectile
         Vector2 midpoint = (start + end) * 0.5f;
         float length = Vector2.Distance(start, end);
         FranVfx.BeginAdditive();
-        FranVfx.DrawVertical("Cal_ThinEndedLine", start, end,
+        FranVfx.DrawVertical("FranVfx_ThinEndedLine", start, end,
             new Color(210, 250, 255) * (0.14f * warning + 0.76f * release), 2f + release * 12f);
         if (release > 0f)
         {

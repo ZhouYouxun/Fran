@@ -380,7 +380,7 @@ public sealed class FranCompressionAirburst : ModProjectile
             FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
                 pale * (0.18f + charge * 0.46f), -Projectile.rotation * 1.35f,
                 Vector2.One * (radius * 1.55f));
-            FranVfx.DrawSharedPixels("Cal_HighResFoggyCircleHardEdge", Projectile.Center,
+            FranVfx.DrawSharedPixels("FranVfx_HighResFoggyCircleHardEdge", Projectile.Center,
                 cyan * (0.10f + charge * 0.20f), Projectile.rotation,
                 Vector2.One * radius * 1.42f);
             for (int i = 0; i < 6; i++)
@@ -407,12 +407,12 @@ public sealed class FranCompressionAirburst : ModProjectile
                 MathHelper.Lerp(58f, BlastRadius * 1.18f, expansion)));
         FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center,
             Color.White * (opacity * 0.94f * coreFlash), seed, new Vector2(136f, 74f) * BurstScale);
-        FranVfx.DrawSharedPixels("Cal_HighResFoggyCircleHardEdge", Projectile.Center,
+        FranVfx.DrawSharedPixels("FranVfx_HighResFoggyCircleHardEdge", Projectile.Center,
             cyan * (0.46f * fade), Projectile.rotation, Vector2.One * shellRadius * 2f);
         FranVfx.DrawRing(Projectile.Center, pale, shellRadius * 0.88f,
-            0.72f * fade, Projectile.rotation * 1.7f, "Cal_BloomRing");
+            0.72f * fade, Projectile.rotation * 1.7f, "FranVfx_BloomRing");
         FranVfx.DrawRing(Projectile.Center, Color.White, shellRadius * 0.52f,
-            opacity * 0.52f * fade, -Projectile.rotation * 2.1f, "Cal_FadedStarRing");
+            opacity * 0.52f * fade, -Projectile.rotation * 2.1f, "FranVfx_FadedStarRing");
         for (int i = 0; i < 8; i++)
         {
             float angle = seed + i * MathHelper.TwoPi / 8f;
@@ -425,7 +425,7 @@ public sealed class FranCompressionAirburst : ModProjectile
                 direction.ToRotation() + MathHelper.PiOver2,
                 new Vector2(10f + coreFlash * 5f, rayLength));
         }
-        FranVfx.DrawShared("Cal_ShineFlare", Projectile.Center,
+        FranVfx.DrawShared("FranVfx_ShineFlare", Projectile.Center,
             Color.White * (opacity * 0.82f * coreFlash),
             seed, new Vector2(0.22f, 0.055f) * BurstScale);
         FranVfx.DrawBloom(Projectile.Center, pale, 38f + coreFlash * 34f,

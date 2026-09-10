@@ -1,6 +1,4 @@
-// Local SideStreakTrail reconstruction for Fran's blue UnholyEssence_Wave counterpart.
-// Keep this response intentionally close to Calamity's reference shader: the palette is
-// supplied by vertices, and Terraria's Perlin texture is bound to register s1.
+// Broad blue wave ribbon for Fran's telekinetic pressure blades.
 float globalTime;
 float uOpacity;
 matrix uWorldViewProjection;
@@ -34,28 +32,29 @@ VertexShaderOutput VertexShaderFunction(in VertexShaderInput input)
 float4 PixelShaderFunction(VertexShaderOutput input) : COLOR0
 {
     float2 coords = input.TextureCoordinates.xy;
-    float longitudinal = saturate(coords.x);
+    float along = saturate(coords.x);
     coords.y = (coords.y - 0.5) / input.TextureCoordinates.z + 0.5;
+    float cross = saturate(coords.y);
 
-    // SideStreakTrail's recognizable rounded side light.
-    float bloomOpacity = pow(saturate(cos(coords.y * 4.8 - 0.8)),
-        55.0 + pow(longitudinal, 4.0) * 700.0);
+    float centered = abs(cross * 2.0 - 1.0);
+    float softBody = saturate(1.0 - centered);
+    float hotRail = exp2(-54.0 * centered * centered);
+    float shoulderA = exp2(-90.0 * (centered - 0.36) * (centered - 0.36));
+    float shoulderB = exp2(-90.0 * (centered - 0.58) * (centered - 0.58));
 
-    // Slow Perlin blotches keep the wide strip from reading as a flat translucent trapezoid.
-    if (coords.y > 0.15 && coords.y < 0.85)
-    {
-        float noise = tex2D(uMaterialSampler,
-            coords * 1.1 + float2(globalTime * -0.6, 0.0)).r;
-        float minimumOpacity = pow(saturate(1.0 - sin(coords.y * 3.14159265) + noise * 2.2), 0.2);
-        bloomOpacity += pow(longitudinal, 0.3) * lerp(0.04, 0.4, minimumOpacity);
-    }
+    float drift = tex2D(uMaterialSampler, coords * float2(1.35, 0.82) +
+        float2(globalTime * -0.43, globalTime * 0.07)).r;
+    float grain = tex2D(uMaterialSampler, coords * float2(0.58, 1.72) +
+        float2(globalTime * 0.19, globalTime * -0.31)).r;
+    float turbulence = saturate(drift * 0.68 + grain * 0.32);
 
-    // Match the reference's strong front-half bloom without a second artificial core pass.
-    if (longitudinal < 0.5)
-        bloomOpacity *= (1.0 - longitudinal * 2.0) * 2.7 + 1.0;
+    float nose = 1.0 + smoothstep(0.55, 0.0, along) * 2.35;
+    float tail = pow(saturate(1.0 - along), 1.08);
+    float interiorFlicker = pow(saturate(softBody + turbulence * 1.15 - 0.34), 1.7);
+    float ribbonLight = hotRail * 1.08 + (shoulderA + shoulderB) * 0.28 +
+        interiorFlicker * lerp(0.10, 0.44, pow(along, 0.38));
 
-    return input.Color * lerp(0.0, 3.6, bloomOpacity * pow(longitudinal, 0.1)) *
-        pow(saturate(1.0 - longitudinal), 1.1) * saturate(uOpacity);
+    return input.Color * ribbonLight * nose * tail * 2.85 * saturate(uOpacity);
 }
 
 technique FranTelekineticWave

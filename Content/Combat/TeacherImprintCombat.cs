@@ -223,7 +223,7 @@ internal static class TeacherImprintCombat
     {
         Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
         Vector2 spawn = owner.MountedCenter + direction * 28f + normal * lateralOffset;
-        // Terratomere: shootSpeed 60 / 2, with a circular-edge velocity offset of 20%.
+        // High-speed blade pressure shot, with a circular-edge velocity offset of 20%.
         // Formation counts, spawn offsets and base damage remain the tactic's own values.
         bool fullLoadout = owner.GetModPlayer<FranPlayer>().IsFullTacticLoadout(FranSkill.TelekineticCatapult);
         Vector2 launchVelocity = fullLoadout

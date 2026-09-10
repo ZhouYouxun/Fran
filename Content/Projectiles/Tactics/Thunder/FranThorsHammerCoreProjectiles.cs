@@ -97,12 +97,12 @@ public sealed class ThorsHammerMarker : ModProjectile
         FranVfx.BeginAdditive();
         FranVfx.DrawRing(Projectile.Center, telegraphColor, outerRadius,
             opacity * (0.24f + focus * 0.42f) * visualIntensity,
-            Main.GlobalTimeWrappedHourly * (0.45f + focus * 3.2f), "Cal_FadedStarRing");
+            Main.GlobalTimeWrappedHourly * (0.45f + focus * 3.2f), "FranVfx_FadedStarRing");
         FranVfx.DrawRing(Projectile.Center, Color.White,
             MathHelper.Lerp(72f, 31f, focus) * visualIntensity,
             opacity * (0.10f + focus * 0.40f) * visualIntensity,
-            -Main.GlobalTimeWrappedHourly * (0.8f + focus * 3.8f), "Cal_BloomRing");
-        FranVfx.DrawShared("Cal_PulseStar", Projectile.Center,
+            -Main.GlobalTimeWrappedHourly * (0.8f + focus * 3.8f), "FranVfx_BloomRing");
+        FranVfx.DrawShared("FranVfx_PulseStar", Projectile.Center,
             new Color(120, 190, 255) * (opacity * (0.18f + focus * 0.48f) * visualIntensity),
             Main.GlobalTimeWrappedHourly * 1.7f, (0.22f + focus * 0.10f) * visualIntensity);
         FranVfx.DrawBloom(Projectile.Center, telegraphColor,

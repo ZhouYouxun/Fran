@@ -82,20 +82,20 @@ public sealed class MagicBarrierProjectile : ModProjectile
         float pulse = 0.92f + MathF.Sin(Main.GlobalTimeWrappedHourly * 4.8f + Projectile.identity) * 0.06f;
 
         // 吞光核心必须使用普通 AlphaBlend；纯黑放入 Additive 会失去可见贡献。
-        FranVfx.DrawShared("Cal_CircularSmearSmokey", Projectile.Center, voidColor * (0.72f * deploy),
+        FranVfx.DrawShared("FranVfx_CircularSmearSmokey", Projectile.Center, voidColor * (0.72f * deploy),
             Projectile.rotation + Main.GlobalTimeWrappedHourly * 0.16f,
             new Vector2(0.48f, 0.17f) * pulse * deploy);
-        FranVfx.DrawShared("Cal_HighResHollowCircle", Projectile.Center, new Color(8, 4, 18, 185) * deploy,
+        FranVfx.DrawShared("FranVfx_HighResHollowCircle", Projectile.Center, new Color(8, 4, 18, 185) * deploy,
             -Projectile.rotation, new Vector2(0.064f, 0.026f) * pulse * deploy);
 
         FranVfx.BeginAdditive();
-        FranVfx.DrawShared("Cal_SemiCircularSmearSwipe", Projectile.Center,
+        FranVfx.DrawShared("FranVfx_SemiCircularSmearSwipe", Projectile.Center,
             new Color(105, 70, 255) * (0.48f * deploy), Projectile.rotation,
             new Vector2(0.84f, 0.42f) * pulse * deploy);
-        FranVfx.DrawShared("Cal_SemiCircularSmearSwipe", Projectile.Center,
+        FranVfx.DrawShared("FranVfx_SemiCircularSmearSwipe", Projectile.Center,
             new Color(105, 210, 255) * (0.38f * deploy), Projectile.rotation + MathHelper.Pi,
             new Vector2(0.84f, 0.42f) * pulse * deploy);
-        FranVfx.DrawShared("Cal_BloomRing", Projectile.Center, color * (0.42f * deploy),
+        FranVfx.DrawShared("FranVfx_BloomRing", Projectile.Center, color * (0.42f * deploy),
             Main.GlobalTimeWrappedHourly * 0.7f, new Vector2(0.72f, 0.28f) * pulse * deploy);
         if (Projectile.ai[2] > 0f)
             FranVfx.DrawShared("Crack", Projectile.Center, new Color(170, 225, 255) * (0.16f + Projectile.ai[2] * 0.09f),
@@ -105,7 +105,7 @@ public sealed class MagicBarrierProjectile : ModProjectile
         FranVfx.DrawVertical("BloomLineSoftEdge", Projectile.Center - axis + side,
             Projectile.Center + axis + side, Color.White * 0.72f, 5f);
         for (int i = -3; i <= 3; i++)
-            FranVfx.DrawVertical("Cal_ThinEndedLine", Projectile.Center + axis * (i / 3f) - side,
+            FranVfx.DrawVertical("FranVfx_ThinEndedLine", Projectile.Center + axis * (i / 3f) - side,
                 Projectile.Center + axis * (i / 3f) + side, color * 0.42f, 3f);
         FranVfx.DrawBloom(Projectile.Center, new Color(95, 110, 255), 38f, 0.28f * deploy);
         FranVfx.EndAdditive();
@@ -199,23 +199,23 @@ public sealed class FlameFangAuraVisual : ModProjectile
         Color inner = Color.Lerp(outer, Color.White, 0.62f);
 
         FranVfx.BeginAdditive();
-        FranVfx.DrawShared("Cal_CircularSmear", Projectile.Center, outer * (0.20f * opacity),
+        FranVfx.DrawShared("FranVfx_CircularSmear", Projectile.Center, outer * (0.20f * opacity),
             Main.GlobalTimeWrappedHourly * 0.62f, new Vector2(0.72f, 0.48f) * (0.92f + pulse * 0.12f));
-        FranVfx.DrawShared("Cal_BloomRing", Projectile.Center, outer * (0.24f * opacity),
+        FranVfx.DrawShared("FranVfx_BloomRing", Projectile.Center, outer * (0.24f * opacity),
             -Main.GlobalTimeWrappedHourly * 0.47f, 0.42f + pulse * 0.045f);
-        FranVfx.DrawShared("Cal_SemiCircularSmearSwipe", Projectile.Center + new Vector2(0f, 4f),
+        FranVfx.DrawShared("FranVfx_SemiCircularSmearSwipe", Projectile.Center + new Vector2(0f, 4f),
             inner * (0.28f * opacity), Main.GlobalTimeWrappedHourly * 0.82f,
             new Vector2(0.38f, 0.31f));
         for (int i = 0; i < 5; i++)
         {
             float angle = Main.GlobalTimeWrappedHourly * (0.32f + i * 0.045f) + i * MathHelper.TwoPi / 5f;
             Vector2 bubble = Projectile.Center + angle.ToRotationVector2() * (30f + i % 2 * 10f + pulse * 4f);
-            FranVfx.DrawShared("Cal_BloomCircle", bubble, (i % 2 == 0 ? outer : inner) * (0.11f * opacity),
+            FranVfx.DrawShared("FranVfx_BloomCircle", bubble, (i % 2 == 0 ? outer : inner) * (0.11f * opacity),
                 angle, 0.035f + i * 0.004f);
-            FranVfx.DrawShared("Cal_SmallBloomRingLayered", bubble, Color.White * (0.12f * opacity),
+            FranVfx.DrawShared("FranVfx_SmallBloomRingLayered", bubble, Color.White * (0.12f * opacity),
                 -angle, 0.18f + i * 0.015f);
         }
-        FranVfx.DrawShared("Cal_BloomFlare", Projectile.Center, inner * (0.22f * opacity),
+        FranVfx.DrawShared("FranVfx_BloomFlare", Projectile.Center, inner * (0.22f * opacity),
             Main.GlobalTimeWrappedHourly * 0.35f, new Vector2(0.075f, 0.022f));
         FranVfx.DrawBloom(Projectile.Center, outer, 38f + pulse * 7f, 0.18f * opacity);
         FranVfx.EndAdditive();

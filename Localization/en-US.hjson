@@ -50,7 +50,7 @@ Mods: {
 					'''
 				UltimateLocked: "[Enter Hardmode to unlock the Ultimate: Black Heavenly Tiger - Absolute Flash]"
 				UltimateTooltip: Press {0} to unleash "Black Heavenly Tiger — Absolute Flash": deliver a powerful execution against one target
-				TacticSelection: "Current Tactics:"
+				TacticSelection: Current Tactics:
 				FullLoadoutActive: "[Full Loadout] {0}: {1}"
 				FullLoadoutInactive: "[Full Loadout] Inactive"
 				UnboundKey: Unbound

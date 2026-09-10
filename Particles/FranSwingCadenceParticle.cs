@@ -108,14 +108,14 @@ internal sealed class FranSwingCadenceParticle : FranParticle
 
             case FranSwingParticleStyle.SparklePulse:
                 // 脉冲只绘制一层 Sparkle，不叠加额外 Bloom 底盘。
-                FranParticleAssets.Draw(spriteBatch, "CalamitySparkle", Position,
+                FranParticleAssets.Draw(spriteBatch, "FranSparkle", Position,
                     initialColor * (opacity * opacity), Rotation, squash * Scale);
                 break;
 
             default:
                 string texture = style == FranSwingParticleStyle.DrainLine
-                    ? "CalamityDrainLine"
-                    : "CalamityDrainLineBloom";
+                    ? "FranDrainLine"
+                    : "FranDrainLineBloom";
                 FranParticleAssets.Draw(spriteBatch, texture, Position,
                     initialColor * opacity, Rotation, squash * Scale);
                 FranParticleAssets.Draw(spriteBatch, texture, Position,
