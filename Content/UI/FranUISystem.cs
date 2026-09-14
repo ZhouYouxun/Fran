@@ -7,6 +7,7 @@ using FranMod.Core;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using ReLogic.Graphics;
 using Terraria;
 using Terraria.Audio;
 using Terraria.GameContent;
@@ -53,6 +54,10 @@ public sealed class FranUISystem : ModSystem
     private static bool previousGaugeMouseHeld;
     private static Vector2 ultimateGaugeDragOffset;
     private static float tacticSigilHoverFade;
+    private const float WheelBodyTextScale = 0.8f;
+    private static readonly List<WheelText> wheelText = new();
+    private static bool collectingWheelText;
+    private readonly record struct WheelText(string Text, Vector2 Position, Color Color, float Scale);
 
     public static bool IsWheelOpen => wheelOpen;
 
@@ -74,7 +79,8 @@ public sealed class FranUISystem : ModSystem
 
         Player player = Main.LocalPlayer;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
-        bool allowed = !FranEvolutionUISystem.IsOpen && !Main.playerInventory && !player.dead &&
+        bool allowed = !Content.Companions.FranCompanionUI.IsOpen && !Content.Companions.FranCompanionUI.Hovering &&
+            !FranEvolutionUISystem.IsOpen && !Main.playerInventory && !player.dead &&
             player.HeldItem.type == ModContent.ItemType<ShiFu>();
         if (!allowed)
         {
@@ -174,7 +180,9 @@ public sealed class FranUISystem : ModSystem
         float minX = Math.Min(300f, Main.screenWidth * 0.5f);
         float maxX = Math.Max(minX, Main.screenWidth - minX);
         float minY = Math.Min(180f, Main.screenHeight * 0.40f);
-        float maxY = Math.Max(minY, Main.screenHeight - 344f);
+        int[] rows = GetWheelDescriptionRowHeights();
+        float maxY = Math.Max(122f, Main.screenHeight - 228f - GetWheelDescriptionHeight(rows) - 12f);
+        minY = Math.Min(minY, maxY);
         wheelCenter = new Vector2(MathHelper.Clamp(Main.MouseScreen.X, minX, maxX),
             MathHelper.Clamp(Main.MouseScreen.Y, minY, maxY));
         previousHovered = -2;
@@ -252,17 +260,26 @@ public sealed class FranUISystem : ModSystem
 
     private static void DrawWheelPointClamped(FranPlayer fran)
     {
-        // Interface layers default to linear sampling. Restart only this wheel's batch with nearest
-        // sampling so its authored pixels survive UI scaling, then restore the layer's original batch.
+        // Pixel icons and downscaled font glyphs need different sampling; text is drawn in a second pass.
         Main.spriteBatch.End();
+        wheelText.Clear();
+        collectingWheelText = true;
         try
         {
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
                 DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
             DrawWheel(fran);
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp,
+                DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
+            collectingWheelText = false;
+            foreach (WheelText text in wheelText)
+                DrawWheelText(text);
         }
         finally
         {
+            collectingWheelText = false;
+            wheelText.Clear();
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, Main.UIScaleMatrix);
         }
@@ -451,18 +468,19 @@ public sealed class FranUISystem : ModSystem
         string slotText = Language.GetTextValue("Mods.Fran.UI.TacticSlots",
             fran.GetActiveTacticCount(), fran.AvailableTacticSlots);
         DrawCentered(slotText, new Rectangle((int)wheelCenter.X - 170, (int)wheelCenter.Y + 113, 340, 24),
-            new Color(205, 229, 239) * detailsOpacity, 0.64f);
+            new Color(205, 229, 239) * detailsOpacity, 0.8f);
         DrawCentered(Language.GetTextValue("Mods.Fran.UI.TacticControls"),
             new Rectangle((int)wheelCenter.X - 220, (int)wheelCenter.Y + 136, 440, 22),
-            new Color(145, 176, 191) * detailsOpacity, 0.52f);
+            new Color(175, 201, 214) * detailsOpacity, 0.7f);
 
         DrawEquippedTacticSlots(fran, detailsOpacity);
 
         FranSkill detailSkill = hoveredSkill >= 0 ? (FranSkill)hoveredSkill : hoveredEquippedSlot >= 0
             ? fran.GetEquippedTactic(hoveredEquippedSlot) : FranSkill.None;
-        // 固定四行：名称、首层效果、重复层效果、满槽效果。
-        // 横向收窄、纵向延长，避免短句两侧留下过多空白。
-        Rectangle descriptionPanel = new((int)wheelCenter.X - 210, (int)wheelCenter.Y + 228, 420, 112);
+        int[] rowHeights = GetWheelDescriptionRowHeights();
+        int panelWidth = WheelDescriptionWidth;
+        Rectangle descriptionPanel = new((int)wheelCenter.X - panelWidth / 2, (int)wheelCenter.Y + 228,
+            panelWidth, GetWheelDescriptionHeight(rowHeights));
         DrawRect(descriptionPanel, new Color(5, 10, 16, 230) * detailsOpacity);
         Color panelColor = FranSkillInfo.IsRealSkill(detailSkill)
             ? FranSkillInfo.Color(detailSkill) : new Color(105, 145, 164);
@@ -492,13 +510,39 @@ public sealed class FranUISystem : ModSystem
             textColor = Color.White;
         }
         DrawCentered(title, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 5,
-            descriptionPanel.Width - 24, 24), panelColor * detailsOpacity, 0.76f);
-        DrawCentered(firstLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 32,
-            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.60f);
-        DrawCentered(secondLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 56,
-            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.60f);
-        DrawCentered(thirdLine, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 80,
-            descriptionPanel.Width - 24, 20), textColor * detailsOpacity, 0.60f);
+            descriptionPanel.Width - 24, 24), panelColor * detailsOpacity, 0.9f);
+        string[] detailLines = { firstLine, secondLine, thirdLine };
+        int rowY = descriptionPanel.Y + 36;
+        for (int i = 0; i < detailLines.Length; i++)
+        {
+            DrawWrappedCentered(detailLines[i], new Rectangle(descriptionPanel.X + 12, rowY,
+                descriptionPanel.Width - 24, rowHeights[i]), textColor * detailsOpacity, WheelBodyTextScale);
+            rowY += rowHeights[i] + 6;
+        }
+    }
+
+    private static int WheelDescriptionWidth => Math.Min(520, Math.Max(240, Main.screenWidth - 24));
+
+    private static int GetWheelDescriptionHeight(int[] rows) => 48 + rows[0] + rows[1] + rows[2] + 12;
+
+    private static int[] GetWheelDescriptionRowHeights()
+    {
+        float lineHeight = FontAssets.MouseText.Value.MeasureString("国").Y * WheelBodyTextScale;
+        int[] rows = { (int)MathF.Ceiling(lineHeight), (int)MathF.Ceiling(lineHeight), (int)MathF.Ceiling(lineHeight) };
+        void Include(int row, string text) => rows[row] = Math.Max(rows[row],
+            (int)MathF.Ceiling(WrapText(text, WheelDescriptionWidth - 24, WheelBodyTextScale).Count * lineHeight));
+        // Reserve the same space for every tactic, so hovering never resizes the panel.
+        for (int i = 0; i < FranSkillInfo.Count; i++)
+        {
+            FranSkill skill = (FranSkill)i;
+            Include(0, FranSkillInfo.FirstLayerText(skill));
+            Include(0, FranSkillInfo.UnlockText(skill));
+            Include(1, FranSkillInfo.AdditionalLayerText(skill));
+            Include(2, FranSkillInfo.FullLoadoutText(skill));
+        }
+        Include(0, Language.GetTextValue("Mods.Fran.UI.PureSwordsmanshipLine1"));
+        Include(1, Language.GetTextValue("Mods.Fran.UI.PureSwordsmanshipLine2"));
+        return rows;
     }
 
     private static int FindHoveredSkill(Vector2 mouse)
@@ -656,9 +700,9 @@ public sealed class FranUISystem : ModSystem
     private static void DrawStackBadge(Vector2 center, int stacks, Color color, float opacity)
     {
         string text = $"×{stacks}";
-        Vector2 size = FontAssets.MouseText.Value.MeasureString(text) * 0.56f;
-        Utils.DrawBorderString(Main.spriteBatch, text, center - size * 0.5f,
-            Color.Lerp(color, Color.White, 0.52f) * opacity, 0.56f);
+        Vector2 size = FontAssets.MouseText.Value.MeasureString(text) * 0.72f;
+        DrawText(text, center - size * 0.5f,
+            Color.Lerp(color, Color.White, 0.52f) * opacity, 0.72f);
     }
 
     private static void DrawCentered(string text, Rectangle area, Color color, float scale)
@@ -666,7 +710,7 @@ public sealed class FranUISystem : ModSystem
         Vector2 size = FontAssets.MouseText.Value.MeasureString(text);
         float actualScale = Math.Min(scale, area.Width / Math.Max(1f, size.X));
         Vector2 pos = new(area.Center.X - size.X * actualScale * 0.5f, area.Center.Y - size.Y * actualScale * 0.5f);
-        Utils.DrawBorderString(Main.spriteBatch, text, pos, color, actualScale);
+        DrawText(text, pos, color, actualScale);
     }
 
     private static void DrawWrappedCentered(string text, Rectangle area, Color color, float scale)
@@ -679,9 +723,39 @@ public sealed class FranUISystem : ModSystem
         {
             Vector2 size = FontAssets.MouseText.Value.MeasureString(line) * scale;
             Vector2 position = new(area.Center.X - size.X * 0.5f, y);
-            Utils.DrawBorderString(Main.spriteBatch, line, position, color, scale);
+            DrawText(line, position, color, scale);
             y += lineHeight;
         }
+    }
+
+    private static void DrawText(string text, Vector2 position, Color color, float scale)
+    {
+        if (collectingWheelText)
+            wheelText.Add(new WheelText(text, position, color, scale));
+        else
+            Utils.DrawBorderString(Main.spriteBatch, text, position, color, scale);
+    }
+
+    private static void DrawWheelText(WheelText text)
+    {
+        Vector2 screen = Vector2.Transform(text.Position, Main.UIScaleMatrix);
+        screen = new Vector2(MathF.Round(screen.X), MathF.Round(screen.Y));
+        Vector2 position = Vector2.Transform(screen, Matrix.Invert(Main.UIScaleMatrix));
+        float outline = 1f / Math.Max(0.01f, Main.UIScale);
+        var font = FontAssets.MouseText.Value;
+        Color shadow = Color.Black * (text.Color.A / 255f);
+        for (int i = 0; i < 4; i++)
+        {
+            Vector2 offset = i switch
+            {
+                0 => new Vector2(-outline, 0f), 1 => new Vector2(outline, 0f),
+                2 => new Vector2(0f, -outline), _ => new Vector2(0f, outline)
+            };
+            Main.spriteBatch.DrawString(font, text.Text, position + offset, shadow, 0f,
+                Vector2.Zero, text.Scale, SpriteEffects.None, 0f);
+        }
+        Main.spriteBatch.DrawString(font, text.Text, position, text.Color, 0f,
+            Vector2.Zero, text.Scale, SpriteEffects.None, 0f);
     }
 
     private static List<string> WrapText(string text, float maxWidth, float scale)

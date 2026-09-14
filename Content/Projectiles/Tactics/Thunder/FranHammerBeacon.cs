@@ -1,4 +1,5 @@
 using System;
+using FranMod.Content.Companions;
 using System.Collections.Generic;
 using FranMod.Content.Players;
 using FranMod.Core;
@@ -52,7 +53,7 @@ public sealed class FranHammerBeacon : ModProjectile
         int type = ModContent.ProjectileType<FranHammerBeacon>();
         int count = 0;
         foreach (Projectile projectile in Main.ActiveProjectiles)
-            if (projectile.owner == owner.whoAmI && projectile.type == type)
+            if (FranCompanionContext.Owns(owner, projectile) && projectile.type == type)
                 count++;
         if (count >= 3)
             return;
@@ -65,7 +66,7 @@ public sealed class FranHammerBeacon : ModProjectile
         int type = ModContent.ProjectileType<FranHammerBeacon>();
         foreach (Projectile beacon in Main.ActiveProjectiles)
         {
-            if (beacon.owner != owner.whoAmI || beacon.type != type)
+            if (!FranCompanionContext.Owns(owner, beacon) || beacon.type != type)
                 continue;
             Projectile.NewProjectile(beacon.GetSource_FromThis(), beacon.Center, Vector2.Zero,
                 ModContent.ProjectileType<ThorsHammerBolt>(), Math.Max(1, (int)(damage * 0.92f)),

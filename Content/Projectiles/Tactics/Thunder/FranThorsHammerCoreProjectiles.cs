@@ -190,6 +190,19 @@ public sealed class ThorsHammerBolt : ModProjectile
             FranFlatLightningEffects.SpawnSegment(Projectile.GetSource_FromThis(), strikeStart,
                 strikeEnd, Projectile.owner, 1.72f,
                 FranFlatLightningPalette.ThorsHammer, 2.8f);
+            if (Main.myPlayer == Projectile.owner)
+            {
+                // Add five independent Lightning Strike trees alongside the existing parallel arcs.
+                // All damage remains on the hammer and its impact explosion.
+                for (int i = 0; i < 5; i++)
+                {
+                    float spread = (i - 2) * 95f;
+                    Vector2 end = Projectile.Center + new Vector2(spread, Math.Abs(i - 2) * -8f);
+                    Vector2 start = end + new Vector2(Main.rand.NextFloat(-65f, 65f), -750f);
+                    FranLightningStrikeVisual.Spawn(Projectile.GetSource_FromThis(), start, end,
+                        Projectile.owner, new Color(155, 215, 255), 12f, Math.Abs(i - 2));
+                }
+            }
             FranVfx.SparkBurst(Projectile.Center, new Color(120, 165, 255),
                 18 * ImpactPasses, 12f * visualIntensity, 1.05f * visualIntensity);
             FranLightingBoltsSystem.SpawnThunderImpact(Projectile.Center,

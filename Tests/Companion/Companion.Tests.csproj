@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Core\FranSkillId.cs" Link="FranSkillId.cs" />
+    <Compile Include="..\..\Content\Companions\FranCompanionDecision.cs" Link="FranCompanionDecision.cs" />
+  </ItemGroup>
+</Project>

@@ -3,6 +3,8 @@
   <PropertyGroup>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Tests\**\*.cs" />
+    <Compile Include="Tests\Runtime\CompanionSmokeTest.cs" Condition="'$(FranCompanionTests)' == 'true'" />
     <Reference Include="Luminance">
       <HintPath>lib\Luminance.dll</HintPath>
       <Private>false</Private>

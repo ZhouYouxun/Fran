@@ -94,9 +94,9 @@ public static partial class FranBalance
     public static float TelekineticPlanetExplosionDamageMultiplier = 0.75f;
 
     // 战术二：技能夺取者。
-    public static float SkillTakerMinimumDamageMultiplier = 1.10f;
-    public static float SkillTakerMaximumDamageMultiplier = 1.30f;
-    public static float SkillTakerFullLoadoutMaximumDamageMultiplier = 1.70f;
+    public static float SkillTakerMinimumDamageMultiplier = 1.06f;
+    public static float SkillTakerMaximumDamageMultiplier = 1.18f;
+    public static float SkillTakerFullLoadoutMaximumDamageMultiplier = 1.42f;
     public static int SkillTakerBaseRampFrames = 420;
     public static int SkillTakerExtraLayerRampReductionFrames = 60;
     public static int SkillTakerBaseDecayFrames = 180;
@@ -105,6 +105,8 @@ public static partial class FranBalance
     public static int SkillTakerBaseWispCount = 2;
     public const int SkillTakerMaximumWispsPerSwing = 20;
     public static float SkillTakerWispDamageMultiplier = 0.24f;
+    public static int SkillTakerStolenContactDamageDurationFrames = 5 * 60;
+    public static float SkillTakerStolenContactDamageWeaponCapRatio = 0.50f;
 
     // 战术三：魔力屏障。
     public static int MagicBarrierMaximumIntegrity = 5;
@@ -132,6 +134,17 @@ public static partial class FranBalance
     public static float MultipleBodyFullLoadoutSpeedMultiplier = 1.15f;
 
     // 战术五：蓝辉共鸣。
+    public static int BlueResonanceScatterFrames = 10;
+    public static int BlueResonanceHomingBlendFrames = 18;
+    public static float BlueResonanceSpawnRadiusMinimum = 76f;
+    public static float BlueResonanceSpawnRadiusMaximum = 176f;
+    public static float BlueResonanceInitialDriftSpeedMinimum = 0.12f;
+    public static float BlueResonanceInitialDriftSpeedMaximum = 0.38f;
+    public static float BlueResonanceHomingStartingSpeed = 2.2f;
+    public static float BlueResonanceEnemySpiralRadius = 132f;
+    public static float BlueResonanceEnemySpiralAngularSpeed = 0.12f;
+    public static int BlueResonanceEnemySpiralContractionFrames = 72;
+    public static float BlueResonanceTrajectoryRandomness = 0.36f;
     public static int BlueResonanceNormalBaseCount = 3;
     public static int BlueResonanceFinisherBaseCount = 5;
     public static int BlueResonanceExtraLayerCount = 1;

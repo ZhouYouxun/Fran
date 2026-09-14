@@ -1,4 +1,5 @@
 using System;
+using FranMod.Content.Companions;
 using FranMod.Content.Players;
 using FranMod.Core.Graphics;
 using Microsoft.Xna.Framework;
@@ -340,7 +341,9 @@ public sealed class FranThunderCircuitFinisher : ModProjectile
         int nodeType = ModContent.ProjectileType<FranThunderCircuitNode>();
         foreach (Projectile projectile in Main.ActiveProjectiles)
         {
-            if (projectile.owner != Projectile.owner || projectile.type != nodeType)
+            if (projectile.owner != Projectile.owner || projectile.type != nodeType ||
+                projectile.GetGlobalProjectile<FranCompanionProjectile>().SummonId !=
+                Projectile.GetGlobalProjectile<FranCompanionProjectile>().SummonId)
                 continue;
             projectile.timeLeft = Math.Min(projectile.timeLeft, 13);
             projectile.netUpdate = true;

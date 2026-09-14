@@ -1,4 +1,5 @@
 using System;
+using FranMod.Content.Companions;
 using FranMod.Content.Players;
 using FranMod.Core;
 using FranMod.Particles;
@@ -276,7 +277,7 @@ public sealed class Telekinetic_GravityStarfall : ModProjectile
 
     private static Vector2 GetFallbackAim(Player owner)
     {
-        Vector2 aim = owner.whoAmI == Main.myPlayer ? Main.MouseWorld : owner.Center + Vector2.UnitY * 720f;
+        Vector2 aim = owner.whoAmI == Main.myPlayer ? FranCompanionContext.Aim(owner) : owner.Center + Vector2.UnitY * 720f;
         Vector2 offset = aim - owner.MountedCenter;
         if (!float.IsFinite(offset.X) || !float.IsFinite(offset.Y))
             return owner.Center + Vector2.UnitY * 720f;

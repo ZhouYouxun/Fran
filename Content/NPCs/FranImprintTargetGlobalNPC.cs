@@ -1,4 +1,5 @@
 using System;
+using FranMod.Content.Companions;
 using System.Collections.Generic;
 using FranMod.Content.Players;
 using FranMod.Core;
@@ -19,6 +20,8 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
 {
     public override bool InstancePerEntity => true;
     private int skillSealOwner = -1;
+    private int skillSealSummonId;
+    private bool companionFullLoadout;
     private int skillSealTacticLayers = 1;
     private int skillSealFramesSinceHit;
     private float skillSealSustainedFrames;
@@ -49,22 +52,24 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
         : 1f - Utils.GetLerpValue(SkillTakerHitGraceFrames, SkillTakerDecayFrames,
             skillSealFramesSinceHit, true);
 
-    public float ApplySkillTakerMark(int owner, int tacticLayers)
+    public float ApplySkillTakerMark(int owner, int tacticLayers, int summonId = 0)
     {
-        if (skillSealOwner != owner)
+        if (skillSealOwner != owner || skillSealSummonId != summonId)
             skillSealSustainedFrames = 0f;
         skillSealOwner = owner;
+        skillSealSummonId = summonId;
+        companionFullLoadout = summonId > 0 && tacticLayers == FranBalance.GetAvailableTacticSlots();
         skillSealTacticLayers = Math.Clamp(tacticLayers, 1, FranPlayer.MaximumTacticSlots);
         skillSealFramesSinceHit = 0;
         return SkillTakerRampProgress;
     }
 
-    private void ContinueSkillTakerMark(int owner)
+    private void ContinueSkillTakerMark(int owner, int summonId = 0)
     {
-        if (!HasSkillTakerMark || skillSealOwner != owner)
+        if (!HasSkillTakerMark || skillSealOwner != owner || skillSealSummonId != summonId)
             return;
         skillSealFramesSinceHit = 0;
-        if (Main.player.IndexInRange(owner) && Main.player[owner].active)
+        if (summonId == 0 && Main.player.IndexInRange(owner) && Main.player[owner].active)
             skillSealTacticLayers = Math.Clamp(Main.player[owner].GetModPlayer<FranPlayer>()
                 .GetSkillStacks(FranSkill.SkillTaker), 1, FranPlayer.MaximumTacticSlots);
     }
@@ -78,7 +83,7 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
         float maximum = Math.Max(minimum, FranBalance.GetFloat(
             nameof(FranBalance.SkillTakerMaximumDamageMultiplier),
             FranBalance.SkillTakerMaximumDamageMultiplier));
-        if (Main.player.IndexInRange(skillSealOwner) && Main.player[skillSealOwner].active &&
+        if (companionFullLoadout || skillSealSummonId == 0 && Main.player.IndexInRange(skillSealOwner) && Main.player[skillSealOwner].active &&
             Main.player[skillSealOwner].GetModPlayer<FranPlayer>()
                 .IsFullTacticLoadout(FranSkill.SkillTaker))
             maximum = Math.Max(maximum, FranBalance.GetFloat(
@@ -92,7 +97,10 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
 
     public override void OnHitByProjectile(NPC npc, Projectile projectile, NPC.HitInfo hit, int damageDone)
     {
-        if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+        FranCompanionProjectile companion = projectile.GetGlobalProjectile<FranCompanionProjectile>();
+        if (companion.Linked)
+            ContinueSkillTakerMark(projectile.owner, companion.SummonId);
+        else if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
             ContinueSkillTakerMark(projectile.owner);
     }
 

@@ -64,6 +64,7 @@ public sealed class FranUltimateController : ModProjectile
     private bool Authority => Main.netMode != NetmodeID.MultiplayerClient;
     private Player Owner => Main.player[Projectile.owner];
     private bool FinalStrike => phase == UltimatePhase.FinalStrike;
+    private int LockedItemSlot => (int)Projectile.ai[2];
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -149,7 +150,9 @@ public sealed class FranUltimateController : ModProjectile
     public override void AI()
     {
         Player owner = Owner;
-        if (!Main.hardMode || !owner.active || owner.dead)
+        if (!Main.hardMode || !owner.active || owner.dead || LockedItemSlot < 0 ||
+            LockedItemSlot >= owner.inventory.Length ||
+            owner.inventory[LockedItemSlot].type != ModContent.ItemType<ShiFu>())
         {
             if (Authority)
                 Projectile.Kill();
@@ -426,6 +429,7 @@ public sealed class FranUltimateController : ModProjectile
 
     private void MaintainOwnerState(Player owner)
     {
+        LockHeldWeapon(owner);
         Vector2 swordDirection = (strikeEnd - strikeStart).SafeNormalize(Vector2.UnitX * owner.direction);
         int facing = swordDirection.X < 0f ? -1 : 1;
         owner.ChangeDir(facing);
@@ -441,6 +445,19 @@ public sealed class FranUltimateController : ModProjectile
             swordDirection.ToRotation() - MathHelper.PiOver2);
         for (int i = 0; i < owner.hurtCooldowns.Length; i++)
             owner.hurtCooldowns[i] = Math.Max(owner.hurtCooldowns[i], 2);
+    }
+
+    internal void LockHeldWeapon(Player owner)
+    {
+        if (LockedItemSlot < 0 || LockedItemSlot >= owner.inventory.Length ||
+            owner.inventory[LockedItemSlot].type != ModContent.ItemType<ShiFu>())
+            return;
+        // Pin the activation slot on both sides of player input processing. itemAnimation also
+        // prevents vanilla hotbar scrolling/number keys from queuing a switch during the rush.
+        owner.selectedItem = LockedItemSlot;
+        owner.changeItem = -1;
+        owner.itemAnimation = Math.Max(owner.itemAnimation, 2);
+        owner.itemTime = Math.Max(owner.itemTime, 2);
     }
 
     private void WarpOwner(Player owner, Vector2 center)
@@ -571,10 +588,25 @@ public sealed class FranUltimateController : ModProjectile
     {
         SpawnStrikeImpact(target.Center, FinalStrike);
         SpawnRiftLaser(target.Center, FinalStrike);
+        // NPC projectile hits are resolved by the owning client in multiplayer. Spawn the visual
+        // there so it is sent once to the server and spectators, rather than requiring a server hit.
+        if (Projectile.owner == Main.myPlayer)
+        {
+            Vector2 direction = (strikeEnd - strikeStart).SafeNormalize(Vector2.UnitX * Owner.direction);
+            for (int i = 0; i < 3; i++)
+            {
+                Vector2 boltDirection = direction.RotatedBy((i - 1) * 0.10f);
+                FranLightningStrikeVisual.Spawn(Projectile.GetSource_OnHit(target), target.Center,
+                    target.Center + boltDirection * 750f, Projectile.owner, new Color(92, 20, 170),
+                    brightness: 1.3f);
+            }
+        }
         if (Authority)
+        {
             FranBlackTigerImpactVisual.Spawn(Projectile.GetSource_OnHit(target), target.Center,
                 (strikeEnd - strikeStart).SafeNormalize(Vector2.UnitX), Projectile.owner,
                 FinalStrike ? 2 : 1);
+        }
     }
 
     public override void OnKill(int timeLeft)

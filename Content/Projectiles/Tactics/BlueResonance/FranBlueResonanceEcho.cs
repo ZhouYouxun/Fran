@@ -1,4 +1,5 @@
 using System;
+using FranMod.Content.Companions;
 using System.Collections.Generic;
 using FranMod.Content.Players;
 using FranMod.Core;
@@ -17,11 +18,13 @@ namespace FranMod.Content.Projectiles;
 
 public sealed class FranBlueResonanceEcho : ModProjectile
 {
-    private const int Lifetime = 150;
-    private const int ScatterFrames = 14;
+    private int ScatterFrames => Math.Max(1, FranBalance.GetInt(nameof(FranBalance.BlueResonanceScatterFrames),
+        FranBalance.BlueResonanceScatterFrames));
     private const float SearchRange = 3200f;
     private bool sourceBurstSpawned;
     private bool impactBurstSpawned;
+    private int homingTargetKey = int.MinValue;
+    private float homingAge;
 
     private float Age => Projectile.localAI[0];
     private bool HealingMode => Projectile.localAI[1] > 0.5f;
@@ -44,7 +47,7 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         Projectile.friendly = false;
         Projectile.DamageType = DamageClass.Melee;
         Projectile.penetrate = 1;
-        Projectile.timeLeft = Lifetime;
+        Projectile.timeLeft = 150;
         Projectile.tileCollide = false;
         Projectile.ignoreWater = true;
         Projectile.netImportant = true;
@@ -73,12 +76,15 @@ public sealed class FranBlueResonanceEcho : ModProjectile
 
         if (age < ScatterFrames)
         {
-            Projectile.velocity *= 0.94f;
+            // The surrounding motes hover briefly before choosing where to go.
+            ResetHoming();
+            Projectile.velocity *= 0.96f;
             Projectile.rotation += 0.16f * (Projectile.ai[1] % 2f == 0f ? 1f : -1f);
         }
         else if (healing)
         {
             Player targetPlayer = Main.player[healTargetIndex];
+            AdvanceHoming(-healTargetIndex - 1);
             HomeTowards(targetPlayer.Center, 15.5f, 0.16f);
             if (Vector2.DistanceSquared(Projectile.Center, targetPlayer.Center) <= 25f * 25f)
             {
@@ -90,9 +96,15 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         {
             NPC targetNpc = FindEnemyTarget();
             if (targetNpc is not null)
-                HomeTowards(targetNpc.Center + targetNpc.velocity * 1.5f, 19f, 0.19f);
+            {
+                AdvanceHoming(targetNpc.whoAmI + 1);
+                HomeTowardsEnemy(targetNpc);
+            }
             else
+            {
+                ResetHoming();
                 Projectile.velocity *= 0.985f;
+            }
         }
 
         Projectile.rotation += 0.085f;
@@ -127,9 +139,88 @@ public sealed class FranBlueResonanceEcho : ModProjectile
 
     private void HomeTowards(Vector2 destination, float speed, float responsiveness)
     {
+        int blendFrames = Math.Max(1, FranBalance.GetInt(nameof(FranBalance.BlueResonanceHomingBlendFrames),
+            FranBalance.BlueResonanceHomingBlendFrames));
+        float blend = MathHelper.Clamp(homingAge / blendFrames, 0f, 1f);
+        blend = blend * blend * (3f - 2f * blend);
+        float startingSpeed = MathHelper.Clamp(FranBalance.GetFloat(
+            nameof(FranBalance.BlueResonanceHomingStartingSpeed), FranBalance.BlueResonanceHomingStartingSpeed),
+            0.1f, speed);
+        speed = MathHelper.Lerp(startingSpeed, speed, blend);
+        responsiveness *= MathHelper.Lerp(0.30f, 1f, blend);
         Vector2 fallback = Projectile.velocity.SafeNormalize(Vector2.UnitX);
         Vector2 desiredVelocity = (destination - Projectile.Center).SafeNormalize(fallback) * speed;
         Projectile.velocity = Vector2.Lerp(Projectile.velocity, desiredVelocity, responsiveness);
+    }
+
+    private void HomeTowardsEnemy(NPC target)
+    {
+        float randomness = MathHelper.Clamp(FranBalance.GetFloat(
+            nameof(FranBalance.BlueResonanceTrajectoryRandomness),
+            FranBalance.BlueResonanceTrajectoryRandomness), 0f, 0.75f);
+        float radiusVariation = MathHelper.Lerp(1f - randomness, 1f + randomness, RandomUnit(0));
+        float speedVariation = MathHelper.Lerp(1f - randomness * 0.42f,
+            1f + randomness * 0.42f, RandomUnit(1));
+        float responseVariation = MathHelper.Lerp(1f - randomness * 0.30f,
+            1f + randomness * 0.30f, RandomUnit(2));
+        float angularVariation = MathHelper.Lerp(1f - randomness * 0.65f,
+            1f + randomness * 0.65f, RandomUnit(3));
+        float handedness = RandomUnit(4) < 0.5f ? -1f : 1f;
+        float phase = RandomUnit(5) * MathHelper.TwoPi;
+        float prediction = MathHelper.Lerp(0.7f, 2.3f, RandomUnit(6));
+
+        Vector2 targetPoint = target.Center + target.velocity * prediction;
+        float distance = Vector2.Distance(Projectile.Center, targetPoint);
+        float baseRadius = Math.Max(0f, FranBalance.GetFloat(
+            nameof(FranBalance.BlueResonanceEnemySpiralRadius), FranBalance.BlueResonanceEnemySpiralRadius));
+        float angularSpeed = Math.Max(0.01f, FranBalance.GetFloat(
+            nameof(FranBalance.BlueResonanceEnemySpiralAngularSpeed),
+            FranBalance.BlueResonanceEnemySpiralAngularSpeed));
+        int contractionFrames = Math.Max(1, FranBalance.GetInt(
+            nameof(FranBalance.BlueResonanceEnemySpiralContractionFrames),
+            FranBalance.BlueResonanceEnemySpiralContractionFrames));
+
+        float contraction = MathHelper.Clamp(homingAge / contractionFrames, 0f, 1f);
+        contraction = contraction * contraction * (3f - 2f * contraction);
+        float spiralRadius = Math.Min(baseRadius * radiusVariation,
+            distance * MathHelper.Lerp(0.24f, 0.46f, RandomUnit(7)));
+        spiralRadius *= MathHelper.Lerp(1f, 0.05f, contraction);
+        spiralRadius *= Utils.GetLerpValue(12f, 72f, distance, true);
+        float angle = phase + handedness * angularSpeed * angularVariation * homingAge;
+        Vector2 spiralDestination = targetPoint + angle.ToRotationVector2() * spiralRadius;
+        HomeTowards(spiralDestination, 19f * speedVariation, 0.19f * responseVariation);
+    }
+
+    private void AdvanceHoming(int targetKey)
+    {
+        if (homingTargetKey != targetKey)
+        {
+            homingTargetKey = targetKey;
+            homingAge = 0f;
+            return;
+        }
+        homingAge++;
+    }
+
+    private void ResetHoming()
+    {
+        homingTargetKey = int.MinValue;
+        homingAge = 0f;
+    }
+
+    // Stable per-projectile variation gives every member of a large group its own path without
+    // consuming Main.rand during AI or making multiplayer clients choose unrelated spirals.
+    private float RandomUnit(int channel)
+    {
+        uint value = unchecked((uint)Projectile.identity * 747796405u +
+            (uint)(Projectile.owner + 1) * 2891336453u +
+            (uint)((int)Projectile.ai[1] + 1) * 277803737u + (uint)(channel + 1) * 1597334677u);
+        value ^= value >> 16;
+        value *= 2246822519u;
+        value ^= value >> 13;
+        value *= 3266489917u;
+        value ^= value >> 16;
+        return (value & 0x00FFFFFFu) / 16777216f;
     }
 
     private int FindInjuredPlayerIndex()
@@ -139,6 +230,9 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         for (int i = 0; i < Main.maxPlayers; i++)
         {
             Player candidate = Main.player[i];
+            FranCompanionProjectile companion = Projectile.GetGlobalProjectile<FranCompanionProjectile>();
+            if (companion.Linked && !FranCompanion.CanSupport(Main.player[companion.LogicalOwner], candidate))
+                continue;
             if (!candidate.active || candidate.dead || candidate.statLife >= candidate.statLifeMax2 ||
                 Vector2.DistanceSquared(candidate.Center, Projectile.Center) > SearchRange * SearchRange)
                 continue;

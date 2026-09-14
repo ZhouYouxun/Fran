@@ -384,12 +384,13 @@ public static partial class FranBalance
         return Math.Clamp(slots, 1, Math.Max(1, TacticStorageCapacity));
     }
 
-    // 念动弹射只在五个关键节点重组弹幕。这个阶段不影响师父本体固定的四刀。
+    // 念动弹射只在五个关键节点重组弹幕。它严格读取对应的原版首领旗标，
+    // 不采用跳流程的向前补齐，避免新世界因其他进度来源直接显示终型。
     public static int GetTelekineticPatternStage() =>
-        IsMilestoneCompleted(FranProgressionMilestone.MoonLord) ? 4 :
-        IsMilestoneCompleted(FranProgressionMilestone.Plantera) ? 3 :
-        IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) ? 2 :
-        IsMilestoneCompleted(FranProgressionMilestone.Skeletron) ? 1 : 0;
+        NPC.downedMoonlord ? 4 :
+        NPC.downedPlantBoss ? 3 :
+        Main.hardMode ? 2 :
+        NPC.downedBoss3 ? 1 : 0;
 
     public static float GetTelekineticFormationDamageMultiplier(int projectileCount) => projectileCount switch
     {

@@ -6,7 +6,7 @@ namespace FranMod.Content.Buffs;
 
 public sealed class BlackCatWarriorBuff : ModBuff
 {
-    public override string Texture => "Fran/Textures/黑猫Buff";
+    public override string Texture => "Fran/Textures/Buffs/黑猫Buff";
 
     public override void SetStaticDefaults()
     {

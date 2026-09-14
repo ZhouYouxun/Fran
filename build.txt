@@ -1,8 +1,8 @@
-displayName = Fran / 弗兰 - Reincarnated as a Sword
-author = wangk
-version = 0.1.0
+displayName = Reincarnated as a Sword
+author = 剃刀刃台风
+version = 1.0.0
 modReferences = Luminance
 hideCode = false
 hideResources = false
 includeSource = true
-buildIgnore = *.zip*, .git/*, .vs/*, bin/*, obj/*, lib/*, Docs/*, Particles/README.md, Assets/OriginalVFX/README.md, Assets/OriginalVFX/SHA256.txt, Font/*.ttf, Textures/FranArtwork/Portraits/Masters/*, Textures/FranArtwork/SkillIcons/Masters/*, Textures/Fran表情包/*, Textures/OGA/*, Textures/kenney_planets/Parts/*, Textures/kenney_planets/Preview.png, Textures/kenney_planets/Sample.png, Textures/kenney_planets/Visit Kenney.url, Textures/kenney_planets/Visit Patreon.url, 主菜单背景/候选图/*, Textures/KsTexture/circle_*, Textures/KsTexture/dirt_*, Textures/KsTexture/fire_*, Textures/KsTexture/flame_*, Textures/KsTexture/flare_*, Textures/KsTexture/light_*, Textures/KsTexture/magic_01.png, Textures/KsTexture/magic_02.png, Textures/KsTexture/magic_03.png, Textures/KsTexture/magic_04.png, Textures/KsTexture/muzzle_*, Textures/KsTexture/scorch_*, Textures/KsTexture/scratch_*, Textures/KsTexture/slash_*, Textures/KsTexture/smoke_*, Textures/KsTexture/spark_*, Textures/KsTexture/star_*, Textures/KsTexture/symbol_*, Textures/KsTexture/trace_*, Textures/KsTexture/twirl_*, Textures/KsTexture/window_*
+buildIgnore = *.zip*, .git/*, .vs/*, bin/*, obj/*, lib/*, Docs/*, Tests/*, Textures/角色图/README.md, Particles/README.md, Assets/OriginalVFX/README.md, Assets/OriginalVFX/SHA256.txt, Font/*.ttf, Textures/FranArtwork/Portraits/Masters/*, Textures/FranArtwork/SkillIcons/Masters/*, Textures/Fran表情包/*, Textures/OGA/*, Textures/kenney_planets/Parts/*, Textures/kenney_planets/Preview.png, Textures/kenney_planets/Sample.png, Textures/kenney_planets/Visit Kenney.url, Textures/kenney_planets/Visit Patreon.url, 主菜单背景/候选图/*, Textures/KsTexture/circle_*, Textures/KsTexture/dirt_*, Textures/KsTexture/fire_*, Textures/KsTexture/flame_*, Textures/KsTexture/flare_*, Textures/KsTexture/light_*, Textures/KsTexture/magic_01.png, Textures/KsTexture/magic_02.png, Textures/KsTexture/magic_03.png, Textures/KsTexture/magic_04.png, Textures/KsTexture/muzzle_*, Textures/KsTexture/scorch_*, Textures/KsTexture/scratch_*, Textures/KsTexture/slash_*, Textures/KsTexture/smoke_*, Textures/KsTexture/spark_*, Textures/KsTexture/star_*, Textures/KsTexture/symbol_*, Textures/KsTexture/trace_*, Textures/KsTexture/twirl_*, Textures/KsTexture/window_*

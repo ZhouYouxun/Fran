@@ -579,6 +579,10 @@ public sealed class ShiFuSwingRebuild : ModProjectile
             modifiers.FinalDamage *= FranBalance.GetSwingCrowdDamageMultiplier(targetCount, bossFight, Main.hardMode);
         }
         modifiers.FinalDamage *= evolutionDamageMultiplier;
+        int stolenContactDamage = Owner.GetModPlayer<FranPlayer>().GetStolenContactDamage(
+            Owner.GetWeaponDamage(Owner.HeldItem));
+        if (stolenContactDamage > 0)
+            modifiers.FlatBonusDamage += stolenContactDamage;
         FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
         if (evolution.HasNode(FranEvolutionNode.MagicStoneAnalysis) &&
             FranEvolutionBossSystem.IsAnalyzedFor(target, Owner.whoAmI))

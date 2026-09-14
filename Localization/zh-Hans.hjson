@@ -1,8 +1,31 @@
 Mods: {
 	Fran: {
-		Rarities.ShiFuPrismaticRarity.DisplayName: 师徒棱彩
+		Companion: {
+			Title: Fran · 幻影伙伴战术
+			Automatic: 自动适应战场
+			Manual: 手动指定
+			Current: 当前执行：{0}
+			Hint: 指令将在连段结束后生效 · 右键或 Esc 关闭
+			Hover: Fran【{0} · {1}】右键设置战术
+			Dismiss: 取消召唤
+			Locked: 【尚未解锁】
+			ManualOnly: 【仅手动】
+		}
 
 		Items: {
+			FranCompanionStaff: {
+				DisplayName: 弗兰的约定
+				Tooltip:
+					'''
+					召唤无敌的 Fran 幻影伙伴，始终手持师父，自带翅膀
+					自动选择已解锁战术；靠近并右键 Fran 可手动指定
+					魔力屏障仅能手动指定，连段结束后切换
+					再次使用召回伙伴；右键使用本物品取消召唤
+					每位玩家最多一名，不占召唤栏；伤害受世界进度与召唤伤害加成影响
+					当前外观暂用钛金套，后续将换为 Fran 专属贴图
+					'''
+			}
+
 			Foreword: {
 				DisplayName: 前情提要
 				Tooltip:
@@ -52,7 +75,7 @@ Mods: {
 					合理搭配不同战术，可达成意想不到的效果
 					'''
 				UltimateLocked: 【进入困难模式后解锁大招：黑天虎-绝闪】
-				UltimateTooltip: 按下 {0} 键释放“黑天虎-绝闪”：对同一目标造成强力斩杀
+				UltimateTooltip: 手持师父时按下 {0} 键释放“黑天虎-绝闪”：对同一目标造成强力斩杀，大招期间无法切换手持武器
 				TacticSelection: 当前战术：
 				FullLoadoutActive: 【全选效果】触发 {0} 的全选效果：{1}
 				FullLoadoutInactive: 【全选效果】未触发
@@ -118,6 +141,8 @@ Mods: {
 					'''
 			}
 		}
+
+		Rarities.ShiFuPrismaticRarity.DisplayName: 师徒棱彩
 
 		ToolProgression: {
 			Current:
@@ -399,7 +424,7 @@ Mods: {
 			IntroPotential:
 				'''
 				大招能量会随在线时间自动积攒三分钟；
-				满值后按G立即发动黑天虎连续斩杀
+				满值后手持师父并按G发动黑天虎连续斩杀，大招期间无法切换手持武器
 				'''
 		}
 
@@ -845,14 +870,14 @@ Mods: {
 				Description:
 					'''
 					剑击命中时施加夺取印记；
-					持续攻击会逐渐提高目标易伤，
-					停手后易伤与印记缓慢衰减
+					持续攻击会逐渐提高目标易伤，并夺取其碰撞伤害；
+					夺取伤害附加至师父面板，最多为当前面板的50%，持续5秒
 					每命中一个敌人释放两枚灵弹，每刀最多二十枚；
-					灵弹追踪附近最近的敌人，数量上限不影响易伤施加
+					灵弹追踪附近最近的敌人，持续命中可刷新印记与夺取伤害
 					'''
-				FirstLayer: 单层：持续攻击使目标易伤最高提升至1.3倍
+				FirstLayer: 单层：持续攻击使目标易伤最高提升至1.18倍
 				AdditionalLayer: 叠层：易伤提升更快，标记维持更久
-				FullLoadout: 全选：易伤倍率上限提升至1.7倍
+				FullLoadout: 全选：易伤倍率上限提升至1.42倍
 			}
 
 			MagicBarrier: {
@@ -925,11 +950,11 @@ Mods: {
 				UnlockCondition: 击败世纪之花后解锁
 				Description:
 					'''
-					未全选时，四段剑术沿剑弧留下压缩爆点；
+					四段剑术沿剑弧留下压缩爆点；
 					全选后四段剑术化为持续刀盘，
 					按住左键永续回旋，松开后惯性停转
 					'''
-				FirstLayer: 单层：剑弧引爆压缩空气；未全选时频率-40%、伤害-20%
+				FirstLayer: 单层：剑弧引爆压缩空气
 				AdditionalLayer: 叠层：提高压缩爆点伤害
 				FullLoadout: 全选：持续挥舞大剑，聚合体大幅延长，击杀敌人回复生命值
 			}
@@ -966,6 +991,7 @@ Mods: {
 			// ShipCutterProjectile.DisplayName: Ship Cutter Projectile
 			// SkillTakerPhantom.DisplayName: Skill Taker Phantom
 			// SkillTakerSoul.DisplayName: Skill Taker Soul
+			FranLightningStrikeVisual.DisplayName: 裂空雷光
 			// FranUltimateController.DisplayName: Black Heavenly Tiger Execution
 			// FranUltimateReadySigil.DisplayName: Ultimate Ready Sigil
 			// FranUltimateExecutionSeal.DisplayName: Ultimate Execution Seal
@@ -1036,6 +1062,7 @@ Mods: {
 			// FranCoreImpactBurst.DisplayName: Fran Core Impact Burst
 			// FranThunderImpactExplosion.DisplayName: Fran Thunder Impact Explosion
 			// FranThunderBudgetStrike.DisplayName: Fran Thunder Budget Strike
+			// FranCompanion.DisplayName: Fran Companion
 		}
 	}
 }

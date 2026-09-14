@@ -1,8 +1,31 @@
 Mods: {
 	Fran: {
-		Rarities.ShiFuPrismaticRarity.DisplayName: Master-and-Disciple Prismatic
+		Companion: {
+			Title: Fran · Companion Tactics
+			Automatic: Adapt automatically
+			Manual: Manual command
+			Current: Active tactic: {0}
+			Hint: Changes apply after the combo · Right-click / Esc to close
+			Hover: Fran [{0} · {1}] Right-click to choose a tactic
+			Dismiss: Dismiss Fran
+			Locked: " [Locked]"
+			ManualOnly: " [Manual only]"
+		}
 
 		Items: {
+			FranCompanionStaff: {
+				DisplayName: Fran's Promise
+				Tooltip:
+					'''
+					Summons an invincible, winged Fran who always wields ShiFu
+					Adapts her unlocked tactics to battle; right-click Fran nearby for manual control
+					Magic Barrier is manual only; tactics change at combo boundaries
+					Use again to recall her; right-click this item to dismiss her
+					One per player, no minion slots; scales with world progress and summon damage
+					Titanium vanity armor is a placeholder for Fran's future character sprites
+					'''
+			}
+
 			Foreword: {
 				DisplayName: Foreword
 				Tooltip:
@@ -49,7 +72,7 @@ Mods: {
 					Combining different tactics can lead to unexpected results
 					'''
 				UltimateLocked: "[Enter Hardmode to unlock the Ultimate: Black Heavenly Tiger - Absolute Flash]"
-				UltimateTooltip: Press {0} to unleash "Black Heavenly Tiger — Absolute Flash": deliver a powerful execution against one target
+				UltimateTooltip: While holding ShiFu, press {0} to unleash "Black Heavenly Tiger — Absolute Flash": deliver a powerful execution against one target. Held weapons cannot be switched during the ultimate
 				TacticSelection: Current Tactics:
 				FullLoadoutActive: "[Full Loadout] {0}: {1}"
 				FullLoadoutInactive: "[Full Loadout] Inactive"
@@ -113,6 +136,8 @@ Mods: {
 					'''
 			}
 		}
+
+		Rarities.ShiFuPrismaticRarity.DisplayName: Master-and-Disciple Prismatic
 
 		ToolProgression: {
 			Current: Current stage: {0} | Pickaxe {1} · Axe {2}% · Hammer {3} · Reach +{4} · Use time {5}
@@ -360,7 +385,7 @@ Mods: {
 			IntroSkills: Right-click to open or close the tactic wheel; left-click upper icons to equip duplicates and lower slots to remove them; opening inventory closes the wheel
 			IntroEvolution: Participate in a boss victory to absorb its unique magic stone; press J to shape ShiFu, Fran, and their long-term resonance in the Corridor
 			IntroDash: When Fran Dash is bound, only that key triggers it; when unbound, double-tap left/right instead; equipped dashes take priority
-			IntroPotential: The ultimate charges automatically over three minutes of active play; press G when full to begin Black Heavenly Tiger's execution rush immediately
+			IntroPotential: The ultimate charges automatically over three minutes of active play; while holding ShiFu, press G when full to begin Black Heavenly Tiger's execution rush. Held weapons cannot be switched during the ultimate
 		}
 
 		Abilities: {
@@ -650,10 +675,10 @@ Mods: {
 			SkillTaker: {
 				DisplayName: Skill Taker
 				UnlockCondition: Unlocked by default
-				Description: Sword hits apply a theft mark. Sustained attacks gradually increase the target's vulnerability; both the vulnerability and mark decay after attacks stop. Each enemy hit releases two wisps, up to twenty per swing. Wisps seek the nearest enemy in range; the cap does not limit vulnerability application
-				FirstLayer: One layer: sustained attacks raise vulnerability up to 1.3x
+				Description: Sword hits apply a theft mark. Sustained attacks gradually increase the target's vulnerability and steal its contact damage. Stolen damage is added to ShiFu's damage, capped at 50% of its current damage for 5 seconds. Each enemy hit releases two wisps, up to twenty per swing. Wisps seek the nearest enemy in range; continued hits refresh the mark and stolen damage
+				FirstLayer: One layer: sustained attacks raise vulnerability up to 1.18x
 				AdditionalLayer: Stack: vulnerability rises faster and the mark lasts longer
-				FullLoadout: Full: maximum vulnerability increases to 1.7x
+				FullLoadout: Full: maximum vulnerability increases to 1.42x
 			}
 
 			MagicBarrier: {
@@ -706,8 +731,8 @@ Mods: {
 			PressurizedQuickdraw: {
 				DisplayName: Pressurized Quickdraw
 				UnlockCondition: Unlock by defeating Plantera
-				Description: Without a full loadout, the four-cut chain leaves compression bursts along each arc. A full loadout replaces the chain with a continuous blade disc that spins while left-click is held and coasts to a stop when released
-				FirstLayer: One layer: arc bursts; without Full, frequency -40% and damage -20%
+				Description: The four-cut chain leaves compression bursts along each arc. A full loadout replaces the chain with a continuous blade disc that spins while left-click is held and coasts to a stop when released
+				FirstLayer: One layer: sword arcs ignite compressed air
 				AdditionalLayer: Stack: raises compressed-burst damage
 				FullLoadout: Full: continuously swings the greatsword, greatly extends compression bursts, and heals on enemy kills
 			}
@@ -735,6 +760,7 @@ Mods: {
 			ShipCutterProjectile.DisplayName: Ship Cutter Projectile
 			SkillTakerPhantom.DisplayName: Skill Taker Phantom
 			SkillTakerSoul.DisplayName: Skill Taker Soul
+			FranLightningStrikeVisual.DisplayName: Fractured Lightning
 			FranUltimateController.DisplayName: Black Heavenly Tiger Execution
 			FranUltimateReadySigil.DisplayName: Ultimate Ready Sigil
 			FranUltimateExecutionSeal.DisplayName: Ultimate Execution Seal
@@ -805,6 +831,7 @@ Mods: {
 			FranCoreImpactBurst.DisplayName: Fran Core Impact Burst
 			FranThunderImpactExplosion.DisplayName: Fran Thunder Impact Explosion
 			FranThunderBudgetStrike.DisplayName: Fran Thunder Budget Strike
+			FranCompanion.DisplayName: Fran Companion
 		}
 	}
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using FranMod.Content.Companions;
 using FranMod.Content.Players;
 using FranMod.Content.Projectiles;
 using FranMod.Content.Systems;
@@ -263,6 +264,9 @@ public sealed class FranModMain : Mod
         byte messageType = reader.ReadByte();
         switch (messageType)
         {
+            case FranCompanionSystem.PacketType:
+                FranCompanionSystem.HandlePacket(reader, whoAmI);
+                break;
             case ShiFuArrivalMessage:
                 ShiFuArrivalSystem.HandlePacket(reader, whoAmI);
                 break;

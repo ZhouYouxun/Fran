@@ -1,0 +1,15 @@
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\bin\Debug\net8.0\Companion.Tests.exe
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\bin\Debug\net8.0\Companion.Tests.deps.json
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\bin\Debug\net8.0\Companion.Tests.runtimeconfig.json
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\bin\Debug\net8.0\Companion.Tests.dll
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\bin\Debug\net8.0\Companion.Tests.pdb
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\Companion.Tests.GeneratedMSBuildEditorConfig.editorconfig
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\Companion.Tests.AssemblyInfoInputs.cache
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\Companion.Tests.AssemblyInfo.cs
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\Companion.Tests.csproj.CoreCompileInputs.cache
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\Companion.Tests.sourcelink.json
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\Companion.Tests.dll
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\refint\Companion.Tests.dll
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\Companion.Tests.pdb
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\Companion.Tests.genruntimeconfig.cache
+D:\Documents\My Games\Terraria\tModLoader\ModSources\Fran\Tests\Companion\obj\Debug\net8.0\ref\Companion.Tests.dll

@@ -1,4 +1,5 @@
 using System;
+using FranMod.Content.Companions;
 using System.Collections.Generic;
 using FranMod.Content.Players;
 using FranMod.Core;
@@ -19,6 +20,7 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
 {
     private int recoveryTicks;
     private ulong nextIntegrityHitTick;
+    private float visualIntegrity;
     private float MaxIntegrity => Math.Max(1, FranBalance.GetInt(
         nameof(FranBalance.MagicBarrierMaximumIntegrity), FranBalance.MagicBarrierMaximumIntegrity)) +
         Math.Max(0, Main.player[Projectile.owner].GetModPlayer<FranPlayer>()
@@ -30,7 +32,6 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
     {
         Projectile.width = 104; Projectile.height = 136; Projectile.timeLeft = 3600;
         Projectile.tileCollide = false; Projectile.penetrate = -1; Projectile.netImportant = true;
-        Projectile.ai[1] = -1f; // Owner and loadout are assigned after SetDefaults.
     }
     public override bool? CanDamage() => false;
     public override bool ShouldUpdatePosition() => false;
@@ -41,12 +42,15 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
         if (Projectile.localAI[1] == 0f)
         {
             Projectile.localAI[1] = 1f;
-            if (Projectile.ai[1] < 0f)
+            // NewProjectile overwrites SetDefaults' AI values with its arguments (zero by default).
+            // Initialize once, after owner/loadout assignment, while preserving synced positive integrity.
+            if (Projectile.ai[1] <= 0f)
             {
                 Projectile.ai[1] = MaxIntegrity;
                 if (owner.whoAmI == Main.myPlayer)
                     Projectile.netUpdate = true;
             }
+            visualIntegrity = Projectile.ai[1];
             SoundEngine.PlaySound(SoundID.Item29 with { Volume = 0.46f, Pitch = 0.32f }, Projectile.Center);
             EmitShards(Projectile.Center, new Color(95, 190, 255), 8, true);
             FranParticleEffects.RingPulse(Projectile.Center, new Color(105, 205, 255), Vector2.One * 34f,
@@ -87,6 +91,17 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
                 }
             }
         }
+        float recoveringLayer = 0f;
+        if (Projectile.ai[1] > 0f && Projectile.ai[1] < MaxIntegrity)
+        {
+            int delay = Math.Max(0, FranBalance.GetInt(nameof(FranBalance.MagicBarrierRecoveryDelayFrames),
+                FranBalance.MagicBarrierRecoveryDelayFrames));
+            int interval = Math.Max(1, FranBalance.GetInt(nameof(FranBalance.MagicBarrierRecoveryIntervalFrames),
+                FranBalance.MagicBarrierRecoveryIntervalFrames));
+            recoveringLayer = MathHelper.Clamp((recoveryTicks - delay) / (float)interval, 0f, 1f);
+        }
+        // Only interpolate the presentation; collision protection still uses whole integrity layers.
+        visualIntegrity = MathHelper.Lerp(visualIntegrity, Projectile.ai[1] + recoveringLayer, 0.16f);
         Projectile.rotation += 0.012f;
         Projectile.timeLeft = 2;
         Projectile.ai[0]++;
@@ -96,7 +111,7 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
     }
     public override bool PreDraw(ref Color lightColor)
     {
-        float integrity = MathHelper.Clamp(Projectile.ai[1] / MaxIntegrity, 0f, 1f);
+        float integrity = MathHelper.Clamp(visualIntegrity / MaxIntegrity, 0f, 1f);
         float hitFlash = MathHelper.Clamp(Projectile.ai[2], 0f, 1f);
         FranBarrierRenderer.TryDraw(Projectile.Center, integrity, hitFlash, Projectile.rotation);
         return false;
@@ -147,7 +162,7 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
     public static bool IsActive(Player owner)
     {
         foreach (Projectile projectile in Main.ActiveProjectiles)
-            if (projectile.owner == owner.whoAmI &&
+            if (FranCompanionContext.Owns(owner, projectile) &&
                 projectile.type == ModContent.ProjectileType<FranAutoBarrierProjectile>() && projectile.ai[1] > 0f)
                 return true;
         return false;
@@ -159,7 +174,7 @@ public sealed class FranAutoBarrierProjectile : ModProjectile
             return false;
         foreach (Projectile projectile in Main.ActiveProjectiles)
         {
-            if (projectile.owner != owner.whoAmI ||
+            if (!FranCompanionContext.Owns(owner, projectile) ||
                 projectile.type != ModContent.ProjectileType<FranAutoBarrierProjectile>() || projectile.ai[1] <= 0f)
                 continue;
 

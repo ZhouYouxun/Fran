@@ -4,24 +4,34 @@ using Luminance.Core.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.ModLoader;
 
 namespace FranMod.Core.Graphics;
 
 internal static class FranBarrierRenderer
 {
     private static bool shaderFaulted;
+    private static bool shaderMissingReported;
 
     public static bool TryDraw(Vector2 center, float charge, float hitFlash, float rotation)
     {
         if (Main.dedServ || shaderFaulted || !IsFinite(center) ||
-            !float.IsFinite(charge) || !float.IsFinite(hitFlash) || !float.IsFinite(rotation) ||
-            !ShaderManager.TryGetShader("Fran.FranBarrierSurfaceShader", out ManagedShader shader))
+            !float.IsFinite(charge) || !float.IsFinite(hitFlash) || !float.IsFinite(rotation))
             return false;
 
         charge = MathHelper.Clamp(charge, 0f, 1f);
         hitFlash = MathHelper.Clamp(hitFlash, 0f, 1f);
         if (charge <= 0.01f && hitFlash <= 0.01f)
             return false;
+
+        if (!ShaderManager.TryGetShader("Fran.FranBarrierSurfaceShader", out ManagedShader shader))
+        {
+            if (!shaderMissingReported)
+                ModLoader.GetMod("Fran")?.Logger.Warn("Energy barrier shader is not available: Fran.FranBarrierSurfaceShader.");
+            shaderMissingReported = true;
+            return false;
+        }
+        shaderMissingReported = false;
 
         GraphicsDevice device = Main.instance.GraphicsDevice;
         Texture previousTexture1 = device.Textures[1];
@@ -33,11 +43,10 @@ internal static class FranBarrierRenderer
             shader.TrySetParameter("uShieldColor", new Color(28, 96, 205));
             shader.TrySetParameter("uEdgeColor", Color.Lerp(new Color(85, 215, 255), Color.White, hitFlash * 0.62f));
             shader.TrySetParameter("uCoreColor", new Color(175, 242, 255));
-            shader.TrySetParameter("uCharge", MathF.Sqrt(charge));
+            shader.TrySetParameter("uCharge", charge);
             shader.TrySetParameter("uHitFlash", hitFlash);
-            shader.TrySetParameter("uOpacity", 0.78f + charge * 0.16f);
+            shader.TrySetParameter("uOpacity", 0.94f * charge);
             shader.TrySetParameter("uRotation", rotation);
-            shader.SetTexture(FranVfx.Shared("NoiseSoft"), 1, SamplerState.LinearWrap);
 
             Main.spriteBatch.End();
             originalBatchEnded = true;
@@ -46,16 +55,14 @@ internal static class FranBarrierRenderer
                 Main.GameViewMatrix.TransformationMatrix);
             customBatchStarted = true;
 
-            // Rover Drive feeds a square noise canvas into its shield shader.  Our old draw used
-            // Terraria's 1x1000 MagicPixel as the canvas and then scaled the whole texture, which
-            // turned the mathematically circular shader into a world-height column.  A square
-            // canvas preserves the shader's 0..1 UV sphere and keeps its dimensions finite.
             Texture2D canvas = FranVfx.Shared("NoiseSoft");
+            shader.SetTexture(canvas, 1, SamplerState.LinearWrap);
             Vector2 origin = canvas.Size() * 0.5f;
             Vector2 position = center - Main.screenPosition;
             float pulse = 1f + MathF.Sin(Main.GlobalTimeWrappedHourly * 1.9f + rotation * 0.37f) * 0.018f;
             float diameter = (156f + hitFlash * 18f) * pulse;
-            Vector2 scale = Vector2.One * diameter / canvas.Size();
+            // SpriteBatch scales source pixels, not UVs; normalize both dimensions for a round shield.
+            Vector2 scale = new Vector2(diameter) / canvas.Size();
 
             shader.TrySetParameter("uLayer", 0f);
             shader.Apply();
@@ -68,9 +75,10 @@ internal static class FranBarrierRenderer
                 SpriteEffects.None, 0f);
             return true;
         }
-        catch
+        catch (Exception exception)
         {
             shaderFaulted = true;
+            ModLoader.GetMod("Fran")?.Logger.Warn($"Energy barrier drawing failed. {exception}");
             return false;
         }
         finally
@@ -86,7 +94,11 @@ internal static class FranBarrierRenderer
         }
     }
 
-    public static void Unload() => shaderFaulted = false;
+    public static void Unload()
+    {
+        shaderFaulted = false;
+        shaderMissingReported = false;
+    }
 
     private static bool IsFinite(Vector2 value) => float.IsFinite(value.X) && float.IsFinite(value.Y);
 }

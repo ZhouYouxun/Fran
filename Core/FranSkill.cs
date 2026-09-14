@@ -4,20 +4,6 @@ using Terraria.Localization;
 
 namespace FranMod.Core;
 
-public enum FranSkill : byte
-{
-    TelekineticCatapult,
-    SkillTaker,
-    MagicBarrier,
-    MultipleBodyCreation,
-    BlueResonance,
-    ThunderChain,
-    PressurizedQuickdraw,
-    ThorsHammer,
-    Count,
-    None = byte.MaxValue
-}
-
 public static class FranSkillInfo
 {
     public static int Count => (int)FranSkill.Count;
