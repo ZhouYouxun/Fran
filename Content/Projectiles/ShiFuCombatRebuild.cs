@@ -411,7 +411,8 @@ public sealed class ShiFuSwingRebuild : ModProjectile
                 velocity = localTangent.RotatedByRandom(0.10f) * Main.rand.NextFloat(3.4f, 5.4f) * speedScale +
                     blade * Main.rand.NextFloat(0.15f, 0.48f);
                 particle = FranSwingCadenceParticle.CritSpark(position, velocity,
-                    Color.Lerp(color, new Color(255, 205, 132), 0.18f));
+                    Color.Lerp(color, ImprintSkill == FranSkill.BlueResonance
+                        ? FranResonanceVisuals.Heart : new Color(255, 205, 132), 0.18f));
                 break;
 
             case 1:
@@ -435,7 +436,7 @@ public sealed class ShiFuSwingRebuild : ModProjectile
 
         FranParticleSystem.Spawn(particle, spawnSupportingDust: false);
         FranShiFuSwingEffects.Swing(Owner.MountedCenter, position, blade, localTangent,
-            color, Combo, (int)Projectile.localAI[0], swingActivity);
+            color, Combo, (int)Projectile.localAI[0], swingActivity, ImprintSkill == FranSkill.BlueResonance);
     }
 
     private void EmitFourthCompressionParticles(Vector2 blade, Color color)
@@ -443,12 +444,13 @@ public sealed class ShiFuSwingRebuild : ModProjectile
         float usableReach = Math.Max(48f, currentReach - WeaponHiltOffset - currentWeaponOffset);
         Vector2 origin = Owner.MountedCenter + blade * (WeaponHiltOffset + currentWeaponOffset);
         FranShiFuSwingEffects.FinisherFlow(origin, blade, usableReach, color,
-            Progress, (int)Projectile.localAI[0]);
+            Progress, (int)Projectile.localAI[0], ImprintSkill == FranSkill.BlueResonance);
 
         // 用进度跨阈值触发，在最低 12 帧时长和高攻速下也不会漏掉任一段。
         while (fourthReleaseStage < 3 && Progress >= 0.10f + fourthReleaseStage * 0.16f)
         {
-            FranShiFuSwingEffects.FinisherPulse(origin, blade, usableReach, color, fourthReleaseStage);
+            FranShiFuSwingEffects.FinisherPulse(origin, blade, usableReach, color, fourthReleaseStage,
+                ImprintSkill == FranSkill.BlueResonance);
             fourthReleaseStage++;
         }
     }
@@ -727,7 +729,8 @@ public sealed class ShiFuSwingRebuild : ModProjectile
                     if (pulse <= 0.01f)
                         continue;
                     Vector2 focus = trailPivot + blade * compressedReach * (0.38f + stage * 0.21f);
-                    Color tint = Color.Lerp(color, new Color(198, 147, 255), stage * 0.16f);
+                    Color tint = Color.Lerp(color, ImprintSkill == FranSkill.BlueResonance
+                        ? FranResonanceVisuals.Mint : new Color(198, 147, 255), stage * 0.16f);
                     FranVfx.DrawSharedPixels("BloomCircle", focus, tint * (pulse * 0.46f),
                         0f, Vector2.One * (18f + pulse * 14f));
                     FranVfx.DrawSharedPixels("HalfStar", focus, Color.White * (pulse * 0.88f),

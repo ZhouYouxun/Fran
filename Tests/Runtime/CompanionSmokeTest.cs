@@ -53,6 +53,13 @@ public sealed class CompanionSmokeTest : ModSystem
         real.inventory[0].SetDefaults(ModContent.ItemType<FranCompanionStaff>());
         real.selectedItem = 0;
         Player originalSentinel = Main.player[255];
+        // Main updates every slot, including never-initialized projectiles. Global hooks
+        // must not assume SetDefaults has attached per-entity globals to those slots.
+        new Projectile().Update(Main.maxProjectiles - 1);
+        Check(FranCompanionSystem.Resolve(new Projectile()) is null, "uninitialized slot bypasses companion context");
+        Check(FranCompanionSystem.Resolve(new Projectile { active = true, owner = 255 }) is null,
+            "missing global data is safe even on an active slot");
+        for (int frame = 0; frame < 120; frame++) Tick(originalSentinel, real);
         FranCompanionSystem.Execute(FranCompanionSystem.Command.Summon, 0, 0, FranSkill.None);
         FranCompanion summon = FranCompanionSystem.FindOwned(0);
         Check(summon is not null, "summoned by actual item request");
@@ -132,10 +139,10 @@ public sealed class CompanionSmokeTest : ModSystem
         for (int i = 0; i < Main.maxProjectiles; i++)
         {
             Projectile p = Main.projectile[i];
-            if (!p.active) continue;
-            if (p.ModProjectile is not null) seen.Add(p.ModProjectile.GetType().Name);
+            bool wasActive = p.active;
+            if (wasActive && p.ModProjectile is not null) seen.Add(p.ModProjectile.GetType().Name);
             p.Update(i);
-            if (p.ModProjectile is FranCompanion root && !p.active)
+            if (wasActive && p.ModProjectile is FranCompanion root && !p.active)
                 throw new Exception($"Root lost: pos={p.position} time={p.timeLeft} owner={root.PlayerOwner} netOwner={p.owner} realActive={real.active} realDead={real.dead} retiring={root.Retiring} id={root.SummonId} tag={p.GetGlobalProjectile<FranCompanionProjectile>().SummonId} bounds={Main.leftWorld},{Main.topWorld},{Main.rightWorld},{Main.bottomWorld}");
         }
         Check(ReferenceEquals(Main.player[255], originalSentinel) && ReferenceEquals(Main.player[0], real) && Main.myPlayer == local,

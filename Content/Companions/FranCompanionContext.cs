@@ -1,6 +1,7 @@
 using System;
 using Terraria;
 using Terraria.ID;
+using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
 
 namespace FranMod.Content.Companions;
@@ -21,7 +22,7 @@ internal static class FranCompanionContext
 
     internal static bool Owns(Player actor, Projectile projectile) =>
         projectile.owner == actor.whoAmI && (!IsActor(actor) ||
-            projectile.GetGlobalProjectile<FranCompanionProjectile>().SummonId == Current.SummonId);
+            projectile.TryGetGlobalProjectile(out FranCompanionProjectile tag) && tag.SummonId == Current.SummonId);
 
     internal readonly struct Scope : IDisposable
     {

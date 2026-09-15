@@ -23,10 +23,10 @@ public sealed class FranCompanionProjectile : GlobalProjectile
         FranCompanion companion = null;
         if (source is EntitySource_Parent parent && parent.Entity is Projectile parentProjectile)
         {
-            FranCompanionProjectile parentTag = parentProjectile.GetGlobalProjectile<FranCompanionProjectile>();
+            parentProjectile.TryGetGlobalProjectile(out FranCompanionProjectile parentTag);
             companion = parentProjectile.ModProjectile as FranCompanion ??
-                FranCompanionSystem.Find(parentTag.SummonId);
-            if (parentTag.Linked && companion is null)
+                FranCompanionSystem.Find(parentTag?.SummonId ?? 0);
+            if (parentTag is { Linked: true } && companion is null)
             {
                 SummonId = parentTag.SummonId;
                 LogicalOwner = parentTag.LogicalOwner;

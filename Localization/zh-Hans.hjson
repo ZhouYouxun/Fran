@@ -219,7 +219,7 @@ Mods: {
 			CurrentStatus: 当前已开放{0}格｜正在查看{1}格配置
 			CloseHint: 点击上方分页查看其他阶段｜界面中右键或点击 × 关闭
 			FullLoadoutTitle: 全选价值速查
-			FullLoadoutSummary: 强质变：念动弹射、技能夺取者、魔力屏障、蓝辉共鸣、压缩居合、雷神之锤｜雷链在雷雨天极强｜多重分体的全选奖励较温和，更适合参加混搭
+			FullLoadoutSummary: 强质变：念动弹射、技能夺取者、魔力屏障、蓝辉共鸣、雷链、压缩居合、雷神之锤｜多重分体的全选奖励较温和，更适合参加混搭
 
 			Tabs: {
 				Slots2: 2格配置
@@ -921,13 +921,13 @@ Mods: {
 				UnlockCondition: 击败血肉墙后解锁
 				Description:
 					'''
-					剑击命中时迸发蓝辉弹幕；
+					剑击命中时迸发亮绿色共鸣蝴蝶；
 					有玩家受伤时追踪玩家并治疗，
 					全员满血时追踪敌人造成伤害
 					'''
-				FirstLayer: 单层：命中释放可治疗或伤敌的蓝辉弹
-				AdditionalLayer: 叠层：每层增加一枚蓝辉弹
-				FullLoadout: 全选：每次挥刀都会释放蓝辉弹，无需命中敌人
+				FirstLayer: 单层：命中释放可治疗或伤敌的共鸣蝴蝶
+				AdditionalLayer: 叠层：每层增加一只共鸣蝴蝶
+				FullLoadout: 全选：每次挥刀都会释放共鸣蝴蝶，无需命中敌人
 			}
 
 			ThunderChain: {
@@ -942,7 +942,7 @@ Mods: {
 					'''
 				FirstLayer: 单层：挥剑召来雷链与追踪落雷
 				AdditionalLayer: 叠层：增加伴随雷和追踪目标数量
-				FullLoadout: 全选：雷雨天大幅增加伤害
+				FullLoadout: 全选：闪电替换为更宽的树状落雷，并提高伤害
 			}
 
 			PressurizedQuickdraw: {

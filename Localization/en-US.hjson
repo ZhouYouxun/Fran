@@ -199,7 +199,7 @@ Mods: {
 			CurrentStatus: Current capacity: {0} slots | Viewing: {1}-slot loadouts
 			CloseHint: Click a tab to preview another stage | Right-click inside the guide or click X to close
 			FullLoadoutTitle: Full-loadout value at a glance
-			FullLoadoutSummary: Major transformations: Telekinetic Catapult, Skill Taker, Magic Barrier, Blue Resonance, Pressurized Quickdraw, and Thor's Hammer | Thunder Chain is exceptional in rain | Multiple Body Creation has a gentler full bonus and mixes well
+			FullLoadoutSummary: Major transformations: Telekinetic Catapult, Skill Taker, Magic Barrier, Blue Resonance, Thunder Chain, Pressurized Quickdraw, and Thor's Hammer | Multiple Body Creation has a gentler full bonus and mixes well
 
 			Tabs: {
 				Slots2: 2 slots
@@ -228,7 +228,7 @@ Mods: {
 
 				Entry4: {
 					Title: Blue x2 | Active sustain
-					Body: Every swing creates a group of blue motes without a hit; blade hits still add more, so recovery no longer needs an initial target.
+					Body: Every swing creates a group of green butterflies without a hit; blade hits still add more, so recovery no longer needs an initial target.
 				}
 
 				Entry5: {
@@ -713,10 +713,10 @@ Mods: {
 			BlueResonance: {
 				DisplayName: Blue Resonance
 				UnlockCondition: Unlock by defeating the Wall of Flesh
-				Description: Sword hits burst blue resonance motes. They seek and heal injured players; when everyone is healthy they instead seek enemies and deal damage
-				FirstLayer: One layer: hits release blue motes that heal or damage
-				AdditionalLayer: Stack: adds one blue mote per layer
-				FullLoadout: Full: every swing releases blue motes without needing to hit an enemy
+				Description: Sword hits burst bright green resonance butterflies. They seek and heal injured players; when everyone is healthy they instead seek enemies and deal damage
+				FirstLayer: One layer: hits release green butterflies that heal or damage
+				AdditionalLayer: Stack: adds one green butterfly per layer
+				FullLoadout: Full: every swing releases green butterflies without needing to hit an enemy
 			}
 
 			ThunderChain: {
@@ -725,7 +725,7 @@ Mods: {
 				Description: The first cut places a circuit; the next three call lightning. Each bolt marks a different enemy, with spare bolts landing in nearby empty space. Each impact causes an area explosion that hits each enemy only once. The fourth cut calls more bolts
 				FirstLayer: One layer: swings call a lightning chain and tracked strikes
 				AdditionalLayer: Stack: adds supporting lightning and tracked targets
-				FullLoadout: Full: greatly increases damage during thunderstorms
+				FullLoadout: Full: replaces its lightning with wider branching strikes and increases damage
 			}
 
 			PressurizedQuickdraw: {

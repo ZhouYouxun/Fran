@@ -1,4 +1,5 @@
 using System;
+using FranMod.Core.Graphics;
 using Microsoft.Xna.Framework;
 using Terraria;
 
@@ -11,13 +12,13 @@ internal static class FranShiFuSwingEffects
         FranParticleSystem.Spawn(particle, spawnSupportingDust: false);
 
     public static void Swing(Vector2 origin, Vector2 position, Vector2 blade, Vector2 tangent,
-        Color color, int combo, int tick, float activity)
+        Color color, int combo, int tick, float activity, bool resonance = false)
     {
         if (Main.dedServ || activity <= 0.08f)
             return;
 
-        Color accent = Color.Lerp(color, combo == 0 ? new Color(255, 213, 143) :
-            new Color(190, 146, 255), combo == 0 ? 0.32f : 0.28f);
+        Color accent = resonance ? FranResonanceVisuals.Mint : Color.Lerp(color,
+            combo == 0 ? new Color(255, 213, 143) : new Color(190, 146, 255), combo == 0 ? 0.32f : 0.28f);
         Vector2 drift = tangent * Main.rand.NextFloat(2.8f, 5.2f);
         Vector2 scatter = position + Main.rand.NextVector2Circular(7f, 7f);
 
@@ -58,13 +59,13 @@ internal static class FranShiFuSwingEffects
     }
 
     public static void FinisherFlow(Vector2 origin, Vector2 blade, float reach, Color color,
-        float progress, int tick)
+        float progress, int tick, bool resonance = false)
     {
         if (Main.dedServ)
             return;
 
         Vector2 side = blade.RotatedBy(MathHelper.PiOver2);
-        Color violet = Color.Lerp(color, new Color(193, 142, 255), 0.36f);
+        Color violet = resonance ? FranResonanceVisuals.Mint : Color.Lerp(color, new Color(193, 142, 255), 0.36f);
         bool gathering = progress < 0.18f;
         bool scattering = progress > 0.52f;
         int count = scattering ? 2 : 4;
@@ -101,14 +102,14 @@ internal static class FranShiFuSwingEffects
             origin, blade, reach, color, progress, tick);
     }
 
-    public static void FinisherPulse(Vector2 origin, Vector2 blade, float reach, Color color, int stage)
+    public static void FinisherPulse(Vector2 origin, Vector2 blade, float reach, Color color, int stage, bool resonance = false)
     {
         if (Main.dedServ)
             return;
 
         Vector2 side = blade.RotatedBy(MathHelper.PiOver2);
         Vector2 center = origin + blade * reach * (0.38f + stage * 0.21f);
-        Color accent = Color.Lerp(color, new Color(206, 157, 255), stage * 0.18f);
+        Color accent = Color.Lerp(color, resonance ? FranResonanceVisuals.Mint : new Color(206, 157, 255), stage * 0.18f);
         // 三个脉冲依次沿剑身向前，横向碎屑和前冲细丝穿插，不把闪光全部堆在一点。
         for (int i = 0; i < 8; i++)
         {

@@ -110,16 +110,15 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         Projectile.rotation += 0.085f;
         Projectile.Opacity = Utils.GetLerpValue(0f, 5f, age, true) *
             Utils.GetLerpValue(0f, 16f, Projectile.timeLeft, true);
-        Lighting.AddLight(Projectile.Center, 0.12f * Projectile.Opacity,
-            0.48f * Projectile.Opacity, 0.68f * Projectile.Opacity);
+        Lighting.AddLight(Projectile.Center, FranResonanceVisuals.Emerald.ToVector3() * (0.72f * Projectile.Opacity));
 
-        if (!Main.dedServ && (int)age % 2 == 0)
+        if (FranResonanceVisuals.Visible(Projectile.Center) && (int)age % 2 == 0)
         {
-            Color color = healing ? new Color(135, 235, 255) : new Color(70, 175, 255);
+            Color color = healing ? FranResonanceVisuals.Mint : FranResonanceVisuals.Emerald;
             FranParticleSystem.Spawn(new FranGlowOrbParticle(
                 Projectile.Center + Main.rand.NextVector2Circular(4f, 4f),
                 -Projectile.velocity * 0.025f + Main.rand.NextVector2Circular(0.18f, 0.18f),
-                color, Main.rand.NextFloat(0.16f, 0.26f), 0.025f, Main.rand.Next(10, 16)));
+                color, Main.rand.NextFloat(0.16f, 0.26f), 0.025f, Main.rand.Next(10, 16)), spawnSupportingDust: false);
         }
     }
 
@@ -127,8 +126,9 @@ public sealed class FranBlueResonanceEcho : ModProjectile
     {
         impactBurstSpawned = true;
         SpawnBloomBurst(target.Center, 0.94f);
+        FranResonanceBloomParticle.SpawnBurst(target.Center, Projectile.velocity.ToRotation(), 0.85f);
         FranParticleEffects.SpawnImpact(target.Center,
-            Projectile.velocity.SafeNormalize(Vector2.UnitX), new Color(85, 205, 255), 7, 4.6f, 0.86f);
+            Projectile.velocity.SafeNormalize(Vector2.UnitX), FranResonanceVisuals.Mint, 7, 4.6f, 0.86f);
     }
 
     public override void OnKill(int timeLeft)
@@ -280,15 +280,16 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         }
         impactBurstSpawned = true;
         SpawnBloomBurst(target.Center, 0.92f);
+        FranResonanceBloomParticle.SpawnBurst(target.Center, Projectile.velocity.ToRotation(), 0.92f);
         SoundEngine.PlaySound(SoundID.Item29 with { Volume = 0.26f, Pitch = 0.55f }, target.Center);
         Projectile.Kill();
     }
 
     private static void SpawnBloomBurst(Vector2 center, float intensity)
     {
-        if (Main.dedServ)
+        if (!FranResonanceVisuals.Visible(center))
             return;
-        Color cyan = new(85, 205, 255);
+        Color cyan = FranResonanceVisuals.Emerald;
         FranParticleSystem.Spawn(new FranBloomCirclePulseParticle(center, Vector2.Zero, cyan,
             18f * intensity, 76f * intensity, 18, 0.82f, 0.94f, 0.035f));
         FranParticleEffects.Implosion(center, cyan, 0.34f * intensity);
@@ -299,28 +300,28 @@ public sealed class FranBlueResonanceEcho : ModProjectile
     public override bool PreDraw(ref Color lightColor)
     {
         float opacity = Projectile.Opacity;
-        float pulse = 0.88f + MathF.Sin(Main.GlobalTimeWrappedHourly * 8.2f + Projectile.identity * 0.73f) * 0.12f;
-        Color cyan = HealingMode ? new Color(125, 230, 255) : new Color(70, 175, 255);
-        FranVfx.BeginAdditive();
+        if (opacity <= 0f || !FranResonanceVisuals.Visible(Projectile.Center))
+            return false;
+
+        // Fine luminous wake leaves room for the wing silhouette.
         for (int i = Projectile.oldPos.Length - 1; i >= 1; i--)
         {
-            Vector2 old = Projectile.oldPos[i] + Projectile.Size * 0.5f;
-            Vector2 newer = Projectile.oldPos[i - 1] + Projectile.Size * 0.5f;
-            if (old == Projectile.Size * 0.5f || newer == Projectile.Size * 0.5f)
+            if (Projectile.oldPos[i] == Vector2.Zero || Projectile.oldPos[i - 1] == Vector2.Zero)
                 continue;
+            Vector2 old = Projectile.oldPos[i] + Projectile.Size * .5f;
+            Vector2 newer = Projectile.oldPos[i - 1] + Projectile.Size * .5f;
             float fade = (1f - i / (float)Projectile.oldPos.Length) * opacity;
-            FranVfx.DrawVertical("BloomLineSoftEdge", old, newer, cyan * (0.24f * fade), 9f * fade + 2f);
-            FranVfx.DrawVertical("FranVfx_ThinEndedLine", old, newer, Color.White * (0.42f * fade), 2.2f);
+            FranResonanceVisuals.Line(old, newer, FranResonanceVisuals.Emerald, 2.4f * fade, .30f * fade);
+            FranResonanceVisuals.Line(old, newer, FranResonanceVisuals.Mint, .8f, .44f * fade);
         }
-        FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,
-            new Color(cyan.R, cyan.G, cyan.B, 0) * (0.78f * opacity), Projectile.rotation,
-            0.18f * pulse);
-        FranVfx.DrawSharedPixels("FranMysticGlyph1", Projectile.Center,
-            cyan * (0.34f * opacity), -Projectile.rotation * 0.62f, Vector2.One * (28f * pulse));
-        FranVfx.DrawShared("FranVfx_PulseStar", Projectile.Center, Color.White * (0.72f * opacity),
-            Projectile.rotation * 0.35f, 0.105f * pulse);
-        FranVfx.DrawBloom(Projectile.Center, Color.White, 13f * pulse, 0.64f * opacity, true);
-        FranVfx.EndAdditive();
+        float phase = RandomUnit(8) * MathHelper.TwoPi;
+        float rotation = Projectile.velocity.LengthSquared() > .01f
+            ? Projectile.velocity.ToRotation() + MathHelper.PiOver2
+            : MathF.Sin(Age * .035f + phase) * .18f;
+        float size = .95f + RandomUnit(9) * .16f;
+        // Phase affects wingbeats only after the shared opening animation.
+        float flutterAge = Age + phase * 4f * Utils.GetLerpValue(7f, 16f, Age, true);
+        FranResonanceVisuals.DrawButterfly(Projectile.Center, rotation, flutterAge, size, opacity);
         return false;
     }
 }

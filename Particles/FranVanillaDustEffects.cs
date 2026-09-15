@@ -120,7 +120,7 @@ internal static class FranVanillaDustEffects
         FranSkill.SkillTaker => DustID.Shadowflame,
         FranSkill.MagicBarrier => DustID.BlueTorch,
         FranSkill.MultipleBodyCreation => DustID.WhiteTorch,
-        FranSkill.BlueResonance => DustID.BlueTorch,
+        FranSkill.BlueResonance => DustID.GreenTorch,
         FranSkill.ThunderChain => DustID.Electric,
         FranSkill.PressurizedQuickdraw => DustID.FireworksRGB,
         FranSkill.ThorsHammer => DustID.Electric,

@@ -15,9 +15,21 @@ namespace FranMod.Content.Projectiles;
 public sealed class FranLightningBranches : ModProjectile
 {
     private const int ActiveLifetime = 18;
+    private const float FullLoadoutFlag = 10f;
     private float Age => Projectile.localAI[0];
     private float Delay => Math.Max(0f, Projectile.ai[1]);
-    private float VisualScale => Projectile.ai[2] > 0f ? MathHelper.Clamp(Projectile.ai[2], 0.5f, 1.5f) : 1f;
+    private bool FullLoadout => Projectile.ai[2] >= FullLoadoutFlag;
+    private float VisualScale
+    {
+        get
+        {
+            float encodedScale = FullLoadout ? Projectile.ai[2] - FullLoadoutFlag : Projectile.ai[2];
+            return encodedScale > 0f ? MathHelper.Clamp(encodedScale, 0.5f, 1.5f) : 1f;
+        }
+    }
+
+    internal static float EncodeVisualScale(float visualScale, bool fullLoadout) =>
+        MathHelper.Clamp(visualScale, 0.5f, 1.5f) + (fullLoadout ? FullLoadoutFlag : 0f);
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
     public override void SetDefaults()
@@ -46,9 +58,24 @@ public sealed class FranLightningBranches : ModProjectile
                 float angle = Projectile.velocity.ToRotation() + i * MathHelper.TwoPi / 6f;
                 Vector2 end = Projectile.Center + angle.ToRotationVector2() *
                     (58f + (i % 2) * 26f) * VisualScale;
-                FranFlatLightningEffects.SpawnSegment(Projectile.GetSource_FromThis(),
-                    Projectile.Center, end, Projectile.owner, 0.68f * VisualScale,
-                    FranFlatLightningPalette.ThunderChain, 0.8f);
+                if (FullLoadout)
+                {
+                    if (Projectile.owner == Main.myPlayer)
+                    {
+                        float width = FranBalance.GetFloat(
+                            nameof(FranBalance.ThunderChainFullLoadoutLightningHalfWidth),
+                            FranBalance.ThunderChainFullLoadoutLightningHalfWidth) * 0.65f;
+                        FranLightningStrikeVisual.Spawn(Projectile.GetSource_FromThis(),
+                            Projectile.Center, end, Projectile.owner, new Color(128, 82, 240),
+                            width, i % 3, 1.1f);
+                    }
+                }
+                else
+                {
+                    FranFlatLightningEffects.SpawnSegment(Projectile.GetSource_FromThis(),
+                        Projectile.Center, end, Projectile.owner, 0.68f * VisualScale,
+                        FranFlatLightningPalette.ThunderChain, 0.8f);
+                }
             }
             SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.42f, Pitch = 0.26f }, Projectile.Center);
         }

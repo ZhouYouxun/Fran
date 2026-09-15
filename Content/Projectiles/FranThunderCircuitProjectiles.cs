@@ -1,6 +1,7 @@
 using System;
 using FranMod.Content.Companions;
 using FranMod.Content.Players;
+using FranMod.Core;
 using FranMod.Core.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -164,12 +165,17 @@ public sealed class FranThunderCircuitLink : ModProjectile
 {
     private FranFissionArc conductor;
     private const int BaseLifetime = 34;
+    private const int FullLoadoutFlag = 2;
     private float Age => Projectile.localAI[0];
     private float Delay => Math.Max(0f, Projectile.ai[0]);
     private float Intensity => MathHelper.Clamp(Projectile.ai[1], 0.45f, 1.8f);
-    private bool Returning => Projectile.ai[2] > 0.5f;
+    private bool Returning => ((int)Projectile.ai[2] & 1) != 0;
+    private bool FullLoadout => Projectile.ai[2] >= FullLoadoutFlag;
     private Vector2 Start => Projectile.Center;
     private Vector2 End => Projectile.Center + Projectile.velocity;
+
+    internal static float EncodeMode(bool returning, bool fullLoadout) =>
+        (returning ? 1f : 0f) + (fullLoadout ? FullLoadoutFlag : 0f);
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -213,7 +219,19 @@ public sealed class FranThunderCircuitLink : ModProjectile
         float activeAge = Age - Delay;
         if (activeAge == 1f)
         {
-            if (!Main.dedServ)
+            if (FullLoadout)
+            {
+                if (Projectile.owner == Main.myPlayer)
+                {
+                    float width = FranBalance.GetFloat(
+                        nameof(FranBalance.ThunderChainFullLoadoutLightningHalfWidth),
+                        FranBalance.ThunderChainFullLoadoutLightningHalfWidth);
+                    FranLightningStrikeVisual.Spawn(Projectile.GetSource_FromThis(), Start, End,
+                        Projectile.owner, Returning ? new Color(148, 82, 245) : new Color(110, 105, 245),
+                        width, brightness: 1.15f);
+                }
+            }
+            else if (!Main.dedServ)
                 conductor = new FranFissionArc(End - Start, Projectile.identity * 397 ^ Projectile.owner,
                     (Returning ? 2.6f : 2.1f) * Intensity);
             SoundEngine.PlaySound(SoundID.Item93 with
@@ -226,13 +244,13 @@ public sealed class FranThunderCircuitLink : ModProjectile
 
         float travel = FranMotion.Smooth(FranMotion.Segment(activeAge, 0f, 5f));
         Vector2 pulsePoint = Vector2.Lerp(Start, End, travel);
-        if (activeAge is >= 1f and <= 5f)
+        if (!FullLoadout && activeAge is >= 1f and <= 5f)
         {
             float previous = FranMotion.Smooth(FranMotion.Segment(activeAge - 1f, 0f, 5f));
             FranFlatLightningEffects.EmitSpan(Vector2.Lerp(Start, End, previous), pulsePoint,
                 Intensity, FranFlatLightningPalette.ThunderChain, (int)activeAge * 22);
         }
-        else if (activeAge is >= 6f and <= 12f && (int)activeAge % 2 == 0)
+        else if (!FullLoadout && activeAge is >= 6f and <= 12f && (int)activeAge % 2 == 0)
             FranFlatLightningEffects.EmitSpan(Start, End, Intensity * 0.68f,
                 FranFlatLightningPalette.ThunderChain, (int)activeAge * 22);
         if (activeAge is >= 0f and <= 12f)
@@ -244,8 +262,9 @@ public sealed class FranThunderCircuitLink : ModProjectile
         FranLightingBoltsSystem.SpawnThunderImpact(target.Center,
             Returning ? new Color(188, 125, 255) : new Color(112, 205, 255),
             0.58f * Intensity);
-        FranFlatLightningEffects.Burst(target.Center, Intensity * 0.55f,
-            FranFlatLightningPalette.ThunderChain, 3, 45f * Intensity);
+        if (!FullLoadout)
+            FranFlatLightningEffects.Burst(target.Center, Intensity * 0.55f,
+                FranFlatLightningPalette.ThunderChain, 3, 45f * Intensity);
     }
 
     public override bool PreDraw(ref Color lightColor)
@@ -255,9 +274,12 @@ public sealed class FranThunderCircuitLink : ModProjectile
             return false;
 
         Color violet = Returning ? new Color(187, 110, 255) : new Color(144, 112, 255);
-        FranVfx.BeginAdditive();
-        conductor?.Draw(Main.spriteBatch, Start, violet, activeAge, 23f, 5f);
-        FranVfx.EndAdditive();
+        if (!FullLoadout)
+        {
+            FranVfx.BeginAdditive();
+            conductor?.Draw(Main.spriteBatch, Start, violet, activeAge, 23f, 5f);
+            FranVfx.EndAdditive();
+        }
         return false;
     }
 }
@@ -269,11 +291,17 @@ public sealed class FranThunderCircuitLink : ModProjectile
 public sealed class FranThunderCircuitFinisher : ModProjectile
 {
     private const int Lifetime = 54;
+    private const int FullLoadoutFlag = 16;
     private float Age => Projectile.localAI[0];
     private int FireDelay => Math.Max(1, (int)Projectile.ai[0]);
     private int TargetIndex => (int)Projectile.ai[1] - 1;
-    private int TacticLayers => Math.Clamp((int)Projectile.ai[2], 1, FranPlayer.MaximumTacticSlots);
+    private int TacticLayers => Math.Clamp((int)Projectile.ai[2] % FullLoadoutFlag, 1, FranPlayer.MaximumTacticSlots);
+    private bool FullLoadout => Projectile.ai[2] >= FullLoadoutFlag;
     private bool Fired => Projectile.localAI[1] > 0f;
+
+    internal static float EncodeTacticLayers(int tacticLayers, bool fullLoadout) =>
+        Math.Clamp(tacticLayers, 1, FranPlayer.MaximumTacticSlots) +
+        (fullLoadout ? FullLoadoutFlag : 0f);
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -310,7 +338,7 @@ public sealed class FranThunderCircuitFinisher : ModProjectile
         }
 
         float charge = FranMotion.Smooth(FranMotion.Segment(Age, 0f, FireDelay));
-        if (!Fired && (int)Age % 5 == 0 && !Main.dedServ)
+        if (!FullLoadout && !Fired && (int)Age % 5 == 0 && !Main.dedServ)
         {
             float radius = MathHelper.Lerp(140f + TacticLayers * 10f, 28f, charge);
             for (int i = 0; i < 3; i++)
@@ -336,7 +364,8 @@ public sealed class FranThunderCircuitFinisher : ModProjectile
 
         Projectile.NewProjectile(Projectile.GetSource_FromThis(), impact, Vector2.Zero,
             ModContent.ProjectileType<FranThunderDropVisual>(), 0, 0f, Projectile.owner,
-            spawn.X, spawn.Y, 2000f + Main.rand.NextFloat(100f));
+            spawn.X, spawn.Y, FranThunderDropVisual.EncodeMarker(Main.rand.NextFloat(100f),
+                mainStrike: true, finisher: true, fullLoadout: FullLoadout));
 
         int nodeType = ModContent.ProjectileType<FranThunderCircuitNode>();
         foreach (Projectile projectile in Main.ActiveProjectiles)

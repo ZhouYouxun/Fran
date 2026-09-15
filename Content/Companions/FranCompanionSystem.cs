@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using FranMod.Content.Items;
 using FranMod.Core;
@@ -15,6 +16,7 @@ public sealed class FranCompanionSystem : ModSystem
     internal enum Command : byte { Summon, Dismiss, Tactic }
     private static int nextSummonId;
     private static readonly ulong[] LastSummonRequest = new ulong[255];
+    private static readonly Dictionary<int, FranCompanion> CompanionCache = new();
 
     public override void Load()
     {
@@ -30,17 +32,36 @@ public sealed class FranCompanionSystem : ModSystem
         On_Projectile.Kill -= KillOwnedProjectile;
         if (!Main.dedServ) On_Main.DrawProj -= DrawOwnedProjectile;
         FranCompanionAppearance.Unload();
+        CompanionCache.Clear();
     }
 
-    public override void OnWorldLoad() => Array.Clear(LastSummonRequest);
-    public override void OnWorldUnload() => FranCompanionUI.Close();
+    public override void OnWorldLoad()
+    {
+        Array.Clear(LastSummonRequest);
+        CompanionCache.Clear();
+    }
+
+    public override void OnWorldUnload()
+    {
+        CompanionCache.Clear();
+        FranCompanionUI.Close();
+    }
 
     internal static FranCompanion Find(int id)
     {
         if (id <= 0) return null;
+        if (CompanionCache.TryGetValue(id, out FranCompanion cached))
+        {
+            if (cached.Projectile.active && !cached.Retiring && cached.SummonId == id &&
+                ReferenceEquals(cached.Projectile.ModProjectile, cached)) return cached;
+            CompanionCache.Remove(id);
+        }
         foreach (Projectile p in Main.ActiveProjectiles)
             if (p.ModProjectile is FranCompanion companion && companion.SummonId == id && !companion.Retiring)
+            {
+                CompanionCache[id] = companion;
                 return companion;
+            }
         return null;
     }
 
@@ -52,8 +73,14 @@ public sealed class FranCompanionSystem : ModSystem
         return null;
     }
 
-    private static FranCompanion Resolve(Projectile p) =>
-        Find(p.GetGlobalProjectile<FranCompanionProjectile>().SummonId);
+    internal static FranCompanion Resolve(Projectile p)
+    {
+        // Main calls Update even for empty slots, before SetDefaults installs globals.
+        // These hooks also see other mods' projectiles: never require our per-entity tag.
+        if (!p.active || p.owner != FranCompanionContext.VirtualSlot ||
+            !p.TryGetGlobalProjectile(out FranCompanionProjectile tag) || !tag.Linked) return null;
+        return Find(tag.SummonId);
+    }
 
     private static void UpdateOwnedProjectile(On_Projectile.orig_Update orig, Projectile projectile, int index)
     {
@@ -84,7 +111,7 @@ public sealed class FranCompanionSystem : ModSystem
         if (id <= 0) return;
         foreach (Projectile child in Main.ActiveProjectiles)
         {
-            if (child.GetGlobalProjectile<FranCompanionProjectile>().SummonId != id) continue;
+            if (!child.TryGetGlobalProjectile(out FranCompanionProjectile tag) || tag.SummonId != id) continue;
             // Dismissal must not detonate OnKill chains or spawn fresh projectiles.
             child.active = false;
             if (Main.netMode == NetmodeID.Server)

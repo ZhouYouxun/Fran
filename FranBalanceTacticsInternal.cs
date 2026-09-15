@@ -34,6 +34,9 @@ public static partial class FranBalance
     public static int UltimateEndingDriftFrames = 1;
     public static int UltimateFinalPauseFrames = 20;
     public static int UltimateFinalStrikeFrames = 9;
+    public static int UltimateDarknessFadeInFrames = 200;
+    public static int UltimateDarknessFadeOutFrames = 400;
+    public static float UltimateDarknessMaximumOpacity = 0.62f;
 
     // =====================================================================
     // 八种战术的输出预算、单位权重与重复叠层
@@ -64,7 +67,6 @@ public static partial class FranBalance
     public static float TacticBlueResonanceBudgetRatio = 0.70f;
     public static float TacticThunderSingleBudgetRatio = 0.575f;
     public static float TacticThunderGroupBudgetRatio = 1.15f;
-    public static float TacticThunderStormBudgetRatio = 2.415f;
     public static float TacticQuickdrawBudgetRatio = 3.00f;
     public static float TacticHammerBudgetRatio = 1.80f;
     public static float TacticHammerRainBudgetRatio = 3.60f;
@@ -159,6 +161,8 @@ public static partial class FranBalance
     public static int ThunderChainFinisherSupportingBoltCount = 2;
     public static int ThunderChainNormalTrackedTargetCount = 3;
     public static int ThunderChainFinisherTrackedTargetCount = 4;
+    public static float ThunderChainFullLoadoutDamageMultiplier = 1.35f;
+    public static float ThunderChainFullLoadoutLightningHalfWidth = 16f;
 
     // 战术七：压缩居合。
     public static int[] QuickdrawAirburstCounts =

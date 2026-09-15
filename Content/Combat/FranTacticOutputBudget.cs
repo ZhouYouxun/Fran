@@ -112,16 +112,18 @@ internal static class FranTacticOutputBudget
         return ReferenceCycle() * ratio * interval / CycleFrames(owner);
     }
 
-    internal static float ThunderPerSwingRatio(bool primary, int boltCount, bool storm)
+    internal static float ThunderPerSwingRatio(bool primary, int boltCount, bool fullLoadout)
     {
         float single = FranBalance.GetFloat(nameof(FranBalance.TacticThunderSingleBudgetRatio), FranBalance.TacticThunderSingleBudgetRatio);
         float group = FranBalance.GetFloat(nameof(FranBalance.TacticThunderGroupBudgetRatio), FranBalance.TacticThunderGroupBudgetRatio);
-        float weather = storm ? FranBalance.GetFloat(nameof(FranBalance.TacticThunderStormBudgetRatio),
-            FranBalance.TacticThunderStormBudgetRatio) / Math.Max(0.001f, group) : 1f;
+        float fullLoadoutDamage = fullLoadout ? FranBalance.GetFloat(
+            nameof(FranBalance.ThunderChainFullLoadoutDamageMultiplier),
+            FranBalance.ThunderChainFullLoadoutDamageMultiplier) : 1f;
         // 第一刀布置电路，第二至第四刀落雷；三次落雷的剑击倍率之和归一到一轮。
         float swordWeights = FranBalance.GetComboDamageMultiplier(1) + FranBalance.GetComboDamageMultiplier(2) +
             FranBalance.GetComboDamageMultiplier(3);
-        return ReferenceCycle() * weather * (primary ? single : Math.Max(0f, group - single) / Math.Max(1, boltCount - 1)) /
+        return ReferenceCycle() * fullLoadoutDamage *
+            (primary ? single : Math.Max(0f, group - single) / Math.Max(1, boltCount - 1)) /
             Math.Max(0.001f, swordWeights);
     }
 }

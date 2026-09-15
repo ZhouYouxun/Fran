@@ -75,10 +75,13 @@ public sealed class FranThunderDropVisual : ModProjectile
     private const int MaximumLifetime = 16;
     private const float MainStrikeMarker = 1000f;
     private const float FinisherMarker = 2000f;
+    private const float FullLoadoutMarker = 4000f;
     private float Age => Projectile.localAI[0];
-    private bool MainStrike => Projectile.ai[2] >= MainStrikeMarker;
-    private bool Finisher => Projectile.ai[2] >= FinisherMarker;
-    private float Seed => Projectile.ai[2] % MainStrikeMarker;
+    private float StrikeMarker => Projectile.ai[2] % FullLoadoutMarker;
+    private bool MainStrike => StrikeMarker >= MainStrikeMarker;
+    private bool Finisher => StrikeMarker >= FinisherMarker;
+    private bool FullLoadout => Projectile.ai[2] >= FullLoadoutMarker;
+    private float Seed => StrikeMarker % MainStrikeMarker;
     private float ImpactAge => 4f;
     private float VisualLifetime => Finisher ? 16f : MainStrike ? 13f : 9f;
 
@@ -99,16 +102,44 @@ public sealed class FranThunderDropVisual : ModProjectile
     public override bool? CanDamage() => false;
     public override bool ShouldUpdatePosition() => false;
 
+    internal static float EncodeMarker(float seed, bool mainStrike, bool finisher, bool fullLoadout)
+    {
+        float marker = MathHelper.Clamp(seed, 0f, MainStrikeMarker - 1f);
+        if (finisher)
+            marker += FinisherMarker;
+        else if (mainStrike)
+            marker += MainStrikeMarker;
+        if (fullLoadout)
+            marker += FullLoadoutMarker;
+        return marker;
+    }
+
     public override void AI()
     {
         float age = Projectile.localAI[0]++;
         if (age == 0f)
         {
             Vector2 start = new(Projectile.ai[0], Projectile.ai[1]);
-            float intensity = Finisher ? 1.45f : MainStrike ? 1.08f : 0.62f;
-            FranFlatLightningEffects.SpawnSegment(Projectile.GetSource_FromThis(), start,
-                Projectile.Center, Projectile.owner, intensity,
-                FranFlatLightningPalette.ThunderChain, ImpactAge);
+            if (FullLoadout)
+            {
+                if (Projectile.owner == Main.myPlayer)
+                {
+                    float width = FranBalance.GetFloat(
+                        nameof(FranBalance.ThunderChainFullLoadoutLightningHalfWidth),
+                        FranBalance.ThunderChainFullLoadoutLightningHalfWidth);
+                    FranLightningStrikeVisual.Spawn(Projectile.GetSource_FromThis(), start,
+                        Projectile.Center, Projectile.owner,
+                        Finisher ? new Color(160, 105, 255) : new Color(118, 102, 245),
+                        Finisher ? width * 1.12f : width, brightness: Finisher ? 1.25f : 1.15f);
+                }
+            }
+            else
+            {
+                float intensity = Finisher ? 1.45f : MainStrike ? 1.08f : 0.62f;
+                FranFlatLightningEffects.SpawnSegment(Projectile.GetSource_FromThis(), start,
+                    Projectile.Center, Projectile.owner, intensity,
+                    FranFlatLightningPalette.ThunderChain, ImpactAge);
+            }
         }
 
         if (Projectile.localAI[1] == 0f && age >= ImpactAge)
@@ -133,9 +164,10 @@ public sealed class FranThunderDropVisual : ModProjectile
     {
         Color violet = new(155, 125, 255);
         Color azure = new(125, 205, 255);
-        FranFlatLightningEffects.Burst(Projectile.Center, Finisher ? 0.95f : MainStrike ? 0.75f : 0.45f,
-            FranFlatLightningPalette.ThunderChain, Finisher ? 7 : MainStrike ? 5 : 3,
-            Finisher ? 178f : MainStrike ? 126f : 54f, ground: MainStrike);
+        if (!FullLoadout)
+            FranFlatLightningEffects.Burst(Projectile.Center, Finisher ? 0.95f : MainStrike ? 0.75f : 0.45f,
+                FranFlatLightningPalette.ThunderChain, Finisher ? 7 : MainStrike ? 5 : 3,
+                Finisher ? 178f : MainStrike ? 126f : 54f, ground: MainStrike);
         if (!MainStrike)
         {
             FranLightingBoltsSystem.SpawnThunderImpact(Projectile.Center, violet, 0.54f);
@@ -157,7 +189,8 @@ public sealed class FranThunderDropVisual : ModProjectile
             -Vector2.UnitY, Projectile.owner, FranSpectatorPalette.Lightning, Finisher ? 7 : 5,
             Finisher ? 1.42f : 1.15f);
 
-        SpawnGroundArcs(Finisher ? 7 : 4, Finisher ? 1.28f : 1f);
+        if (!FullLoadout)
+            SpawnGroundArcs(Finisher ? 7 : 4, Finisher ? 1.28f : 1f);
         if (!Main.dedServ)
             Main.LocalPlayer.GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, Finisher ? 10.5f : 7.4f);
         SoundEngine.PlaySound(SoundID.Item122 with

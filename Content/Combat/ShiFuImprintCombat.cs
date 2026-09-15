@@ -54,7 +54,8 @@ internal static class ShiFuImprintCombat
                 break;
 
             case FranSkill.ThunderChain:
-                SpawnThunderCircuit(owner, swing, combo, tacticLayers, direction);
+                SpawnThunderCircuit(owner, swing, combo, tacticLayers, direction,
+                    fran.IsFullTacticLoadout(FranSkill.ThunderChain));
                 break;
 
             case FranSkill.BlueResonance when fran.IsFullTacticLoadout(FranSkill.BlueResonance):
@@ -355,7 +356,7 @@ internal static class ShiFuImprintCombat
     }
 
     private static void SpawnThunderCircuit(Player owner, Projectile swing, int combo, int tacticLayers,
-        Vector2 swingDirection)
+        Vector2 swingDirection, bool fullLoadout)
     {
         Vector2 mouseTarget = ClampTarget(owner, FranCompanionContext.Aim(owner), 780f);
         // 电路锚点、连接和分支仅负责演出，所有雷链伤害统一从预算落雷结算。
@@ -423,10 +424,10 @@ internal static class ShiFuImprintCombat
             {
                 Vector2 end = anchors[i].Center;
                 SpawnThunderCircuitLink(swing, owner, start, end, linkDamage, i * 3,
-                    0.88f + i * 0.05f, false);
+                    0.88f + i * 0.05f, false, fullLoadout);
                 start = end;
             }
-            SpawnThunderRain(owner, swing, anchors[^1].Center, combo, tacticLayers);
+            SpawnThunderRain(owner, swing, anchors[^1].Center, combo, tacticLayers, fullLoadout);
             return;
         }
 
@@ -439,7 +440,8 @@ internal static class ShiFuImprintCombat
                     swingDirection.SafeNormalize(Vector2.UnitX));
                 Projectile.NewProjectile(swing.GetSource_FromThis(), anchors[i].Center, radialDirection,
                     ModContent.ProjectileType<FranLightningBranches>(), branchDamage,
-                    swing.knockBack * 0.14f, owner.whoAmI, 0f, i * 2f, 0.72f + i * 0.05f);
+                    swing.knockBack * 0.14f, owner.whoAmI, 0f, i * 2f,
+                    FranLightningBranches.EncodeVisualScale(0.72f + i * 0.05f, fullLoadout));
             }
 
             Projectile launchAnchor = anchors[^1];
@@ -449,12 +451,18 @@ internal static class ShiFuImprintCombat
                 launchDirection = swingDirection;
             int maximumJumps = FranBalance.GetInt(nameof(FranBalance.ThunderChainNormalTrackedTargetCount),
                 FranBalance.ThunderChainNormalTrackedTargetCount) + tacticLayers - 1;
-            Projectile.NewProjectile(swing.GetSource_FromThis(), launchAnchor.Center,
-                launchDirection.SafeNormalize(Vector2.UnitX * owner.direction) * 18f,
-                ModContent.ProjectileType<FranRicochetLightning>(),
-                0,
-                swing.knockBack * 0.34f, owner.whoAmI, 0f, Math.Clamp(maximumJumps, 2, 7), tacticLayers);
-            SpawnThunderRain(owner, swing, launchAnchor.Center, combo, tacticLayers);
+            if (fullLoadout)
+                SpawnFullLoadoutRicochetVisual(swing, owner, launchAnchor.Center, launchDirection,
+                    Math.Clamp(maximumJumps, 2, 7));
+            else
+            {
+                Projectile.NewProjectile(swing.GetSource_FromThis(), launchAnchor.Center,
+                    launchDirection.SafeNormalize(Vector2.UnitX * owner.direction) * 18f,
+                    ModContent.ProjectileType<FranRicochetLightning>(),
+                    0,
+                    swing.knockBack * 0.34f, owner.whoAmI, 0f, Math.Clamp(maximumJumps, 2, 7), tacticLayers);
+            }
+            SpawnThunderRain(owner, swing, launchAnchor.Center, combo, tacticLayers, fullLoadout);
             return;
         }
 
@@ -463,23 +471,71 @@ internal static class ShiFuImprintCombat
         int returnDamage = 0;
         for (int i = 0; i < anchors.Count; i++)
             SpawnThunderCircuitLink(swing, owner, anchors[i].Center, focus, returnDamage,
-                i * 2, 1.05f + i * 0.06f, true);
+                i * 2, 1.05f + i * 0.06f, true, fullLoadout);
 
         // The return currents identify the target first. Supporting and tracked bolts begin the storm,
         // while FranThunderCircuitFinisher delays the single heaviest focal strike until the circuit closes.
         int delay = 7 + anchors.Count * 2;
-        SpawnThunderRain(owner, swing, focus, combo, tacticLayers, delay);
+        SpawnThunderRain(owner, swing, focus, combo, tacticLayers, fullLoadout, delay);
     }
 
     private static void SpawnThunderCircuitLink(Projectile swing, Player owner, Vector2 start, Vector2 end,
-        int damage, int delay, float intensity, bool returning)
+        int damage, int delay, float intensity, bool returning, bool fullLoadout)
     {
         Vector2 edge = end - start;
         if (edge.LengthSquared() < 16f)
             return;
         Projectile.NewProjectile(swing.GetSource_FromThis(), start, edge,
             ModContent.ProjectileType<FranThunderCircuitLink>(), damage, swing.knockBack * 0.22f,
-            owner.whoAmI, delay, intensity, returning ? 1f : 0f);
+            owner.whoAmI, delay, intensity, FranThunderCircuitLink.EncodeMode(returning, fullLoadout));
+    }
+
+    private static void SpawnFullLoadoutRicochetVisual(Projectile swing, Player owner, Vector2 start,
+        Vector2 launchDirection, int maximumJumps)
+    {
+        HashSet<int> visited = new();
+        Vector2 current = start;
+        Vector2 fallbackDirection = launchDirection.SafeNormalize(Vector2.UnitX * owner.direction);
+        float width = FranBalance.GetFloat(nameof(FranBalance.ThunderChainFullLoadoutLightningHalfWidth),
+            FranBalance.ThunderChainFullLoadoutLightningHalfWidth);
+
+        for (int jump = 0; jump < maximumJumps; jump++)
+        {
+            NPC next = null;
+            float bestDistance = (jump == 0 ? 760f : 470f);
+            float bestDistanceSquared = bestDistance * bestDistance;
+            foreach (NPC npc in Main.ActiveNPCs)
+            {
+                if (visited.Contains(npc.whoAmI) || !npc.CanBeChasedBy() ||
+                    npc.DistanceSQ(owner.Center) > 980f * 980f)
+                    continue;
+                float distance = npc.DistanceSQ(current);
+                if (distance >= bestDistanceSquared)
+                    continue;
+                bestDistanceSquared = distance;
+                next = npc;
+            }
+
+            Vector2 end;
+            if (next is null)
+            {
+                if (jump > 0)
+                    break;
+                end = current + fallbackDirection * 360f;
+            }
+            else
+            {
+                visited.Add(next.whoAmI);
+                end = next.Center;
+                fallbackDirection = (end - current).SafeNormalize(fallbackDirection);
+            }
+
+            FranLightningStrikeVisual.Spawn(swing.GetSource_FromThis(), current, end, owner.whoAmI,
+                new Color(122, 82, 240), width, Math.Min(12, jump * 2), 1.15f);
+            current = end;
+            if (next is null)
+                break;
+        }
     }
 
     private static List<Projectile> GetThunderCircuitAnchors(Player owner)
@@ -502,7 +558,7 @@ internal static class ShiFuImprintCombat
     }
 
     private static void SpawnThunderRain(Player owner, Projectile swing, Vector2 focus, int combo,
-        int tacticLayers, int finalDelay = 0)
+        int tacticLayers, bool fullLoadout, int finalDelay = 0)
     {
         bool finisher = combo == 3;
         int supporting = (finisher
@@ -527,7 +583,7 @@ internal static class ShiFuImprintCombat
             NPC target = i < targets.Count ? targets[i] : null;
             Vector2 impact = target?.Center ?? FindEmptyThunderImpact(focus, targets, i, count);
             float multiplier = FranTacticOutputBudget.ThunderPerSwingRatio(i == 0, fullCount,
-                Main.raining && Main.IsItStorming);
+                fullLoadout);
             int totalDamage = Math.Max(2, (int)(swing.damage * multiplier));
             if (i == 0 && finisher)
             {
@@ -535,7 +591,8 @@ internal static class ShiFuImprintCombat
                 Projectile.NewProjectile(swing.GetSource_FromThis(), impact, Vector2.Zero,
                     ModContent.ProjectileType<FranThunderCircuitFinisher>(), totalDamage,
                     swing.knockBack * 0.48f, owner.whoAmI, finalDelay,
-                    target?.whoAmI + 1 ?? 0, tacticLayers);
+                    target?.whoAmI + 1 ?? 0,
+                    FranThunderCircuitFinisher.EncodeTacticLayers(tacticLayers, fullLoadout));
                 continue;
             }
             Vector2 spawn = impact + new Vector2(Main.rand.NextFloat(-130f, 130f), -720f);
@@ -544,7 +601,8 @@ internal static class ShiFuImprintCombat
                 impact.X, impact.Y, target?.whoAmI + 1 ?? 0);
             Projectile.NewProjectile(swing.GetSource_FromThis(), impact, Vector2.Zero,
                 ModContent.ProjectileType<FranThunderDropVisual>(), 0, 0f, owner.whoAmI,
-                spawn.X, spawn.Y, Main.rand.NextFloat(100f) + (i == 0 ? finisher ? 2000f : 1000f : 0f));
+                spawn.X, spawn.Y, FranThunderDropVisual.EncodeMarker(Main.rand.NextFloat(100f),
+                    i == 0, finisher, fullLoadout));
         }
     }
 

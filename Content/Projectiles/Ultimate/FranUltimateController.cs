@@ -592,10 +592,15 @@ public sealed class FranUltimateController : ModProjectile
         // there so it is sent once to the server and spectators, rather than requiring a server hit.
         if (Projectile.owner == Main.myPlayer)
         {
-            Vector2 direction = (strikeEnd - strikeStart).SafeNormalize(Vector2.UnitX * Owner.direction);
-            for (int i = 0; i < 3; i++)
+            const int boltCount = 9;
+            float phase = Main.rand.NextFloat(MathHelper.TwoPi);
+            for (int i = 0; i < boltCount; i++)
             {
-                Vector2 boltDirection = direction.RotatedBy((i - 1) * 0.10f);
+                // One randomized bolt per ninth of the circle preserves density without leaving
+                // large empty arcs when a hit releases the full 360-degree burst.
+                float angle = phase + MathHelper.TwoPi * i / boltCount +
+                    Main.rand.NextFloat(-0.28f, 0.28f);
+                Vector2 boltDirection = angle.ToRotationVector2();
                 FranLightningStrikeVisual.Spawn(Projectile.GetSource_OnHit(target), target.Center,
                     target.Center + boltDirection * 750f, Projectile.owner, new Color(92, 20, 170),
                     brightness: 1.3f);
