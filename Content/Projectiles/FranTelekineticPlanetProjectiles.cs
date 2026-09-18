@@ -45,8 +45,8 @@ public sealed class Telekinetic_GravityStarfall : ModProjectile
     internal const int PlanetCount = 6;
     private const int OrbitIngressTicks = 42;
     private const int StableOrbitTicks = 18;
-    private const int CollapseStaggerTicks = 3;
-    private const int SpiralCollapseTicks = 30;
+    // 同组共享收缩时钟；相同路程速度提高 20%，30 / 1.2 = 25 帧。
+    private const int SpiralCollapseTicks = 25;
     private const int FadeOutTicks = 12;
     private const float InitialRadiusOffset = 200f;
     private const float StableAngularSpeed = 0.042f;
@@ -58,7 +58,7 @@ public sealed class Telekinetic_GravityStarfall : ModProjectile
     private ref float StateTimer => ref Projectile.ai[2];
     private bool FadingOut => StateTimer < 0f;
     private float AgeTicks => Math.Max(0f, StateTimer);
-    private float SpiralStartTick => OrbitIngressTicks + StableOrbitTicks + OrbitSlot * CollapseStaggerTicks;
+    private float SpiralStartTick => OrbitIngressTicks + StableOrbitTicks;
     private bool Spiraling => !FadingOut && AgeTicks >= SpiralStartTick;
     private ref float FadeOutTimer => ref Projectile.localAI[1];
     private float Diameter => 54f + (uint)Projectile.identity % 17u;
@@ -97,7 +97,8 @@ public sealed class Telekinetic_GravityStarfall : ModProjectile
 
     public override bool ShouldUpdatePosition() => false;
 
-    public override bool? CanDamage() => Spiraling ? null : false;
+    // 等六颗星体共同抵达中心才结算，避免长条敌人的不同边缘造成提前错峰命中。
+    public override bool? CanDamage() => Spiraling && AgeTicks >= SpiralStartTick + SpiralCollapseTicks ? null : false;
 
     public override bool? CanHitNPC(NPC target)
     {
@@ -171,9 +172,12 @@ public sealed class Telekinetic_GravityStarfall : ModProjectile
         if (Spiraling)
             UpdateSpiralEffects();
 
-        if (AgeTicks >= SpiralStartTick + SpiralCollapseTicks)
-        {
+        // 所有星体在同一终点帧爆炸，即使目标被同组第一颗击杀也不延后。
+        if (AgeTicks == SpiralStartTick + SpiralCollapseTicks)
             SpawnImpactExplosion(Projectile.velocity);
+        // 保留终点这一帧的正常 NPC 直击结算，未命中的星体下一帧退场。
+        if (AgeTicks > SpiralStartTick + SpiralCollapseTicks)
+        {
             BeginFadeOut();
         }
     }
@@ -290,7 +294,6 @@ public sealed class Telekinetic_GravityStarfall : ModProjectile
     {
         if (FadingOut)
             return;
-        SpawnImpactExplosion(Projectile.velocity);
         BeginFadeOut();
     }
 

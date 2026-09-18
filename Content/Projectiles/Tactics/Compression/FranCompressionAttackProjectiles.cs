@@ -310,6 +310,7 @@ public sealed class FranCompressionAirburst : ModProjectile
 
     private void SpawnBurstEffects()
     {
+        SoundEngine.PlaySound(SoundID.Item110, Projectile.Center);
         float opacity = VisualOpacity;
         SoundEngine.PlaySound(SoundID.Item14 with
             { Volume = 0.24f * opacity, Pitch = 0.22f + BurstScale * 0.12f,
@@ -361,6 +362,12 @@ public sealed class FranCompressionAirburst : ModProjectile
             Main.player[Projectile.owner].GetModPlayer<FranPlayer>()
                 .ShakeScreen(Projectile.Center, 2.6f * BurstScale);
         }
+    }
+
+    public override void OnKill(int timeLeft)
+    {
+        if (Projectile.localAI[0] != 0f)
+            SoundEngine.PlaySound(SoundID.Item110, Projectile.Center);
     }
 
     public override bool PreDraw(ref Color lightColor)

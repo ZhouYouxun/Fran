@@ -17,7 +17,7 @@ internal static class FranShiFuSwingEffects
         if (Main.dedServ || activity <= 0.08f)
             return;
 
-        Color accent = resonance ? FranResonanceVisuals.Mint : Color.Lerp(color,
+        Color accent = resonance ? FranResonanceVisuals.Cyan : Color.Lerp(color,
             combo == 0 ? new Color(255, 213, 143) : new Color(190, 146, 255), combo == 0 ? 0.32f : 0.28f);
         Vector2 drift = tangent * Main.rand.NextFloat(2.8f, 5.2f);
         Vector2 scatter = position + Main.rand.NextVector2Circular(7f, 7f);
@@ -65,7 +65,7 @@ internal static class FranShiFuSwingEffects
             return;
 
         Vector2 side = blade.RotatedBy(MathHelper.PiOver2);
-        Color violet = resonance ? FranResonanceVisuals.Mint : Color.Lerp(color, new Color(193, 142, 255), 0.36f);
+        Color violet = resonance ? FranResonanceVisuals.Cyan : Color.Lerp(color, new Color(193, 142, 255), 0.36f);
         bool gathering = progress < 0.18f;
         bool scattering = progress > 0.52f;
         int count = scattering ? 2 : 4;
@@ -109,7 +109,7 @@ internal static class FranShiFuSwingEffects
 
         Vector2 side = blade.RotatedBy(MathHelper.PiOver2);
         Vector2 center = origin + blade * reach * (0.38f + stage * 0.21f);
-        Color accent = Color.Lerp(color, resonance ? FranResonanceVisuals.Mint : new Color(206, 157, 255), stage * 0.18f);
+        Color accent = Color.Lerp(color, resonance ? FranResonanceVisuals.Cyan : new Color(206, 157, 255), stage * 0.18f);
         // 三个脉冲依次沿剑身向前，横向碎屑和前冲细丝穿插，不把闪光全部堆在一点。
         for (int i = 0; i < 8; i++)
         {

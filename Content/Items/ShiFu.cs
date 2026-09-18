@@ -117,6 +117,7 @@ public sealed class ShiFu : ModItem
 
         FranEvolutionPlayer evolution = player.GetModPlayer<FranEvolutionPlayer>();
         int combo = fran.ConsumeNextCombo();
+        int unscaledSwordDamage = damage;
         damage = Math.Max(1, (int)(damage * FranBalance.GetComboDamageMultiplier(combo)));
         // 自定义挥舞也读取物品的攻速收益系数，不能绕过 BonusAttackSpeedMultiplier。
         float attackSpeed = Math.Max(0.25f, player.GetWeaponAttackSpeed(Item));
@@ -133,6 +134,7 @@ public sealed class ShiFu : ModItem
         if (Main.projectile.IndexInRange(projectileIndex) &&
             Main.projectile[projectileIndex].ModProjectile is ShiFuSwingRebuild swing)
         {
+            swing.UnscaledSwordDamage = unscaledSwordDamage;
             swing.SetTactics(fran.GetActiveTacticSnapshot());
             Main.projectile[projectileIndex].netUpdate = true;
         }

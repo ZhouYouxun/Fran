@@ -69,12 +69,6 @@ public sealed class FranThunderCircuitNode : ModProjectile
             FranLightingBoltsSystem.SpawnThunderImpact(Projectile.Center,
                 Order % 2 == 0 ? new Color(154, 112, 255) : new Color(104, 210, 255),
                 0.48f + 0.06f * TacticLayers);
-            SoundEngine.PlaySound(SoundID.Item93 with
-            {
-                Volume = 0.20f,
-                Pitch = 0.34f + Order * 0.035f,
-                MaxInstances = 6
-            }, Projectile.Center);
         }
 
         float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 8.2f + Order * 1.73f);
@@ -234,12 +228,6 @@ public sealed class FranThunderCircuitLink : ModProjectile
             else if (!Main.dedServ)
                 conductor = new FranFissionArc(End - Start, Projectile.identity * 397 ^ Projectile.owner,
                     (Returning ? 2.6f : 2.1f) * Intensity);
-            SoundEngine.PlaySound(SoundID.Item93 with
-            {
-                Volume = Returning ? 0.34f : 0.25f,
-                Pitch = Returning ? -0.02f : 0.24f,
-                MaxInstances = 8
-            }, End);
         }
 
         float travel = FranMotion.Smooth(FranMotion.Segment(activeAge, 0f, 5f));

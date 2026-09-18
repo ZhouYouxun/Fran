@@ -18,7 +18,7 @@ public static class FranSkillInfo
         FranSkill.SkillTaker => new Color(205, 100, 255),
         FranSkill.MagicBarrier => new Color(90, 175, 255),
         FranSkill.MultipleBodyCreation => new Color(235, 245, 255),
-        FranSkill.BlueResonance => Graphics.FranResonanceVisuals.Emerald,
+        FranSkill.BlueResonance => Graphics.FranResonanceVisuals.Blue,
         FranSkill.ThunderChain => new Color(155, 125, 255),
         FranSkill.PressurizedQuickdraw => new Color(210, 250, 255),
         FranSkill.ThorsHammer => new Color(115, 155, 255),

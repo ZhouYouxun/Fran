@@ -219,7 +219,7 @@ Mods: {
 			CurrentStatus: 当前已开放{0}格｜正在查看{1}格配置
 			CloseHint: 点击上方分页查看其他阶段｜界面中右键或点击 × 关闭
 			FullLoadoutTitle: 全选价值速查
-			FullLoadoutSummary: 强质变：念动弹射、技能夺取者、魔力屏障、蓝辉共鸣、雷链、压缩居合、雷神之锤｜多重分体的全选奖励较温和，更适合参加混搭
+			FullLoadoutSummary: 强质变：念动弹射、技能夺取者、魔力屏障、蝶变共鸣、雷链、压缩居合、雷神之锤｜多重分体的全选奖励较温和，更适合参加混搭
 
 			Tabs: {
 				Slots2: 2格配置
@@ -247,8 +247,8 @@ Mods: {
 				}
 
 				Entry4: {
-					Title: 蓝辉×2｜主动续航
-					Body: 每刀无条件产生一组蓝辉弹；剑体命中敌人后还会继续追加，恢复不再依赖先命中。
+					Title: 蝶变×2｜主动续航
+					Body: 每刀无条件产生一组共鸣蝴蝶；剑体命中敌人后还会继续追加，恢复不再依赖先命中。
 				}
 
 				Entry5: {
@@ -257,8 +257,8 @@ Mods: {
 				}
 
 				Entry6: {
-					Title: 屏障+蓝辉｜双重保险
-					Body: 一层屏障承受伤害，一层蓝辉恢复生命。单项不极端，但比单一防御机制更全面。
+					Title: 屏障+蝶变｜双重保险
+					Body: 一层屏障承受伤害，一层蝶变恢复生命。单项不极端，但比单一防御机制更全面。
 				}
 			}
 
@@ -271,8 +271,8 @@ Mods: {
 				}
 
 				Entry2: {
-					Title: 蓝辉×3｜挥刀即共鸣
-					Body: 每次挥刀先产生完整蓝辉弹组，命中每个敌人还会各追加一组，兼顾主动治疗和群体收益。
+					Title: 蝶变×3｜挥刀即共鸣
+					Body: 每次挥刀先产生完整共鸣蝴蝶群，命中每个敌人还会各追加一组，兼顾主动治疗和群体收益。
 				}
 
 				Entry3: {
@@ -281,13 +281,13 @@ Mods: {
 				}
 
 				Entry4: {
-					Title: 屏障×2+蓝辉｜稳健续航
-					Body: 15%减伤和15防御搭配蓝辉治疗；放弃屏障全选，换来应对非接触伤害的恢复能力。
+					Title: 屏障×2+蝶变｜稳健续航
+					Body: 15%减伤和15防御搭配蝶变治疗；放弃屏障全选，换来应对非接触伤害的恢复能力。
 				}
 
 				Entry5: {
 					Title: 多重×2+压缩｜弹幕进攻
-					Body: 增加分体数量，再以全选前60%的频率沿挥刀轨迹铺设压缩爆点；压缩爆点伤害同时降至80%，以覆盖换取专精峰值。
+					Body: 提升固定分身的伤害，再以全选前60%的频率沿挥刀轨迹铺设压缩爆点；压缩爆点伤害同时降至80%，以覆盖换取专精峰值。
 				}
 
 				Entry6: {
@@ -320,22 +320,22 @@ Mods: {
 				}
 
 				Entry5: {
-					Title: 夺取×2+念动+蓝辉｜通用进攻
+					Title: 夺取×2+念动+蝶变｜通用进攻
 					Body: 易伤成长、远程弹幕和治疗同时存在。没有1.7倍上限，但日常输出最全面、空档最少。
 				}
 
 				Entry6: {
-					Title: 屏障×2+蓝辉×2｜稳定生存
-					Body: 以中等减伤配合更多蓝辉弹，不依赖屏障全选的接触减伤，也能处理持续受伤和队友恢复。
+					Title: 屏障×2+蝶变×2｜稳定生存
+					Body: 以中等减伤配合更多共鸣蝴蝶，不依赖屏障全选的接触减伤，也能处理持续受伤和队友恢复。
 				}
 
 				Entry7: {
 					Title: 多重×2+压缩×2｜双重弹幕
-					Body: 分体数量和压缩叠层同时增强，但非全选压缩仍只有60%频率与80%阶段伤害；这是双机制覆盖，而非刀盘专精。
+					Body: 分身伤害和压缩叠层同时增强，但非全选压缩仍只有60%频率与80%阶段伤害；这是双机制覆盖，而非刀盘专精。
 				}
 
 				Entry8: {
-					Title: 念动+夺取+屏障+蓝辉｜万用配置
+					Title: 念动+夺取+屏障+蝶变｜万用配置
 					Body: 四套首层机制同时运行，覆盖远程、近战增伤、减伤和治疗；最全面，但没有任何专精峰值。
 				}
 			}
@@ -826,7 +826,7 @@ Mods: {
 
 			Stage2: {
 				Unlock: 击败骷髅王后解锁
-				Summary: 第二阶段·浮游岛与共鸣：解锁多重分体与蓝辉共鸣
+				Summary: 第二阶段·浮游岛与共鸣：解锁多重分体与蝶变共鸣
 			}
 
 			Stage3: {
@@ -907,21 +907,22 @@ Mods: {
 				UnlockCondition: 击败骷髅王后解锁
 				Description:
 					'''
-					每次挥剑都在身后列阵两名师父幻影，
-					短暂停驻后锁定鼠标附近目标高速突进；
-					第四刀改为四名幻影错时齐射
+					四刀依次在身后召唤4、2、4、6个师父分身，
+					生成时锁定鼠标方向，起冲前锁定前方20°内敌人并有限追踪；
+					命中立即消失并展开蓝色矩阵；
+					每刀分身总伤害相同，叠层只提高伤害
 					'''
-				FirstLayer: 单层：每次挥刀都会召唤多重剑体分身
-				AdditionalLayer: 叠层：增加分体的数量
+				FirstLayer: 单层：四刀依次召唤4／2／4／6个分身
+				AdditionalLayer: 叠层：只提高分身伤害，数量不变
 				FullLoadout: 全选：分体突进速度更快
 			}
 
 			BlueResonance: {
-				DisplayName: 蓝辉共鸣
+				DisplayName: 蝶变共鸣
 				UnlockCondition: 击败血肉墙后解锁
 				Description:
 					'''
-					剑击命中时迸发亮绿色共鸣蝴蝶；
+					剑击命中时迸发亮蓝色共鸣蝴蝶；
 					有玩家受伤时追踪玩家并治疗，
 					全员满血时追踪敌人造成伤害
 					'''
@@ -965,12 +966,12 @@ Mods: {
 				Description:
 					'''
 					四段剑术完整进行两轮后，
-					第二轮第四刀锁定鼠标附近最近的敌人；
-					附近无敌人时法阵停留在鼠标位置。
+					在头顶随机位置召唤法阵，雷神之锤逐渐显形并旋转蓄力；
+					出锤瞬间锁定鼠标最近的可攻击敌人，优先选择可攻击的Boss。
 					若全部可用槽均为雷神之锤，
 					则完成一轮四刀即可释放；
-					随后雷神之锤砸向法阵
-					并引发大范围雷陨冲击；下雨时锤击伤害翻倍
+					雷神之锤从法阵飞向目标，命中时向四周迸发蓝色雷电
+					并引发大范围雷陨冲击；视野内无有效目标时砸向出锤瞬间的鼠标位置；下雨时锤击伤害翻倍
 					'''
 				FirstLayer: 单层：完成两轮四刀后召唤雷神之锤
 				AdditionalLayer: 叠层：提高雷神之锤伤害
@@ -1019,7 +1020,7 @@ Mods: {
 			// FranHammerBeacon.DisplayName: Fran Hammer Beacon
 			// FranFireScar.DisplayName: Fran Fire Scar
 			// FranCompressedCut.DisplayName: Fran Compressed Cut
-			// FranBlueResonanceEcho.DisplayName: Fran Blue Resonance Echo
+			// FranBlueResonanceEcho.DisplayName: Fran Butterfly Resonance Echo
 			// FranBarrierCounterCut.DisplayName: Fran Barrier Counter Cut
 			// FranAutoBarrierProjectile.DisplayName: Fran Auto Barrier Projectile
 			// FranCompressionNode.DisplayName: Fran Compression Node
@@ -1063,6 +1064,7 @@ Mods: {
 			// FranThunderImpactExplosion.DisplayName: Fran Thunder Impact Explosion
 			// FranThunderBudgetStrike.DisplayName: Fran Thunder Budget Strike
 			// FranCompanion.DisplayName: Fran Companion
+			FranPhantomMatrixImpact.DisplayName: 分身矩阵冲击
 		}
 	}
 }

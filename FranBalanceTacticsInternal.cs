@@ -126,7 +126,7 @@ public static partial class FranBalance
     public static float MagicBarrierCounterDamageMultiplier = 0.86f;
     public static int MagicBarrierHitImmunityFrames = 18;
 
-    // 战术四：多重分体。
+    // 战术四：多重分体。以下旧数量仅用于输出预算折算，实际每轮固定 4/2/4/6。
     public static int MultipleBodyNormalBaseCount = 2;
     public static int MultipleBodyFinisherBaseCount = 4;
     public static int MultipleBodyNormalExtraLayerCount = 1;
@@ -134,6 +134,10 @@ public static partial class FranBalance
     public static float MultipleBodyNormalDamageMultiplier = 0.86f;
     public static float MultipleBodyFinisherDamageMultiplier = 1.24f;
     public static float MultipleBodyFullLoadoutSpeedMultiplier = 1.15f;
+    public static int MultipleBodyAimFrames = 18;
+    public static float MultipleBodyDashSpeed = 75.04f; // 原 112 × 0.67，降低 33%；每帧四次碰撞检查。
+    public static int MultipleBodyFlightFrames = 90; // 发射后飞行寿命；经过鼠标不消失。
+    public static int MultipleBodyAccelerationFrames = 10;
 
     // 战术五：蓝辉共鸣。
     public static int BlueResonanceScatterFrames = 10;
@@ -152,6 +156,7 @@ public static partial class FranBalance
     public static int BlueResonanceExtraLayerCount = 1;
     public static float BlueResonanceNormalDamageMultiplier = 0.18f;
     public static float BlueResonanceFinisherDamageMultiplier = 0.14f;
+    public static float BlueResonanceEnemyFinalDamageMultiplier = 0.70f; // 蝶变共鸣仅对敌伤害再降低30%，不影响治疗。
     public static int BlueResonanceHealingLifeDivisor = 80;
     public static int BlueResonanceHealingMinimum = 2;
     public static int BlueResonanceHealingMaximum = 7;

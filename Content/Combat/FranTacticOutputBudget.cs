@@ -44,16 +44,7 @@ internal static class FranTacticOutputBudget
                 return raw > 0f ? targetWisps / raw : 0f;
             case FranSkill.MultipleBodyCreation:
                 ratio = FranBalance.GetFloat(nameof(FranBalance.TacticMultipleBodyBudgetRatio), FranBalance.TacticMultipleBodyBudgetRatio);
-                for (int combo = 0; combo < 4; combo++)
-                {
-                    int first = combo == 3 ? FranBalance.GetInt(nameof(FranBalance.MultipleBodyFinisherBaseCount), FranBalance.MultipleBodyFinisherBaseCount)
-                        : FranBalance.GetInt(nameof(FranBalance.MultipleBodyNormalBaseCount), FranBalance.MultipleBodyNormalBaseCount);
-                    int extra = combo == 3 ? FranBalance.GetInt(nameof(FranBalance.MultipleBodyFinisherExtraLayerCount), FranBalance.MultipleBodyFinisherExtraLayerCount)
-                        : FranBalance.GetInt(nameof(FranBalance.MultipleBodyNormalExtraLayerCount), FranBalance.MultipleBodyNormalExtraLayerCount);
-                    float multiplier = combo == 3 ? FranBalance.GetFloat(nameof(FranBalance.MultipleBodyFinisherDamageMultiplier), FranBalance.MultipleBodyFinisherDamageMultiplier)
-                        : FranBalance.GetFloat(nameof(FranBalance.MultipleBodyNormalDamageMultiplier), FranBalance.MultipleBodyNormalDamageMultiplier);
-                    raw += FranBalance.GetComboDamageMultiplier(combo) * multiplier * (first + extra * (slots - 1)) / Math.Max(1, first);
-                }
+                raw = MultipleBodyCycleWeight(slots);
                 break;
             case FranSkill.BlueResonance:
                 ratio = FranBalance.GetFloat(nameof(FranBalance.TacticBlueResonanceBudgetRatio), FranBalance.TacticBlueResonanceBudgetRatio);
@@ -92,6 +83,16 @@ internal static class FranTacticOutputBudget
         }
         return raw > 0f ? ReferenceCycle() * ratio / raw : 0f;
     }
+
+    internal static float MultipleBodyCycleWeight(int layers) => FranMultipleBodyPattern.CycleWeight(
+        stackalloc float[] { FranBalance.GetComboDamageMultiplier(0), FranBalance.GetComboDamageMultiplier(1),
+            FranBalance.GetComboDamageMultiplier(2), FranBalance.GetComboDamageMultiplier(3) }, layers,
+        FranBalance.GetInt(nameof(FranBalance.MultipleBodyNormalBaseCount), FranBalance.MultipleBodyNormalBaseCount),
+        FranBalance.GetInt(nameof(FranBalance.MultipleBodyNormalExtraLayerCount), FranBalance.MultipleBodyNormalExtraLayerCount),
+        FranBalance.GetInt(nameof(FranBalance.MultipleBodyFinisherBaseCount), FranBalance.MultipleBodyFinisherBaseCount),
+        FranBalance.GetInt(nameof(FranBalance.MultipleBodyFinisherExtraLayerCount), FranBalance.MultipleBodyFinisherExtraLayerCount),
+        FranBalance.GetFloat(nameof(FranBalance.MultipleBodyNormalDamageMultiplier), FranBalance.MultipleBodyNormalDamageMultiplier),
+        FranBalance.GetFloat(nameof(FranBalance.MultipleBodyFinisherDamageMultiplier), FranBalance.MultipleBodyFinisherDamageMultiplier));
 
     internal static float CycleFrames(Player owner)
     {

@@ -174,8 +174,6 @@ public sealed class FranThunderDropVisual : ModProjectile
             FranVfx.SparkBurst(Projectile.Center, azure, 5, 4.2f, 0.52f);
             FranVanillaDustEffects.Impact(Projectile.Center, -Vector2.UnitY, FranSkill.ThunderChain,
                 azure, 24, 0.72f);
-            if (Projectile.identity % 3 == 0)
-                SoundEngine.PlaySound(SoundID.Item93 with { Volume = 0.20f, Pitch = 0.28f }, Projectile.Center);
             return;
         }
 
@@ -197,11 +195,6 @@ public sealed class FranThunderDropVisual : ModProjectile
         {
             Volume = Finisher ? 1f : 0.82f,
             Pitch = Finisher ? -0.34f : -0.22f
-        }, Projectile.Center);
-        SoundEngine.PlaySound(SoundID.Item93 with
-        {
-            Volume = Finisher ? 0.62f : 0.48f,
-            Pitch = Finisher ? -0.12f : 0.02f
         }, Projectile.Center);
     }
 

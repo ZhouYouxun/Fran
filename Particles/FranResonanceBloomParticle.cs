@@ -18,7 +18,7 @@ internal sealed class FranResonanceBloomParticle : FranParticle
         FranParticleSystem.Spawn(new FranResonanceBloomParticle
         {
             Position = center, Scale = size, Rotation = direction,
-            Color = FranResonanceVisuals.Mint, Lifetime = 32
+            Color = FranResonanceVisuals.Cyan, Lifetime = 32
         }, spawnSupportingDust: false);
         for (int i = 0; i < 3; i++)
         {
@@ -27,7 +27,7 @@ internal sealed class FranResonanceBloomParticle : FranParticle
             {
                 Position = center, Velocity = angle.ToRotationVector2() * (2.2f + i * .3f),
                 Rotation = angle + MathHelper.PiOver2, Scale = .42f * size,
-                Color = FranResonanceVisuals.Mint, Lifetime = 24
+                Color = FranResonanceVisuals.Cyan, Lifetime = 24
             }, spawnSupportingDust: false);
         }
     }
@@ -40,9 +40,9 @@ internal sealed class FranResonanceBloomParticle : FranParticle
         float fade = MathF.Pow(1f - Completion, 1.4f);
         float radius = (12f + 42f * (1f - MathF.Pow(1f - Completion, 3f))) * Scale;
         FranResonanceVisuals.Ring(Position, new Vector2(radius), Rotation,
-            Completion * 3f, FranResonanceVisuals.Mint, fade * .8f, 1.1f, 7f);
+            Completion * 3f, FranResonanceVisuals.Cyan, fade * .8f, 1.1f, 7f);
         FranResonanceVisuals.Star(Position, 18f * Scale * (1f - Completion),
-            Rotation, fade, FranResonanceVisuals.Heart);
+            Rotation, fade, FranResonanceVisuals.Pale);
     }
 }
 

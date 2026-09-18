@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using FranMod.Content.Projectiles;
 using FranMod.Core;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.ModLoader;
@@ -62,11 +63,14 @@ public sealed class FranUltimateDarknessSystem : ModSystem
         float maximumOpacity = MathHelper.Clamp(FranBalance.GetFloat(
             nameof(FranBalance.UltimateDarknessMaximumOpacity),
             FranBalance.UltimateDarknessMaximumOpacity), 0f, 0.90f);
-        float uiScale = Math.Max(0.01f, Main.UIScale);
-        Rectangle screen = new(-4, -4,
-            (int)MathF.Ceiling(Main.screenWidth / uiScale) + 8,
-            (int)MathF.Ceiling(Main.screenHeight / uiScale) + 8);
-        Main.spriteBatch.Draw(TextureAssets.MagicPixel.Value, screen,
+        // Use the graphics device's live viewport instead of Main.screenWidth/screenHeight. The UI
+        // layer can apply its own scaling transform, so extend by one complete viewport on every
+        // side: the center viewport stays covered at high resolutions, ultrawide aspect ratios and
+        // every supported UI scale without relying on a fixed 8K-sized rectangle.
+        Viewport viewport = Main.instance.GraphicsDevice.Viewport;
+        Rectangle cover = new(-viewport.Width, -viewport.Height,
+            viewport.Width * 3, viewport.Height * 3);
+        Main.spriteBatch.Draw(TextureAssets.MagicPixel.Value, cover,
             new Color(3, 0, 8) * (eased * maximumOpacity));
         return true;
     }

@@ -40,6 +40,27 @@ internal sealed class FranLightingBoltsSystem : ModSystem
     }
 
     // 凝念核：六向规则亮点先展开，随后四枚随机亮点打散轮廓。
+    // 分身/蝶变共鸣共用原版 Lighting Bolts 光点，不附加软光团或 Dust。
+    public static void SpawnBlueFlightLight(Vector2 position, Vector2 velocity, Color color, float scale = 1f)
+    {
+        if (Main.dedServ || Main.gameMenu) return;
+        Sparkle(position, velocity, color,
+            new Vector2(Main.rand.NextFloat(0.65f, 1.05f), Main.rand.NextFloat(0.20f, 0.36f)) * scale,
+            Main.rand.Next(14, 23), velocity.ToRotation(), 0.58f);
+    }
+
+    public static void SpawnButterflyLights(Vector2 center)
+    {
+        if (Main.dedServ || Main.gameMenu) return;
+        for (int i = 0; i < 12; i++)
+        {
+            Vector2 direction = Main.rand.NextVector2Unit();
+            SpawnBlueFlightLight(center + direction * Main.rand.NextFloat(4f, 16f),
+                direction * Main.rand.NextFloat(0.8f, 2.4f),
+                Color.Lerp(new Color(45, 130, 255), new Color(135, 230, 255), Main.rand.NextFloat()), 0.85f);
+        }
+    }
+
     // 这里只注册 PrettySparkleParticle，不隐式补充 Dust 或 Fran 粒子。
     public static void SpawnMindCoreBurst(Vector2 center, float rotation, Color color, bool afterglow)
     {

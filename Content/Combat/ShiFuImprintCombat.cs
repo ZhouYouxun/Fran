@@ -38,18 +38,7 @@ internal static class ShiFuImprintCombat
                 break;
 
             case FranSkill.MultipleBodyCreation:
-                int bodyBaseCount = combo == 3
-                    ? FranBalance.GetInt(nameof(FranBalance.MultipleBodyFinisherBaseCount),
-                        FranBalance.MultipleBodyFinisherBaseCount)
-                    : FranBalance.GetInt(nameof(FranBalance.MultipleBodyNormalBaseCount),
-                        FranBalance.MultipleBodyNormalBaseCount);
-                int bodyExtraCount = combo == 3
-                    ? FranBalance.GetInt(nameof(FranBalance.MultipleBodyFinisherExtraLayerCount),
-                        FranBalance.MultipleBodyFinisherExtraLayerCount)
-                    : FranBalance.GetInt(nameof(FranBalance.MultipleBodyNormalExtraLayerCount),
-                        FranBalance.MultipleBodyNormalExtraLayerCount);
-                SpawnMultipleBodies(owner, swing, direction,
-                    bodyBaseCount + (tacticLayers - 1) * bodyExtraCount, bodyBaseCount, combo,
+                SpawnMultipleBodies(owner, swing, direction, tacticLayers, combo,
                     fran.IsFullTacticLoadout(FranSkill.MultipleBodyCreation));
                 break;
 
@@ -67,17 +56,16 @@ internal static class ShiFuImprintCombat
                 break;
 
             case FranSkill.ThorsHammer when combo == 3 && fran.AdvanceHammerRound(tacticLayers):
-                NPC hammerNpc = FranHammerTargeting.Select(owner,
-                    (swing.ModProjectile as ShiFuSwingRebuild)?.HammerHitTargets);
-                Vector2 hammerTarget = hammerNpc?.Center ?? owner.Center;
+                Vector2 hammerTarget = owner.Center + new Vector2(Main.rand.NextFloat(-150f, 150f),
+                    Main.rand.NextFloat(-260f, -170f));
                 Projectile.NewProjectile(swing.GetSource_FromThis(), hammerTarget, Vector2.Zero,
                     ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(swing.damage *
                         FranBalance.GetFloat(nameof(FranBalance.ThorsHammerDropDamageMultiplier),
                             FranBalance.ThorsHammerDropDamageMultiplier) *
                         (1f + FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExtraLayerDamageMultiplier),
                             FranBalance.ThorsHammerExtraLayerDamageMultiplier) * (tacticLayers - 1)) * FranTacticOutputBudget.Scale(FranSkill.ThorsHammer))),
-                    7f, owner.whoAmI, EncodeOptionalNpc(hammerNpc), tacticLayers, swing.identity + 1f);
-                SoundEngine.PlaySound(SoundID.Item122 with { Volume = 0.58f, Pitch = -0.18f }, hammerTarget);
+                    7f, owner.whoAmI, 0f, tacticLayers);
+                SoundEngine.PlaySound(SoundID.Item68, hammerTarget);
                 break;
         }
     }
@@ -325,39 +313,46 @@ internal static class ShiFuImprintCombat
         }
     }
 
-    private static void SpawnMultipleBodies(Player owner, Projectile swing, Vector2 direction, int count,
-        int firstLayerCount, int combo, bool fullLoadout)
+    private static void SpawnMultipleBodies(Player owner, Projectile swing, Vector2 direction,
+        int layers, int combo, bool fullLoadout)
     {
-        Vector2 requestedTarget = FranCompanionContext.Aim(owner);
-        if (!float.IsFinite(requestedTarget.X) || !float.IsFinite(requestedTarget.Y))
-            requestedTarget = owner.MountedCenter + direction.SafeNormalize(Vector2.UnitX * owner.direction) * 180f;
-        NPC target = FindNearestTarget(requestedTarget, 430f);
-        bool hasEnemy = target is not null;
-        Vector2 lockedTarget = target?.Center ?? requestedTarget;
+        Vector2 requestedTarget = ClampTarget(owner, FranCompanionContext.Aim(owner), 2400f);
+        Vector2 lockedTarget = requestedTarget;
+        direction = (lockedTarget - owner.MountedCenter).SafeNormalize(Vector2.UnitX * owner.direction);
         Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
+        int count = FranMultipleBodyPattern.Count(combo);
+        // 优先使用主剑取整前的基础伤害；兼容没有提供该值的外部生成来源。
+        float baseDamage = swing.ModProjectile is ShiFuSwingRebuild { UnscaledSwordDamage: > 0 } sword
+            ? sword.UnscaledSwordDamage
+            : swing.damage / Math.Max(0.001f, FranBalance.GetComboDamageMultiplier(combo));
+        int groupDamage = Math.Max(6, (int)MathF.Round(baseDamage *
+            FranTacticOutputBudget.MultipleBodyCycleWeight(layers) *
+            FranTacticOutputBudget.Scale(FranSkill.MultipleBodyCreation) / 4f));
         float centerIndex = (count - 1) * 0.5f;
+        int releaseDelay = FranBalance.GetInt(nameof(FranBalance.MultipleBodyAimFrames), FranBalance.MultipleBodyAimFrames);
         for (int i = 0; i < count; i++)
         {
             float formationIndex = i - centerIndex;
             Vector2 origin = owner.MountedCenter - direction * (72f + Math.Abs(formationIndex) * 13f) +
                 normal * formationIndex * 48f - Vector2.UnitY * (20f + (i % 2) * 12f);
-            float delay = 6f + i * 3f;
-            Projectile.NewProjectile(swing.GetSource_FromThis(), origin, Vector2.Zero,
+            float delay = releaseDelay;
+            int index = Projectile.NewProjectile(swing.GetSource_FromThis(), origin, Vector2.Zero,
                 ModContent.ProjectileType<FranShiFuPhantomBlade>(),
-                Math.Max(1, (int)(swing.damage * (combo == 3
-                    ? FranBalance.GetFloat(nameof(FranBalance.MultipleBodyFinisherDamageMultiplier),
-                        FranBalance.MultipleBodyFinisherDamageMultiplier)
-                    : FranBalance.GetFloat(nameof(FranBalance.MultipleBodyNormalDamageMultiplier),
-                        FranBalance.MultipleBodyNormalDamageMultiplier)) / Math.Max(1, firstLayerCount) * FranTacticOutputBudget.Scale(FranSkill.MultipleBodyCreation))),
+                FranMultipleBodyPattern.BladeDamage(groupDamage, combo, i),
                 swing.knockBack * 0.48f, owner.whoAmI,
-                FranShiFuPhantomBlade.EncodeLaunchDelay(delay, hasEnemy, fullLoadout),
+                FranShiFuPhantomBlade.EncodeLaunchDelay(delay, fullLoadout),
                 lockedTarget.X, lockedTarget.Y);
+            if (Main.projectile.IndexInRange(index))
+                Main.projectile[index].netUpdate = true;
+            // This owner-side random interval is sent through ai[0], keeping every client in step.
+            releaseDelay += Main.rand.Next(2, 5);
         }
     }
 
     private static void SpawnThunderCircuit(Player owner, Projectile swing, int combo, int tacticLayers,
         Vector2 swingDirection, bool fullLoadout)
     {
+        SoundEngine.PlaySound(SoundID.Item93, owner.Center);
         Vector2 mouseTarget = ClampTarget(owner, FranCompanionContext.Aim(owner), 780f);
         // 电路锚点、连接和分支仅负责演出，所有雷链伤害统一从预算落雷结算。
 

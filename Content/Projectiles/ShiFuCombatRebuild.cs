@@ -85,6 +85,8 @@ public sealed class ShiFuSwingRebuild : ModProjectile
 
     internal IReadOnlySet<int> HammerHitTargets => hammerHitTargets;
     internal bool HammerHitWindowEnded => Progress > 0.88f;
+    // 在主剑乘刀段倍率并取整之前保存；分身用相同基础值均分整轮伤害。
+    internal int UnscaledSwordDamage { get; set; }
 
     public override string Texture => FranShiFuVisuals.TexturePath;
 
@@ -119,12 +121,14 @@ public sealed class ShiFuSwingRebuild : ModProjectile
 
     public override void SendExtraAI(BinaryWriter writer)
     {
+        writer.Write(UnscaledSwordDamage);
         for (int i = 0; i < tactics.Length; i++)
             writer.Write(FranSkillInfo.IsRealSkill(tactics[i]) ? (byte)tactics[i] : (byte)FranSkill.None);
     }
 
     public override void ReceiveExtraAI(BinaryReader reader)
     {
+        UnscaledSwordDamage = Math.Max(0, reader.ReadInt32());
         for (int i = 0; i < tactics.Length; i++)
         {
             FranSkill skill = (FranSkill)reader.ReadByte();
@@ -341,9 +345,14 @@ public sealed class ShiFuSwingRebuild : ModProjectile
         if (!attackSoundPlayed)
         {
             attackSoundPlayed = true;
-            SoundStyle sound = Combo == 2 ? SoundID.Item71 : Combo == 3 ? SoundID.Item1 : SoundID.Item60;
-            SoundEngine.PlaySound(sound with { Volume = Combo == 2 ? 0.92f : 0.72f,
-                Pitch = Combo == 2 ? -0.34f : Combo == 3 ? 0.2f : -0.08f }, Owner.Center);
+            if (Combo == 3)
+                SoundEngine.PlaySound(SoundID.Item105, Owner.Center);
+            else
+            {
+                SoundStyle sound = Combo == 2 ? SoundID.Item71 : SoundID.Item60;
+                SoundEngine.PlaySound(sound with { Volume = Combo == 2 ? 0.92f : 0.72f,
+                    Pitch = Combo == 2 ? -0.34f : -0.08f }, Owner.Center);
+            }
         }
 
         float swingActivity = SwingActivity();
@@ -412,7 +421,7 @@ public sealed class ShiFuSwingRebuild : ModProjectile
                     blade * Main.rand.NextFloat(0.15f, 0.48f);
                 particle = FranSwingCadenceParticle.CritSpark(position, velocity,
                     Color.Lerp(color, ImprintSkill == FranSkill.BlueResonance
-                        ? FranResonanceVisuals.Heart : new Color(255, 205, 132), 0.18f));
+                        ? FranResonanceVisuals.Pale : new Color(255, 205, 132), 0.18f));
                 break;
 
             case 1:
@@ -730,7 +739,7 @@ public sealed class ShiFuSwingRebuild : ModProjectile
                         continue;
                     Vector2 focus = trailPivot + blade * compressedReach * (0.38f + stage * 0.21f);
                     Color tint = Color.Lerp(color, ImprintSkill == FranSkill.BlueResonance
-                        ? FranResonanceVisuals.Mint : new Color(198, 147, 255), stage * 0.16f);
+                        ? FranResonanceVisuals.Cyan : new Color(198, 147, 255), stage * 0.16f);
                     FranVfx.DrawSharedPixels("BloomCircle", focus, tint * (pulse * 0.46f),
                         0f, Vector2.One * (18f + pulse * 14f));
                     FranVfx.DrawSharedPixels("HalfStar", focus, Color.White * (pulse * 0.88f),

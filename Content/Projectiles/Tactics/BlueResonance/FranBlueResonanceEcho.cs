@@ -64,9 +64,9 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         {
             sourceBurstSpawned = true;
             SpawnBloomBurst(Projectile.Center, 0.72f);
-            // 一次蓝辉共鸣只由首枚通用弹幕生成一组波体光粒子，避免数量随弹幕数重复相乘。
+            // 每组首枚释放原版 Lighting Bolts，不再生成 SquishyLight 软光团。
             if (Projectile.ai[1] < 0.5f)
-                FranWaveSquishyLightParticle.SpawnBlueResonanceBurst(Projectile.Center);
+                FranLightingBoltsSystem.SpawnButterflyLights(Projectile.Center);
         }
 
         int healTargetIndex = FindInjuredPlayerIndex();
@@ -107,19 +107,28 @@ public sealed class FranBlueResonanceEcho : ModProjectile
             }
         }
 
+        if (age == ScatterFrames && !Main.dedServ)
+            SoundEngine.PlaySound(FranCombatSounds.ButterflyBeginTracking, Projectile.Center);
+
         Projectile.rotation += 0.085f;
         Projectile.Opacity = Utils.GetLerpValue(0f, 5f, age, true) *
             Utils.GetLerpValue(0f, 16f, Projectile.timeLeft, true);
-        Lighting.AddLight(Projectile.Center, FranResonanceVisuals.Emerald.ToVector3() * (0.72f * Projectile.Opacity));
+        Lighting.AddLight(Projectile.Center, FranResonanceVisuals.Blue.ToVector3() * (0.72f * Projectile.Opacity));
 
         if (FranResonanceVisuals.Visible(Projectile.Center) && (int)age % 2 == 0)
         {
-            Color color = healing ? FranResonanceVisuals.Mint : FranResonanceVisuals.Emerald;
-            FranParticleSystem.Spawn(new FranGlowOrbParticle(
+            Color color = healing ? FranResonanceVisuals.Cyan : FranResonanceVisuals.Blue;
+            FranLightingBoltsSystem.SpawnBlueFlightLight(
                 Projectile.Center + Main.rand.NextVector2Circular(4f, 4f),
                 -Projectile.velocity * 0.025f + Main.rand.NextVector2Circular(0.18f, 0.18f),
-                color, Main.rand.NextFloat(0.16f, 0.26f), 0.025f, Main.rand.Next(10, 16)), spawnSupportingDust: false);
+                color, 0.65f);
         }
+    }
+
+    public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
+    {
+        modifiers.FinalDamage *= FranBalance.GetFloat(nameof(FranBalance.BlueResonanceEnemyFinalDamageMultiplier),
+            FranBalance.BlueResonanceEnemyFinalDamageMultiplier);
     }
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
@@ -128,7 +137,7 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         SpawnBloomBurst(target.Center, 0.94f);
         FranResonanceBloomParticle.SpawnBurst(target.Center, Projectile.velocity.ToRotation(), 0.85f);
         FranParticleEffects.SpawnImpact(target.Center,
-            Projectile.velocity.SafeNormalize(Vector2.UnitX), FranResonanceVisuals.Mint, 7, 4.6f, 0.86f);
+            Projectile.velocity.SafeNormalize(Vector2.UnitX), FranResonanceVisuals.Cyan, 7, 4.6f, 0.86f);
     }
 
     public override void OnKill(int timeLeft)
@@ -289,7 +298,7 @@ public sealed class FranBlueResonanceEcho : ModProjectile
     {
         if (!FranResonanceVisuals.Visible(center))
             return;
-        Color cyan = FranResonanceVisuals.Emerald;
+        Color cyan = FranResonanceVisuals.Blue;
         FranParticleSystem.Spawn(new FranBloomCirclePulseParticle(center, Vector2.Zero, cyan,
             18f * intensity, 76f * intensity, 18, 0.82f, 0.94f, 0.035f));
         FranParticleEffects.Implosion(center, cyan, 0.34f * intensity);
@@ -311,8 +320,8 @@ public sealed class FranBlueResonanceEcho : ModProjectile
             Vector2 old = Projectile.oldPos[i] + Projectile.Size * .5f;
             Vector2 newer = Projectile.oldPos[i - 1] + Projectile.Size * .5f;
             float fade = (1f - i / (float)Projectile.oldPos.Length) * opacity;
-            FranResonanceVisuals.Line(old, newer, FranResonanceVisuals.Emerald, 2.4f * fade, .30f * fade);
-            FranResonanceVisuals.Line(old, newer, FranResonanceVisuals.Mint, .8f, .44f * fade);
+            FranResonanceVisuals.Line(old, newer, FranResonanceVisuals.Blue, 2.4f * fade, .30f * fade);
+            FranResonanceVisuals.Line(old, newer, FranResonanceVisuals.Cyan, .8f, .44f * fade);
         }
         float phase = RandomUnit(8) * MathHelper.TwoPi;
         float rotation = Projectile.velocity.LengthSquared() > .01f

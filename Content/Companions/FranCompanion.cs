@@ -360,6 +360,7 @@ public sealed class FranCompanion : ModProjectile
                 ActiveTactic == FranSkill.None ? 0 : (int)ActiveTactic + 1);
             if (index >= 0 && index < Main.maxProjectiles && Main.projectile[index].ModProjectile is ShiFuSwingRebuild swing)
             {
+                swing.UnscaledSwordDamage = damage;
                 swing.SetTactics(fran.GetActiveTacticSnapshot());
                 Main.projectile[index].netUpdate = true;
             }

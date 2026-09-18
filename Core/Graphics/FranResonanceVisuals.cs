@@ -7,13 +7,13 @@ using Terraria.GameContent;
 
 namespace FranMod.Core.Graphics;
 
-// Adapted from SussurroVisuals: procedural wings, veins, mint glow and a pale core.
+// Adapted from SussurroVisuals: procedural wings, veins, blue glow and a pale core.
 // Uses AlphaBlend with zero alpha for glow, without changing SpriteBatch state.
 internal static class FranResonanceVisuals
 {
-    internal static readonly Color Emerald = new(34, 214, 100);
-    internal static readonly Color Mint = new(134, 255, 186);
-    internal static readonly Color Heart = new(237, 255, 207);
+    internal static readonly Color Blue = new(80, 205, 255);
+    internal static readonly Color Cyan = new(135, 235, 255);
+    internal static readonly Color Pale = new(235, 250, 255);
     private static Texture2D Glow => FranParticleAssets.Get("FranResonanceGlow");
 
     internal static bool Visible(Vector2 position) => !Main.dedServ
@@ -66,7 +66,7 @@ internal static class FranResonanceVisuals
 
     internal static void Star(Vector2 center, float radius, float rotation, float opacity, Color color)
     {
-        Soft(center, new Vector2(radius * 4f), Emerald, opacity * .35f);
+        Soft(center, new Vector2(radius * 4f), Blue, opacity * .35f);
         Soft(center, new Vector2(radius * 2f, radius * .32f), color, opacity, rotation);
         Soft(center, new Vector2(radius * .32f, radius * 2.6f), color, opacity, rotation);
     }
@@ -75,15 +75,15 @@ internal static class FranResonanceVisuals
     {
         float unfold = MathHelper.SmoothStep(.18f, 1f, MathHelper.Clamp(age / 7f, 0f, 1f));
         float flutter = unfold * (.42f + .58f * Math.Abs(MathF.Sin(age * .22f)));
-        Soft(center, new Vector2(74f, 54f) * size, Emerald, opacity * .4f, rotation);
+        Soft(center, new Vector2(74f, 54f) * size, Blue, opacity * .4f, rotation);
         for (int side = -1; side <= 1; side += 2)
         {
             Vector2 upper = new Vector2(side * 11f * flutter, -6f) * size;
             Vector2 lower = new Vector2(side * 8f * flutter, 7f) * size;
             Soft(center + upper.RotatedBy(rotation), new Vector2(25f * flutter, 29f) * size,
-                Mint, opacity * .9f, rotation + side * .55f);
+                Cyan, opacity * .9f, rotation + side * .55f);
             Soft(center + lower.RotatedBy(rotation), new Vector2(20f * flutter, 20f) * size,
-                Emerald, opacity, rotation - side * .55f);
+                Blue, opacity, rotation - side * .55f);
             // 闭合的蝶翼外轮廓与三条叶脉，在亮背景上仍能辨认扑翼。
             Vector2 last = center;
             for (int i = 0; i <= 24; i++)
@@ -94,20 +94,20 @@ internal static class FranResonanceVisuals
                     -MathF.Sin(t * 2f) * 17f);
                 Vector2 next = center + (wing * size).RotatedBy(rotation);
                 if (i > 0)
-                    Line(last, next, Mint, 1.1f * size, opacity * .85f);
+                    Line(last, next, Cyan, 1.1f * size, opacity * .85f);
                 last = next;
             }
             for (int vein = 0; vein < 3; vein++)
             {
                 Vector2 tip = new Vector2(side * (15f - vein * 2f) * flutter, -12f + vein * 10f) * size;
-                Line(center, center + tip.RotatedBy(rotation), Heart, .75f * size, opacity * .6f);
+                Line(center, center + tip.RotatedBy(rotation), Pale, .75f * size, opacity * .6f);
             }
         }
-        Soft(center, new Vector2(5f, 29f) * size, Heart, opacity, rotation);
+        Soft(center, new Vector2(5f, 29f) * size, Pale, opacity, rotation);
         for (int side = -1; side <= 1; side += 2)
             Line(center + new Vector2(0f, -8f * size).RotatedBy(rotation),
-                center + new Vector2(side * 4f, -15f).RotatedBy(rotation) * size, Mint, .7f * size, opacity * .7f);
-        Star(center + new Vector2(0f, -8f * size).RotatedBy(rotation), 4f * size, rotation, opacity, Heart);
+                center + new Vector2(side * 4f, -15f).RotatedBy(rotation) * size, Cyan, .7f * size, opacity * .7f);
+        Star(center + new Vector2(0f, -8f * size).RotatedBy(rotation), 4f * size, rotation, opacity, Pale);
     }
 
     internal static void DrawHealSeal(Vector2 center, float age, float size)
@@ -115,14 +115,14 @@ internal static class FranResonanceVisuals
         float p = MathHelper.Clamp(age / 40f, 0f, 1f);
         float fade = MathF.Sin(MathF.PI * p) * (1f - p * .45f);
         float radius = (24f + 38f * (1f - MathF.Pow(1f - p, 3f))) * size;
-        Soft(center, new Vector2(radius * 3f), Emerald, fade * .23f);
-        Ring(center, new Vector2(radius, radius * .85f), -.2f, age * .05f, Emerald, fade * .8f, 1.6f);
-        Ring(center, new Vector2(radius * .82f), .2f, -age * .07f, Mint, fade * .8f, 1.1f, 6f);
+        Soft(center, new Vector2(radius * 3f), Blue, fade * .23f);
+        Ring(center, new Vector2(radius, radius * .85f), -.2f, age * .05f, Blue, fade * .8f, 1.6f);
+        Ring(center, new Vector2(radius * .82f), .2f, -age * .07f, Cyan, fade * .8f, 1.1f, 6f);
         for (int i = 0; i < 6; i++)
         {
             float angle = i * MathHelper.TwoPi / 6f + age * .018f;
             Star(center + angle.ToRotationVector2() * radius * .83f, (3.5f + 2f * fade) * size,
-                angle, fade * .8f, Mint);
+                angle, fade * .8f, Cyan);
         }
     }
 }

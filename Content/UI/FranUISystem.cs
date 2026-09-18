@@ -137,9 +137,15 @@ public sealed class FranUISystem : ModSystem
             if (leftPressed)
             {
                 if (hoveredSkill >= 0)
-                    fran.TryEquipTactic((FranSkill)hoveredSkill);
+                {
+                    if (fran.TryEquipTactic((FranSkill)hoveredSkill))
+                        SoundEngine.PlaySound(SoundID.Item37);
+                }
                 else if (hoveredEquippedSlot >= 0)
-                    fran.TryUnequipTactic(hoveredEquippedSlot);
+                {
+                    if (fran.TryUnequipTactic(hoveredEquippedSlot))
+                        SoundEngine.PlaySound(SoundID.Item37);
+                }
             }
 
             Main.blockMouse = true;
@@ -186,7 +192,7 @@ public sealed class FranUISystem : ModSystem
         wheelCenter = new Vector2(MathHelper.Clamp(Main.MouseScreen.X, minX, maxX),
             MathHelper.Clamp(Main.MouseScreen.Y, minY, maxY));
         previousHovered = -2;
-        SoundEngine.PlaySound(SoundID.MenuOpen with { Volume = 0.55f });
+        SoundEngine.PlaySound(SoundID.MenuOpen);
     }
 
     private static void CloseWheel()
@@ -195,7 +201,7 @@ public sealed class FranUISystem : ModSystem
         hoveredSkill = -1;
         hoveredEquippedSlot = -1;
         previousHovered = -2;
-        SoundEngine.PlaySound(SoundID.MenuClose with { Volume = 0.5f });
+        SoundEngine.PlaySound(SoundID.MenuClose);
     }
 
     private static void AdvanceWheelAnimation()
@@ -477,14 +483,8 @@ public sealed class FranUISystem : ModSystem
 
         FranSkill detailSkill = hoveredSkill >= 0 ? (FranSkill)hoveredSkill : hoveredEquippedSlot >= 0
             ? fran.GetEquippedTactic(hoveredEquippedSlot) : FranSkill.None;
-        int[] rowHeights = GetWheelDescriptionRowHeights();
-        int panelWidth = WheelDescriptionWidth;
-        Rectangle descriptionPanel = new((int)wheelCenter.X - panelWidth / 2, (int)wheelCenter.Y + 228,
-            panelWidth, GetWheelDescriptionHeight(rowHeights));
-        DrawRect(descriptionPanel, new Color(5, 10, 16, 230) * detailsOpacity);
         Color panelColor = FranSkillInfo.IsRealSkill(detailSkill)
             ? FranSkillInfo.Color(detailSkill) : new Color(105, 145, 164);
-        DrawBorder(descriptionPanel, panelColor * (0.78f * detailsOpacity), 2);
         string title;
         string firstLine;
         string secondLine;
@@ -509,9 +509,18 @@ public sealed class FranUISystem : ModSystem
             panelColor = new Color(220, 235, 242);
             textColor = Color.White;
         }
+        string[] detailLines = { firstLine, secondLine, thirdLine };
+        int panelWidth = GetWheelDescriptionWidth(title, detailLines);
+        int[] rowHeights = GetWheelDescriptionRowHeights(detailLines, panelWidth);
+        int panelX = Math.Clamp((int)wheelCenter.X - panelWidth / 2, 12,
+            Math.Max(12, Main.screenWidth - panelWidth - 12));
+        int panelHeight = GetWheelDescriptionHeight(rowHeights);
+        int panelY = Math.Min((int)wheelCenter.Y + 228, Math.Max(12, Main.screenHeight - panelHeight - 12));
+        Rectangle descriptionPanel = new(panelX, panelY, panelWidth, panelHeight);
+        DrawRect(descriptionPanel, new Color(5, 10, 16, 230) * detailsOpacity);
+        DrawBorder(descriptionPanel, panelColor * (0.78f * detailsOpacity), 2);
         DrawCentered(title, new Rectangle(descriptionPanel.X + 12, descriptionPanel.Y + 5,
             descriptionPanel.Width - 24, 24), panelColor * detailsOpacity, 0.9f);
-        string[] detailLines = { firstLine, secondLine, thirdLine };
         int rowY = descriptionPanel.Y + 36;
         for (int i = 0; i < detailLines.Length; i++)
         {
@@ -523,15 +532,33 @@ public sealed class FranUISystem : ModSystem
 
     private static int WheelDescriptionWidth => Math.Min(520, Math.Max(240, Main.screenWidth - 24));
 
+    private static int GetWheelDescriptionWidth(string title, string[] detailLines)
+    {
+        float longest = FontAssets.MouseText.Value.MeasureString(title).X * 0.9f;
+        foreach (string text in detailLines)
+            foreach (string line in WrapText(text, WheelDescriptionWidth - 24, WheelBodyTextScale))
+                longest = Math.Max(longest, FontAssets.MouseText.Value.MeasureString(line).X * WheelBodyTextScale);
+        // 当前实际显示的最长行加左右各 12 像素留白；长文仍保留换行和屏幕宽度上限。
+        return Math.Clamp((int)MathF.Ceiling(longest) + 24, 96, WheelDescriptionWidth);
+    }
+
     private static int GetWheelDescriptionHeight(int[] rows) => 48 + rows[0] + rows[1] + rows[2] + 12;
 
-    private static int[] GetWheelDescriptionRowHeights()
+    private static int[] GetWheelDescriptionRowHeights(string[] detailLines = null, int panelWidth = 0)
     {
+        if (panelWidth <= 0)
+            panelWidth = WheelDescriptionWidth;
         float lineHeight = FontAssets.MouseText.Value.MeasureString("国").Y * WheelBodyTextScale;
         int[] rows = { (int)MathF.Ceiling(lineHeight), (int)MathF.Ceiling(lineHeight), (int)MathF.Ceiling(lineHeight) };
         void Include(int row, string text) => rows[row] = Math.Max(rows[row],
-            (int)MathF.Ceiling(WrapText(text, WheelDescriptionWidth - 24, WheelBodyTextScale).Count * lineHeight));
-        // Reserve the same space for every tactic, so hovering never resizes the panel.
+            (int)MathF.Ceiling(WrapText(text, panelWidth - 24, WheelBodyTextScale).Count * lineHeight));
+        if (detailLines is not null)
+        {
+            for (int i = 0; i < rows.Length; i++)
+                Include(i, detailLines[i]);
+            return rows;
+        }
+        // 打开轮盘时按所有战术的最大高度留出屏幕空间，绘制时按当前文字计算。
         for (int i = 0; i < FranSkillInfo.Count; i++)
         {
             FranSkill skill = (FranSkill)i;

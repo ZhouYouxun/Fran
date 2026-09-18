@@ -1,5 +1,6 @@
 using System;
 using FranMod.Core;
+using FranMod.Core.Graphics;
 using FranMod.Particles;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -93,28 +94,34 @@ internal static class FranParticleEffects
             return;
 
         direction = direction.SafeNormalize(Vector2.UnitX);
-        Color body = new(145, 215, 255);
-        Color edge = new(225, 248, 255);
-
-        // 收束成五道有序剑片，不补圆形光晕。
-        for (int i = 0; i < 5; i++)
+        Spawn(new FranPhantomCutParticle(center, direction.ToRotation(), scale));
+        // 烟冠和魔力流由命中绘制器负责，粒子只补一次短促穿刺和轻盈余光。
+        for (int i = 0; i < 6; i++)
         {
-            float lane = i - 2f;
-            Vector2 ray = direction.RotatedBy(lane * 0.31f);
-            float speed = (5.6f - MathF.Abs(lane) * 0.65f) * scale;
-            Spawn(new FranBladeEdgeMoteParticle(center + ray * 5f, ray * speed, ray,
-                i == 2 ? Color.White : body, (36f - MathF.Abs(lane) * 5f) * scale,
-                (i == 2 ? 2.1f : 1.55f) * scale, 14 + (2 - (int)MathF.Abs(lane))));
+            Vector2 ray = direction.RotatedBy(Main.rand.NextFloat(-0.65f, 0.65f));
+            float spread = Main.rand.NextFloat(2f, 4f);
+            FranParticleSystem.Spawn(new FranSparkParticle(center + Main.rand.NextVector2Circular(4f, 4f) * spread, ray * Main.rand.NextFloat(3f, 10f) * spread,
+                i % 3 == 0 ? FranPhantomVisuals.Cyan : FranPhantomVisuals.Blue,
+                Main.rand.NextFloat(0.09f, 0.18f), new Vector2(0.4f, 2.1f), Main.rand.Next(9, 17), 0.82f), spawnSupportingDust: false);
         }
+        PhantomMatrixAftershock(center, direction);
+    }
 
-        Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
-        for (int side = -1; side <= 1; side += 2)
-            Spawn(new FranBladeArcFragmentParticle(center + normal * side * 4f,
-                direction * 1.2f + normal * side * 1.6f, direction, body,
-                27f * scale, side * 0.82f, 2.4f * scale, 14, side * 0.035f));
-
-        FranVanillaDustEffects.Impact(center, direction, FranSkill.MultipleBodyCreation,
-            edge, 5, 0.78f * scale);
+    public static void PhantomMatrixAftershock(Vector2 center, Vector2 direction)
+    {
+        if (Main.dedServ) return;
+        direction = direction.SafeNormalize(Vector2.UnitX);
+        for (int i = 0; i < 4; i++)
+        {
+            Vector2 ray = direction.RotatedBy(Main.rand.NextFloat(-1.3f, 1.3f));
+            float spread = Main.rand.NextFloat(2f, 4f);
+            Vector2 position = center + ray * Main.rand.NextFloat(5f, 22f) * spread;
+            if (i < 1)
+                FranParticleSystem.Spawn(new FranBladeChipParticle(position, ray * Main.rand.NextFloat(1f, 2.5f) * spread,
+                    FranPhantomVisuals.Blue, Main.rand.NextFloat(0.22f, 0.4f), Main.rand.Next(12, 20), 0.015f), false);
+            FranLightingBoltsSystem.SpawnBlueFlightLight(position, ray * (0.4f * spread),
+                i % 2 == 0 ? FranPhantomVisuals.Cyan : FranPhantomVisuals.Blue, Main.rand.NextFloat(0.5f, 0.8f));
+        }
     }
 
     public static void SpawnImpact(Vector2 center, Vector2 direction, Color color, int count, float speed,

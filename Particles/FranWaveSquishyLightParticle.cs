@@ -45,8 +45,8 @@ internal sealed class FranWaveSquishyLightParticle : FranParticle
             Vector2 direction = angle.ToRotationVector2();
             Vector2 velocity = direction * Main.rand.NextFloat(3.4f, 7.8f);
             Color color = i % 4 == 0
-                ? FranResonanceVisuals.Heart
-                : Color.Lerp(FranResonanceVisuals.Emerald, FranResonanceVisuals.Mint, Main.rand.NextFloat());
+                ? FranResonanceVisuals.Pale
+                : Color.Lerp(FranResonanceVisuals.Blue, FranResonanceVisuals.Cyan, Main.rand.NextFloat());
             FranParticleSystem.Spawn(new FranWaveSquishyLightParticle(
                 center + direction * Main.rand.NextFloat(3f, 13f), velocity,
                 Main.rand.NextFloat(0.34f, 0.58f), color, Main.rand.Next(16, 24),
@@ -57,7 +57,7 @@ internal sealed class FranWaveSquishyLightParticle : FranParticle
         for (int i = 0; i < 4; i++)
         {
             Vector2 velocity = (-Vector2.UnitY).RotatedByRandom(0.52f) * Main.rand.NextFloat(5.2f, 9.2f);
-            Color color = Main.rand.NextBool(3) ? FranResonanceVisuals.Heart : FranResonanceVisuals.Mint;
+            Color color = Main.rand.NextBool(3) ? FranResonanceVisuals.Pale : FranResonanceVisuals.Cyan;
             FranParticleSystem.Spawn(new FranWaveSquishyLightParticle(
                 center + Main.rand.NextVector2Circular(7f, 7f), velocity,
                 Main.rand.NextFloat(0.38f, 0.64f), color, Main.rand.Next(17, 25),
@@ -89,6 +89,6 @@ internal sealed class FranWaveSquishyLightParticle : FranParticle
         FranParticleAssets.DrawParticle(spriteBatch, nameof(FranWaveSquishyLightParticle),
             Position, Color * (opacity * 0.8f), rotation, scale * 1.1f);
         FranParticleAssets.DrawParticle(spriteBatch, nameof(FranWaveSquishyLightParticle),
-            Position, Color.Lerp(Color, FranResonanceVisuals.Heart, 0.58f) * (opacity * 0.9f), rotation, scale);
+            Position, Color.Lerp(Color, FranResonanceVisuals.Pale, 0.58f) * (opacity * 0.9f), rotation, scale);
     }
 }

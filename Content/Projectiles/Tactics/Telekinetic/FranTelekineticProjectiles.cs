@@ -337,8 +337,11 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
     public override void OnKill(int timeLeft)
     {
         if (!SuppressDeathBurst && !Main.dedServ)
+        {
+            SoundEngine.PlaySound(FranCombatSounds.TelekineticWaveDeath, Projectile.Center);
             FranLightingBoltsSystem.SpawnTelekineticWaveDissipation(
                 Projectile.Center, Projectile.velocity, Projectile.rotation, Projectile.scale);
+        }
     }
 
     public override bool PreDraw(ref Color lightColor)

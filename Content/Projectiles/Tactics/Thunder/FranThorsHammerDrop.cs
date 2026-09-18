@@ -23,6 +23,7 @@ public sealed class FranThorsHammerDrop : ModProjectile
     private float Age => Projectile.localAI[0];
     private int PackedTarget => (int)Projectile.ai[2] % PackedTargetStride;
     private int TargetIndex => PackedTarget - 1;
+    private Vector2 impactDirection = Vector2.UnitY;
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.PaladinsHammerFriendly}";
 
@@ -56,18 +57,22 @@ public sealed class FranThorsHammerDrop : ModProjectile
     {
         float tickStep = 1f / Projectile.MaxUpdates;
         float age = Projectile.localAI[0];
+        if (age == 0f)
+            Projectile.rotation = ThorsHammerMarker.HammerRotation(ThorsHammerMarker.WindupTicks);
         Projectile.localAI[0] += tickStep;
         if (Projectile.numUpdates == 0)
             UpdateTrackedTarget();
         Vector2 anchor = new(Projectile.ai[0], Projectile.ai[1]);
         NPC trackedTarget = GetTrackedTarget();
-        Vector2 target = trackedTarget?.Center + trackedTarget.velocity * 1.2f ?? anchor;
+        Vector2 target = trackedTarget is not null ? trackedTarget.Center + trackedTarget.velocity * 1.2f : anchor;
         Vector2 fallback = Projectile.velocity.SafeNormalize(Vector2.UnitY);
         float speed = MathHelper.Lerp(30f, 68f, FranMotion.Smooth(FranMotion.Segment(age, 0f, 24f)));
         // 子更新从 2 增至 6，但每次移动量仍按原来的 2 次更新计算：实际飞行速度三倍。
         Vector2 desired = (target - Projectile.Center).SafeNormalize(fallback) * speed / BaseUpdatesPerTick;
         float turnAmount = 1f - MathF.Pow(1f - 0.22f, tickStep);
         Projectile.velocity = Vector2.Lerp(Projectile.velocity, desired, turnAmount);
+        if (Projectile.velocity.LengthSquared() > 0.01f && Vector2.DistanceSquared(target, Projectile.Center) > 1f)
+            impactDirection = Projectile.velocity.SafeNormalize(Vector2.UnitY);
         Projectile.rotation += 0.42f * tickStep * Math.Sign(Projectile.velocity.X == 0f ? 1f : Projectile.velocity.X);
         Vector2 frameVelocity = Projectile.velocity * Projectile.MaxUpdates;
         const float visualIntensity = 1f;
@@ -145,7 +150,7 @@ public sealed class FranThorsHammerDrop : ModProjectile
                     FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExplosionDamageMultiplier),
                         FranBalance.ThorsHammerExplosionDamageMultiplier))),
                 Projectile.knockBack, Projectile.owner,
-                Projectile.velocity.X * Projectile.MaxUpdates, Projectile.velocity.Y * Projectile.MaxUpdates);
+                impactDirection.X, impactDirection.Y);
         Projectile.netUpdate = true;
         Projectile.Kill();
     }
@@ -153,8 +158,6 @@ public sealed class FranThorsHammerDrop : ModProjectile
     public override bool PreDraw(ref Color lightColor)
     {
         const float visualIntensity = 1f;
-        Texture2D texture = TextureAssets.Projectile[ProjectileID.PaladinsHammerFriendly].Value;
-        Vector2 origin = texture.Size() * 0.5f;
         if (!FranProjectileTrailRenderer.TryDraw(Projectile, FranProjectileTrailProfile.HeavyHammer,
                 new Color(8, 24, 64), new Color(80, 165, 255), Color.White, 38f, 0.94f))
             FranProjectileTrailRenderer.DrawFallback(Projectile, FranProjectileTrailProfile.HeavyHammer,
@@ -170,22 +173,29 @@ public sealed class FranThorsHammerDrop : ModProjectile
         FranVfx.DrawBloom(Projectile.Center, new Color(95, 175, 255),
             76f * visualIntensity, 0.72f * visualIntensity, true);
         FranVfx.EndAdditive();
+        DrawHammer(Projectile.Center, Projectile.rotation, 1f);
+        return false;
+    }
 
+    internal static void DrawHammer(Vector2 center, float rotation, float opacity)
+    {
+        Texture2D texture = TextureAssets.Projectile[ProjectileID.PaladinsHammerFriendly].Value;
+        Vector2 origin = texture.Size() * 0.5f;
         // A narrow blue silhouette underneath the original hammer, with no change to its trail.
         for (int i = 0; i < 8; i++)
         {
             Vector2 offset = (MathHelper.TwoPi * i / 8f).ToRotationVector2() * 2f;
-            Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition + offset, null,
-                new Color(50, 135, 255), Projectile.rotation, origin, 1.05f, SpriteEffects.None, 0f);
+            Main.EntitySpriteDraw(texture, center - Main.screenPosition + offset, null,
+                new Color(50, 135, 255) * opacity, rotation, origin, 1.05f, SpriteEffects.None, 0f);
         }
-        Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition, null, Color.White,
-            Projectile.rotation, origin, 1.05f, SpriteEffects.None, 0f);
-        return false;
+        Main.EntitySpriteDraw(texture, center - Main.screenPosition, null, Color.White * opacity,
+            rotation, origin, 1.05f, SpriteEffects.None, 0f);
     }
 
     private void UpdateTrackedTarget()
     {
-        if (Main.myPlayer != Projectile.owner)
+        // A cursor fallback is a fixed destination, not a new homing search every frame.
+        if (Main.myPlayer != Projectile.owner || PackedTarget == 0)
             return;
         NPC target = FranHammerTargeting.Resolve(Main.player[Projectile.owner], TargetIndex);
         int encoded = target is null ? 0 : target.whoAmI + 1;
