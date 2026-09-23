@@ -99,8 +99,6 @@ public sealed class FranShiFuPhantomBlade : ModProjectile
                 Array.Fill(Projectile.oldPos, Projectile.position);
                 Projectile.Opacity = 0.92f;
                 Projectile.netUpdate = true;
-                if (!Main.dedServ)
-                    SoundEngine.PlaySound(FranCombatSounds.MultipleBodyDashPrepare, Projectile.Center);
             }
         }
         else

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using FranMod.Content.Config;
 using FranMod.Content.Items;
 using FranMod.Content.Players;
 using FranMod.Content.Systems;
@@ -814,6 +815,8 @@ internal sealed class ShiFuBackDrawPlayer : ModPlayer
             return;
 
         Player player = drawInfo.drawPlayer;
+        if (!ModContent.GetInstance<FranClientConfig>().CarryShiFuOnBack)
+            return;
         if (!player.active || player.dead || player.HeldItem.type != ModContent.ItemType<ShiFu>() ||
             player.itemAnimation > 0 || player.ownedProjectileCounts[ModContent.ProjectileType<ShiFuSwingRebuild>()] > 0)
             return;

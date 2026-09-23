@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using Newtonsoft.Json;
 using Terraria.ModLoader.Config;
 
 namespace FranMod.Content.Config;
@@ -13,20 +12,11 @@ public sealed class FranClientConfig : ModConfig
     [DefaultValue(true)]
     public bool EnablePlayerTextureReplacement = true;
 
-    [DefaultValue(true)]
-    public bool EnableFranVoice = true;
+    [DefaultValue(false)]
+    public bool EnableFranVoice;
 
     [DefaultValue(true)]
     public bool EnableCustomMainMenu = true;
-
-    // This is an internal one-time migration flag, not a user-facing option. It lets a fresh
-    // Fran install select its menu once without overriding later manual menu-theme choices.
-    [JsonProperty("CustomMainMenuDefaultApplied")]
-    private bool customMainMenuDefaultApplied;
-
-    internal bool CustomMainMenuDefaultApplied => customMainMenuDefaultApplied;
-
-    internal void MarkCustomMainMenuDefaultApplied() => customMainMenuDefaultApplied = true;
 
     // The font asset has already been handed off, but its replacement system is intentionally
     // independent from the menu and character rendering switches.
@@ -36,11 +26,14 @@ public sealed class FranClientConfig : ModConfig
     [DefaultValue(true)]
     public bool EnableModIconFlicker = true;
 
-    [DefaultValue(true)]
-    public bool EnableVideoPlayback = true;
+    [DefaultValue(false)]
+    public bool EnableVideoPlayback;
 
     [DefaultValue(false)]
-    public bool EnableFloatingShiFuVisual;
+    public bool AlwaysFloatShiFu;
+
+    [DefaultValue(true)]
+    public bool CarryShiFuOnBack = true;
 
     [DefaultValue(false)]
     public bool HoldSkillWheelToOpen;

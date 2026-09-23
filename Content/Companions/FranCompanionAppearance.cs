@@ -9,7 +9,7 @@ namespace FranMod.Content.Companions;
 
 internal static class FranCompanionAppearance
 {
-    // Future character artwork has ONE integration point. Supply tML equipment sheets here:
+    // Character artwork has ONE integration point. Supply tML equipment sheets here:
     // Textures/角色图/Fran_Head.png, Fran_Body.png, Fran_Legs.png (see that folder's README).
     // Each missing sheet independently falls back to vanilla titanium vanity armor.
     private const string Root = "Fran/Textures/角色图/";
@@ -28,6 +28,30 @@ internal static class FranCompanionAppearance
             : -1;
 
     internal static void Unload() => head = body = legs = -1;
+
+    internal static void SetStaticDefaults()
+    {
+        if (head >= 0)
+        {
+            ArmorIDs.Head.Sets.DrawHead[head] = false;
+            ArmorIDs.Head.Sets.DrawFullHair[head] = false;
+            ArmorIDs.Head.Sets.DrawHatHair[head] = false;
+        }
+        if (body >= 0)
+        {
+            ArmorIDs.Body.Sets.HidesTopSkin[body] = true;
+            ArmorIDs.Body.Sets.HidesArms[body] = true;
+        }
+        if (legs >= 0)
+            ArmorIDs.Legs.Sets.HidesBottomSkin[legs] = true;
+    }
+
+    internal static void ApplyPlayerAppearance(Player actor)
+    {
+        actor.head = head >= 0 ? head : ContentSamples.ItemsByType[ItemID.CatEars].headSlot;
+        actor.body = body >= 0 ? body : ContentSamples.ItemsByType[ItemID.FamiliarShirt].bodySlot;
+        actor.legs = legs >= 0 ? legs : ContentSamples.ItemsByType[ItemID.FamiliarPants].legSlot;
+    }
 
     internal static void Apply(Player actor)
     {

@@ -60,12 +60,14 @@ public sealed class ShiFuExcavationTool : ModItem
 
     public override void SetStaticDefaults()
     {
+        ItemID.Sets.Deprecated[Type] = true;
         ItemID.Sets.ItemsThatAllowRepeatedRightClick[Type] = true;
         ItemID.Sets.UsesBetterMeleeItemLocation[Type] = true;
     }
 
     public override void SetDefaults()
     {
+        // Retired content: this remains only as a migration shell so saved copies can be cleared safely.
         Item.width = 49;
         Item.height = 49;
         Item.DamageType = DamageClass.Melee;

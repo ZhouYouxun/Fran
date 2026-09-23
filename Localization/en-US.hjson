@@ -584,12 +584,12 @@ Mods: {
 
 				EnableFranVoice: {
 					Label: "[i:Megaphone] Enable Fran voice"
-					Tooltip: Enabled by default. Controls Fran's hurt, sleep, and future character voice lines; missing audio safely remains silent.
+					Tooltip: Disabled by default.
 				}
 
 				EnableCustomMainMenu: {
-					Label: "[i:WorldGlobe] Enable Fran main menu"
-					Tooltip: Enabled by default. Makes Fran's widescreen key visual and falling-fire-particle theme available in the main-menu selector.
+					Label: Enable custom main menu interface
+					Tooltip: ""
 				}
 
 				EnableCustomFont: {
@@ -604,12 +604,17 @@ Mods: {
 
 				EnableVideoPlayback: {
 					Label: "[i:MusicBox] Enable story video playback"
-					Tooltip: Enabled by default. Allows future client-side videos to play; it does nothing while no video assets exist.
+					Tooltip: Disabled by default.
 				}
 
-				EnableFloatingShiFuVisual: {
-					Label: "[i:MagicMirror] Show ShiFu from inventory"
-					Tooltip: Disabled by default. When enabled, ShiFu floats behind the player while stored in the inventory and another item is held.
+				AlwaysFloatShiFu: {
+					Label: "[i:MagicMirror] ShiFu always floats"
+					Tooltip: Disabled by default. When enabled, ShiFu floats behind the player even while another item is held.
+				}
+
+				CarryShiFuOnBack: {
+					Label: "[i:Katana] Carry ShiFu on back"
+					Tooltip: Enabled by default. When ShiFu is held and idle, it rests diagonally on the player's back.
 				}
 
 				HoldSkillWheelToOpen: {

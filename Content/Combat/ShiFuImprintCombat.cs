@@ -4,6 +4,7 @@ using FranMod.Content.Companions;
 using FranMod.Content.Players;
 using FranMod.Core;
 using FranMod.Core.Graphics;
+using FranMod.Effects.LeonidStarlight;
 using FranMod.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -47,12 +48,16 @@ internal static class ShiFuImprintCombat
                     fran.IsFullTacticLoadout(FranSkill.ThunderChain));
                 break;
 
-            case FranSkill.BlueResonance when fran.IsFullTacticLoadout(FranSkill.BlueResonance):
-                // 全选蓝辉不再要求剑体先命中目标：每次挥刀固定生成一整组蓝辉弹。
-                // 后续若剑体实际命中一个或多个敌人，OnSwordHit 仍会按每个命中目标追加同等的一组。
-                SpawnBlueResonanceEchoes(owner, swing, combo, tacticLayers,
-                    owner.MountedCenter + direction.SafeNormalize(Vector2.UnitX * owner.direction) * 36f,
-                    swing.GetSource_FromThis(), encodedTarget: 0f);
+            case FranSkill.BlueResonance:
+                SpawnButterflyResonanceStarlight(owner, direction, reach);
+                if (fran.IsFullTacticLoadout(FranSkill.BlueResonance))
+                {
+                    // 全选蓝辉不再要求剑体先命中目标：每次挥刀固定生成一整组蓝辉弹。
+                    // 后续若剑体实际命中一个或多个敌人，OnSwordHit 仍会按每个命中目标追加同等的一组。
+                    SpawnBlueResonanceEchoes(owner, swing, combo, tacticLayers,
+                        owner.MountedCenter + direction.SafeNormalize(Vector2.UnitX * owner.direction) * 36f,
+                        swing.GetSource_FromThis(), encodedTarget: 0f);
+                }
                 break;
 
             case FranSkill.ThorsHammer when combo == 3 && fran.AdvanceHammerRound(tacticLayers):
@@ -65,7 +70,7 @@ internal static class ShiFuImprintCombat
                         (1f + FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExtraLayerDamageMultiplier),
                             FranBalance.ThorsHammerExtraLayerDamageMultiplier) * (tacticLayers - 1)) * FranTacticOutputBudget.Scale(FranSkill.ThorsHammer))),
                     7f, owner.whoAmI, 0f, tacticLayers);
-                SoundEngine.PlaySound(SoundID.Item68, hammerTarget);
+                SoundEngine.PlaySound(FranCombatSounds.ThorsHammerAppearance, hammerTarget);
                 break;
         }
     }
@@ -472,6 +477,17 @@ internal static class ShiFuImprintCombat
         // while FranThunderCircuitFinisher delays the single heaviest focal strike until the circuit closes.
         int delay = 7 + anchors.Count * 2;
         SpawnThunderRain(owner, swing, focus, combo, tacticLayers, fullLoadout, delay);
+    }
+
+    // 原样迁入狮源流星的两种星光粒子；只作为蝶变共鸣每一次挥刀的无伤害视觉点缀。
+    private static void SpawnButterflyResonanceStarlight(Player owner, Vector2 direction, float reach)
+    {
+        Vector2 bladeDirection = direction.SafeNormalize(Vector2.UnitX * owner.direction);
+        Vector2 origin = owner.MountedCenter + bladeDirection * MathHelper.Clamp(reach * 0.42f, 42f, 94f);
+        LeonidStarlight.Spray(origin, bladeDirection, 1, shape: LeonidStarlightShape.Mote,
+            speed: 5.7f, spread: 0.48f, scale: 0.76f, guaranteeCount: true);
+        LeonidStarlight.Spray(origin, bladeDirection, 1, shape: LeonidStarlightShape.Shard,
+            speed: 4.8f, spread: 0.34f, scale: 0.64f, guaranteeCount: true);
     }
 
     private static void SpawnThunderCircuitLink(Projectile swing, Player owner, Vector2 start, Vector2 end,

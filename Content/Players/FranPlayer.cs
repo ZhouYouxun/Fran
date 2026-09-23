@@ -53,7 +53,6 @@ public sealed class FranPlayer : ModPlayer
     private bool wasFranMode;
     private bool networkFranMode;
     private bool shiFuBonded;
-    private bool shiFuToolGranted;
     private int restoreShiFuAfterRespawnCount;
     private bool dashStartedThisTick;
     private float screenShakePower;
@@ -147,8 +146,6 @@ public sealed class FranPlayer : ModPlayer
             tag["IntroShown"] = true;
         if (shiFuBonded)
             tag["ShiFuBonded"] = true;
-        if (shiFuToolGranted)
-            tag["ShiFuToolGranted"] = true;
         if (restoreShiFuAfterRespawnCount > 0)
             tag["ShiFuRespawnCount"] = restoreShiFuAfterRespawnCount;
     }
@@ -192,7 +189,6 @@ public sealed class FranPlayer : ModPlayer
         ultimateReadyAnnounced = UltimateReady;
         introShown = tag.GetBool("IntroShown");
         shiFuBonded = tag.GetBool("ShiFuBonded");
-        shiFuToolGranted = tag.GetBool("ShiFuToolGranted");
         restoreShiFuAfterRespawnCount = Math.Clamp(tag.GetInt("ShiFuRespawnCount"), 0, 59);
     }
 
@@ -263,11 +259,7 @@ public sealed class FranPlayer : ModPlayer
         if (!FranMode)
             return;
 
-        // Prototype appearance: vanilla cat ears are forced over the equipped helmet.
-        // The final character sprites can replace this without touching gameplay code.
-        Player.head = ContentSamples.ItemsByType[ItemID.CatEars].headSlot;
-        Player.body = ContentSamples.ItemsByType[ItemID.FamiliarShirt].bodySlot;
-        Player.legs = ContentSamples.ItemsByType[ItemID.FamiliarPants].legSlot;
+        FranCompanionAppearance.ApplyPlayerAppearance(Player);
     }
 
     public override void ModifyDrawInfo(ref PlayerDrawSet drawInfo)
@@ -355,7 +347,10 @@ public sealed class FranPlayer : ModPlayer
 
     internal void ReceiveUltimateCharge(int chargeTicks)
     {
+        bool wasReady = UltimateReady;
         UltimateChargeTicks = UltimateUnlocked ? Math.Clamp(chargeTicks, 0, UltimateChargeDuration) : 0;
+        if (!wasReady && UltimateReady && Player.whoAmI == Main.myPlayer)
+            SoundEngine.PlaySound(FranCombatSounds.UltimateReady, Player.Center);
         ultimateReadyAnnounced = UltimateReady;
     }
 
@@ -418,8 +413,7 @@ public sealed class FranPlayer : ModPlayer
 
         if (HasShiFu)
             shiFuBonded = true;
-        if (Player.whoAmI == Main.myPlayer && shiFuBonded)
-            EnsureShiFuToolInitialGrant();
+        RemoveRetiredShiFuExcavationTools();
 
         if (!FranMode)
         {
@@ -528,7 +522,7 @@ public sealed class FranPlayer : ModPlayer
                     FranBalance.MagicBarrierExtraLayerDamageReduction) * (barrierLayers - 1);
             modifiers.SourceDamage *= 1f - MathHelper.Clamp(damageReduction, 0f, 0.95f);
         }
-        if (FranClientConfig.Instance?.EnableFranVoice ?? true)
+        if (FranClientConfig.Instance?.EnableFranVoice ?? false)
         {
             modifiers.DisableSound();
             SoundEngine.PlaySound(SoundID.PlayerHit with { Pitch = 0.28f, Volume = 0.72f }, Player.Center);
@@ -1184,20 +1178,40 @@ public sealed class FranPlayer : ModPlayer
             FranModMain.SendCombatState(Player.whoAmI, 0, Vector2.Zero);
     }
 
-    private void EnsureShiFuToolInitialGrant()
+    // Keep the retired item registered just long enough to remove it safely from existing character saves.
+    // Removing its type outright would turn already-owned copies into Terraria's visible Unloaded Item placeholder.
+    private void RemoveRetiredShiFuExcavationTools()
     {
-        if (shiFuToolGranted)
-            return;
-
         int toolType = ModContent.ItemType<ShiFuExcavationTool>();
-        if (!Player.HasItem(toolType) && Main.mouseItem.type != toolType)
-            Player.QuickSpawnItem(Player.GetSource_Misc("FranShiFuToolForm"), toolType);
-        shiFuToolGranted = true;
+        int guideType = ModContent.ItemType<StrategyGuideBook>();
+        RemoveFromStorage(Player.inventory, toolType);
+        RemoveFromStorage(Player.inventory, guideType);
+        RemoveFromStorage(Player.bank.item, toolType);
+        RemoveFromStorage(Player.bank.item, guideType);
+        RemoveFromStorage(Player.bank2.item, toolType);
+        RemoveFromStorage(Player.bank2.item, guideType);
+        RemoveFromStorage(Player.bank3.item, toolType);
+        RemoveFromStorage(Player.bank3.item, guideType);
+        RemoveFromStorage(Player.bank4.item, toolType);
+        RemoveFromStorage(Player.bank4.item, guideType);
+
+        if (Player.trashItem.type is var trashType && (trashType == toolType || trashType == guideType))
+            Player.trashItem.TurnToAir();
+        if (Player.whoAmI == Main.myPlayer && Main.mouseItem.type is var mouseType &&
+            (mouseType == toolType || mouseType == guideType))
+            Main.mouseItem.TurnToAir();
+    }
+
+    private static void RemoveFromStorage(Item[] storage, int retiredType)
+    {
+        foreach (Item item in storage)
+            if (item.type == retiredType)
+                item.TurnToAir();
     }
 
     private void EnsureFloatingShiFu()
     {
-        if (!ModContent.GetInstance<FranClientConfig>().EnableFloatingShiFuVisual)
+        if (!ModContent.GetInstance<FranClientConfig>().AlwaysFloatShiFu)
             return;
 
         int flightVisualType = ModContent.ProjectileType<FranTelekineticFlightVisual>();
@@ -1205,8 +1219,7 @@ public sealed class FranPlayer : ModPlayer
             Player.ownedProjectileCounts[flightVisualType] > 0)
             return;
 
-        if (Player.HeldItem.type == ModContent.ItemType<ShiFu>() ||
-            Player.HeldItem.type == ModContent.ItemType<ShiFuExcavationTool>())
+        if (Player.HeldItem.type == ModContent.ItemType<ShiFu>())
             return;
 
         int type = ModContent.ProjectileType<FloatingShiFuVisual>();
@@ -1298,6 +1311,8 @@ public sealed class FranPlayer : ModPlayer
         if (!UltimateUnlocked || ultimateReadyAnnounced)
             return;
         ultimateReadyAnnounced = true;
+        if (!Main.dedServ)
+            SoundEngine.PlaySound(FranCombatSounds.UltimateReady, Player.Center);
         Projectile.NewProjectile(Player.GetSource_Misc("FranUltimateReady"), Player.Center, Vector2.Zero,
             ModContent.ProjectileType<FranUltimateReadySigil>(), 0, 0f, Player.whoAmI);
     }

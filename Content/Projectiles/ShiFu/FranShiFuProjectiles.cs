@@ -40,11 +40,10 @@ public sealed class FloatingShiFuVisual : ModProjectile
         FranPlayer fran = owner.GetModPlayer<FranPlayer>();
         int flightVisualType = ModContent.ProjectileType<FranTelekineticFlightVisual>();
         bool disabledByOwner = Projectile.owner == Main.myPlayer &&
-            !ModContent.GetInstance<FranClientConfig>().EnableFloatingShiFuVisual;
+            !ModContent.GetInstance<FranClientConfig>().AlwaysFloatShiFu;
         if (disabledByOwner || !owner.active || owner.dead || !fran.HasShiFu || fran.TelekineticFlightVisualActive ||
             owner.ownedProjectileCounts[flightVisualType] > 0 ||
-            owner.HeldItem.type == ModContent.ItemType<Content.Items.ShiFu>() ||
-            owner.HeldItem.type == ModContent.ItemType<Content.Items.ShiFuExcavationTool>())
+            owner.HeldItem.type == ModContent.ItemType<Content.Items.ShiFu>())
         {
             Projectile.Kill();
             return;

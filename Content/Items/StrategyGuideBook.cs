@@ -11,6 +11,8 @@ public sealed class StrategyGuideBook : ModItem
 {
     public override string Texture => $"Terraria/Images/Item_{ItemID.Book}";
 
+    public override void SetStaticDefaults() => ItemID.Sets.Deprecated[Type] = true;
+
     public override void SetDefaults()
     {
         Item.width = 20;
@@ -36,15 +38,6 @@ public sealed class StrategyGuideBook : ModItem
                 : SoundID.MenuClose with { Volume = 0.58f, Pitch = 0.04f }, player.Center);
         }
         return true;
-    }
-
-    public override void AddRecipes()
-    {
-        CreateRecipe()
-            .AddIngredient(ItemID.Wood, 10)
-            .AddIngredient(ItemID.Silk, 2)
-            .AddTile(TileID.WorkBenches)
-            .Register();
     }
 
     public override Color? GetAlpha(Color lightColor) => Color.White;

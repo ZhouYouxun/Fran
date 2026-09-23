@@ -26,6 +26,8 @@ public sealed class FranCompanionSystem : ModSystem
         if (!Main.dedServ) On_Main.DrawProj += DrawOwnedProjectile;
     }
 
+    public override void SetStaticDefaults() => FranCompanionAppearance.SetStaticDefaults();
+
     public override void Unload()
     {
         On_Projectile.Update -= UpdateOwnedProjectile;

@@ -59,7 +59,7 @@ public sealed class FranFontSystem : ModSystem
         if (!assetsReady)
             return;
 
-        bool enabled = FranClientConfig.Instance?.EnableCustomFont ?? true;
+        bool enabled = FranClientConfig.Instance?.EnableCustomFont ?? false;
         if (enabled)
             ApplyCustomFonts();
         else

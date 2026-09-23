@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using FranMod.Content.Config;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -10,7 +9,6 @@ using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
-using Terraria.ModLoader.Config;
 
 namespace FranMod.Content.MainMenu;
 
@@ -55,41 +53,6 @@ public sealed class FranMainMenu : ModMenu
     public override void OnSelected() => SeedFlames();
 
     public override void OnDeselected() => flames.Clear();
-
-    internal void ApplyAsDefaultMenuOnce()
-    {
-        FranClientConfig config = FranClientConfig.Instance;
-        if (config is null || config.CustomMainMenuDefaultApplied || !config.EnableCustomMainMenu)
-            return;
-
-        try
-        {
-            // tModLoader persists the last selected menu but currently exposes no public setter.
-            // Set it during content loading, before MenuLoader restores the saved menu, then mark
-            // this migration complete so later player-selected themes remain respected.
-            FieldInfo lastSelectedMenu = typeof(MenuLoader).GetField("LastSelectedModMenu",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            MethodInfo saveConfig = typeof(ConfigManager).GetMethod("Save",
-                BindingFlags.Static | BindingFlags.NonPublic);
-
-            if (lastSelectedMenu is null || saveConfig is null)
-            {
-                Mod.Logger.Warn("Fran could not apply its one-time default main menu because " +
-                    "tModLoader's menu/config internals have changed.");
-                return;
-            }
-
-            lastSelectedMenu.SetValue(null, FullName);
-            Main.SaveSettings();
-
-            config.MarkCustomMainMenuDefaultApplied();
-            saveConfig.Invoke(null, [config]);
-        }
-        catch (Exception exception)
-        {
-            Mod.Logger.Warn($"Fran could not apply its one-time default main menu. {exception}");
-        }
-    }
 
     public override void Update(bool isOnTitleScreen)
     {
@@ -259,11 +222,4 @@ public sealed class FranMainMenu : ModMenu
         public int Age;
         public int Lifetime;
     }
-}
-
-[Autoload(Side = ModSide.Client)]
-internal sealed class FranMainMenuDefaultSystem : ModSystem
-{
-    public override void PostSetupContent() =>
-        ModContent.GetInstance<FranMainMenu>().ApplyAsDefaultMenuOnce();
 }

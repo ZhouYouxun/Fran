@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using FranMod.Content.Players;
 using FranMod.Core;
 using FranMod.Core.Graphics;
+using FranMod.Core.LeonidStarlight;
+using FranMod.Effects.LeonidStarlight;
 using FranMod.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -107,8 +109,12 @@ public sealed class FranBlueResonanceEcho : ModProjectile
             }
         }
 
-        if (age == ScatterFrames && !Main.dedServ)
-            SoundEngine.PlaySound(FranCombatSounds.ButterflyBeginTracking, Projectile.Center);
+        if (age == ScatterFrames)
+        {
+            if (!Main.dedServ)
+                SoundEngine.PlaySound(FranCombatSounds.ButterflyBeginTracking, Projectile.Center);
+            SpawnDepartureStarlight();
+        }
 
         Projectile.rotation += 0.085f;
         Projectile.Opacity = Utils.GetLerpValue(0f, 5f, age, true) *
@@ -134,6 +140,8 @@ public sealed class FranBlueResonanceEcho : ModProjectile
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
         impactBurstSpawned = true;
+        LeonidStarlight.Burst(target.Center, 4, shape: LeonidStarlightShape.Mote,
+            speed: 4.8f, scale: 0.56f, hoverTime: 16, lifetime: 78, lanceSpeed: 12f, spawnRadius: 5f);
         SpawnBloomBurst(target.Center, 0.94f);
         FranResonanceBloomParticle.SpawnBurst(target.Center, Projectile.velocity.ToRotation(), 0.85f);
         FranParticleEffects.SpawnImpact(target.Center,
@@ -144,6 +152,16 @@ public sealed class FranBlueResonanceEcho : ModProjectile
     {
         if (!impactBurstSpawned)
             SpawnBloomBurst(Projectile.Center, 0.58f);
+    }
+
+    // 每只蝴蝶结束悬停、准备起步追踪时，沿其反方向甩出两颗原创星光。
+    private void SpawnDepartureStarlight()
+    {
+        Vector2 backward = -Projectile.velocity.SafeNormalize(Vector2.UnitY);
+        LeonidStarlight.Spray(Projectile.Center, backward, 2,
+            color: LeonidVisualUtils.GetMeteorColor(Projectile.ai[1] * 0.37f),
+            shape: LeonidStarlightShape.Mote, speed: 4.3f, spread: 0.22f, scale: 0.68f,
+            hoverTime: 16, lifetime: 82, lanceSpeed: 12f, guaranteeCount: true);
     }
 
     private void HomeTowards(Vector2 destination, float speed, float responsiveness)

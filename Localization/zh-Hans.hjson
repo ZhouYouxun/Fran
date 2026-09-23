@@ -727,20 +727,12 @@ Mods: {
 
 				EnableFranVoice: {
 					Label: "[i:Megaphone] 启用弗兰配音"
-					Tooltip:
-						'''
-						默认开启；统一控制弗兰的受伤、睡眠
-						及后续人物语音，缺少音频时自动保持静默
-						'''
+					Tooltip: 默认关闭
 				}
 
 				EnableCustomMainMenu: {
-					Label: "[i:WorldGlobe] 启用弗兰主菜单界面"
-					Tooltip:
-						'''
-						默认开启；允许在主菜单主题切换中使用
-						弗兰横屏主视觉与下落火焰粒子
-						'''
+					Label: 启用自定义主菜单界面
+					// Tooltip: ""
 				}
 
 				EnableCustomFont: {
@@ -755,20 +747,24 @@ Mods: {
 
 				EnableVideoPlayback: {
 					Label: "[i:MusicBox] 启用剧情视频播放"
+					Tooltip: 默认关闭
+				}
+
+				AlwaysFloatShiFu: {
+					Label: "[i:MagicMirror] 师父会始终浮空"
 					Tooltip:
 						'''
-						默认开启；后续加入视频资源后由此允许
-						客户端播放，当前没有视频时
-						不会执行任何操作
+						默认关闭；开启后，即便不手持师父
+						师父也会浮在玩家身后
 						'''
 				}
 
-				EnableFloatingShiFuVisual: {
-					Label: "[i:MagicMirror] 显示背包中的师父"
+				CarryShiFuOnBack: {
+					Label: "[i:Katana] 师父会背在身后"
 					Tooltip:
 						'''
-						默认关闭；开启后，当师父位于背包中
-						且当前手持其他物品时，师父会浮在玩家身后
+						默认开启；手持师父且未攻击时
+						师父会倾斜背在玩家身后
 						'''
 				}
 

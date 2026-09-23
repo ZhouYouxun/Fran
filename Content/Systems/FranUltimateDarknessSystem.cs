@@ -62,7 +62,7 @@ public sealed class FranUltimateDarknessSystem : ModSystem
         float eased = darknessProgress * darknessProgress * (3f - 2f * darknessProgress);
         float maximumOpacity = MathHelper.Clamp(FranBalance.GetFloat(
             nameof(FranBalance.UltimateDarknessMaximumOpacity),
-            FranBalance.UltimateDarknessMaximumOpacity), 0f, 0.90f);
+            FranBalance.UltimateDarknessMaximumOpacity), 0f, 0.90f) * 0.50f;
         // Use the graphics device's live viewport instead of Main.screenWidth/screenHeight. The UI
         // layer can apply its own scaling transform, so extend by one complete viewport on every
         // side: the center viewport stays covered at high resolutions, ultrawide aspect ratios and
