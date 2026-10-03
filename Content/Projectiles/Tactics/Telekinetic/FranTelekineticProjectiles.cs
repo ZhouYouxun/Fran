@@ -19,6 +19,7 @@ namespace FranMod.Content.Projectiles;
 public sealed class Telekinetic_CondensedMindCore : ModProjectile
 {
     private bool hasHit;
+    private int flightVisualTick;
     internal static readonly Color TrailBlue = new(28, 145, 235);
     internal static readonly Color TrailLightBlue = new(55, 178, 235);
 
@@ -27,7 +28,7 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
     public override void SetStaticDefaults()
     {
         ProjectileID.Sets.CultistIsResistantTo[Type] = true;
-        ProjectileID.Sets.TrailCacheLength[Type] = 136;
+        ProjectileID.Sets.TrailCacheLength[Type] = FranProjectileTrailRenderer.TelekineticCoreHistoryLength;
         ProjectileID.Sets.TrailingMode[Type] = 2;
     }
 
@@ -49,17 +50,39 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
     {
         // 击败克苏鲁之眼后才解锁念核穿墙；追踪仍由发射时的全选标记独立控制。
         Projectile.tileCollide = !NPC.downedBoss1;
-        // This helper updates homing every sub-update and raises extraUpdates
-        // from 1 to 2 while a target is available; velocity is NOT divided by MaxUpdates.
+        NPC target = ResolveHomingTarget();
+        Projectile.extraUpdates = target is null ? 1 : 2;
+        if (target is not null && !hasHit)
+            Projectile.velocity = FranMindCoreGuidance.Steer(Projectile.velocity,
+                target.Center - Projectile.Center, target.velocity, Projectile.MaxUpdates,
+                FranMindCoreGuidance.PursuitSpeed * FranBalance.GetTelekineticCoreSpeedMultiplier());
+        Projectile.scale = Utils.GetLerpValue(0f, 8f, Projectile.timeLeft, true);
+        Projectile.rotation = Projectile.velocity.ToRotation();
+
+        // 粒子按游戏帧发射，追踪时增加子更新不会把视觉密度也提高。
+        if (!Main.dedServ && Projectile.numUpdates == 0 && !hasHit)
+            EmitCoreFlightParticles();
+    }
+
+    private NPC ResolveHomingTarget()
+    {
+        if (Projectile.ai[0] != 1f)
+            return null;
+        bool CanTrack(NPC npc) => npc.CanBeChasedBy(Projectile, false) &&
+            Projectile.WithinRange(npc.Center, FranMindCoreGuidance.AcquisitionRadius + npc.width / 2 + npc.height / 2);
+
+        // ai[1] 存目标序号+1；保持当前目标，出范围/失效才重新选择，避免怪群之间来回摆尾。
+        int index = (int)Projectile.ai[1] - 1;
+        if (Main.npc.IndexInRange(index) && CanTrack(Main.npc[index]))
+            return Main.npc[index];
+        if (Main.myPlayer != Projectile.owner)
+            return null;
+
         NPC closest = null;
         float closestDistance = 25000f;
         foreach (NPC npc in Main.ActiveNPCs)
         {
-            // ai[0] snapshots full-loadout eligibility at launch and is synced by vanilla.
-            if (Projectile.ai[0] != 1f)
-                break;
-            float extraDistance = npc.width / 2 + npc.height / 2;
-            if (!npc.CanBeChasedBy(Projectile, false) || !Projectile.WithinRange(npc.Center, 400f + extraDistance))
+            if (!CanTrack(npc))
                 continue;
             float distance = Projectile.Distance(npc.Center);
             if (distance < closestDistance)
@@ -68,30 +91,53 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
                 closest = npc;
             }
         }
-        Projectile.extraUpdates = closest is null ? 1 : 2;
-        if (closest is not null)
-            Projectile.velocity = (Projectile.velocity * 20f +
-                (closest.Center - Projectile.Center).SafeNormalize(Vector2.UnitY) *
-                (24f * FranBalance.GetTelekineticCoreSpeedMultiplier())) / 21f;
-        Projectile.scale = Utils.GetLerpValue(0f, 8f, Projectile.timeLeft, true);
-        Projectile.rotation = Projectile.velocity.ToRotation();
-
-        if (!Main.dedServ)
+        int selected = closest is null ? 0 : closest.whoAmI + 1;
+        if (Projectile.ai[1] != selected)
         {
-            bool dim = Main.rand.NextBool(5);
-            Dust dust = Dust.NewDustPerfect(Projectile.Center,
-                dim ? ModContent.DustType<FranCoreDimDust>() : ModContent.DustType<FranCoreBrightDust>(),
-                -Projectile.velocity * Main.rand.NextFloat(0.05f, 0.3f));
-            dust.noGravity = true;
-            dust.scale = Main.rand.NextFloat(0.75f, 0.95f);
-            if (dim)
-                dust.scale = Main.rand.NextFloat(0.55f, 0.75f);
-            else
-                dust.fadeIn = 0.5f;
+            Projectile.ai[1] = selected;
+            Projectile.netUpdate = true;
         }
+        return closest;
+    }
+
+    private void EmitCoreFlightParticles()
+    {
+        int step = flightVisualTick++;
+        Vector2 forward = Projectile.velocity.SafeNormalize(Vector2.UnitX);
+        Vector2 side = forward.RotatedBy(MathHelper.PiOver2);
+        if (step % 2 == 0)
+        {
+            for (int sign = -1; sign <= 1; sign += 2)
+            {
+                Vector2 offset = side * sign * (8f + step % 3);
+                FranParticleSystem.Spawn(new FranLightParticle(Projectile.Center - forward * 8f + offset,
+                    -forward * 1.5f - offset * 0.24f, 0.16f, sign < 0 ? TrailBlue : TrailLightBlue,
+                    8, 0.75f, 1.2f, 1.8f), spawnSupportingDust: false);
+            }
+        }
+        if (step % 6 == 0)
+            FranParticleSystem.Spawn(new FranDirectionalRingParticle(Projectile.Center - forward * 12f,
+                -forward * 1.2f, TrailLightBlue, new Vector2(0.035f, 0.10f),
+                new Vector2(0.015f, 0.035f), Projectile.rotation, 9), spawnSupportingDust: false);
     }
 
     public override bool? CanDamage() => hasHit ? false : null;
+
+    public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
+    {
+        // 命中时实时判断，Boss 死亡或进入困难模式后，已发射的念核也不再享受增伤。
+        if (Main.hardMode)
+            return;
+        foreach (NPC npc in Main.ActiveNPCs)
+        {
+            if (npc.life <= 0 || !(npc.boss || NPCID.Sets.ShouldBeCountedAsBoss[npc.type]))
+                continue;
+            modifiers.FinalDamage *= Math.Max(0f, FranBalance.GetFloat(
+                nameof(FranBalance.TelekineticCorePreHardmodeBossDamageMultiplier),
+                FranBalance.TelekineticCorePreHardmodeBossDamageMultiplier));
+            return;
+        }
+    }
 
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
     {
@@ -146,12 +192,8 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
     {
         if (!FranProjectileTrailRenderer.TryDrawTelekineticCore(Projectile,
                 TrailBlue, TrailLightBlue, Color.White, 1f))
-            FranProjectileTrailRenderer.DrawFallback(Projectile, FranProjectileTrailProfile.TelekineticNeedle,
-                TrailLightBlue, 12f * Projectile.scale, 1f);
-        // 飞行顶端沿用 Fran 自己的贴图。
-        FranVfx.DrawOriginalPixels("FranPressureNeedle", Projectile.Center,
-            new Color(115, 225, 255), Projectile.rotation,
-            new Vector2(54f, 30f) * Projectile.scale);
+            FranProjectileTrailRenderer.DrawTelekineticCoreFallback(Projectile, TrailLightBlue);
+        FranProjectileTrailRenderer.DrawTelekineticCoreHead(Projectile, TrailBlue, TrailLightBlue);
         return false;
     }
 }

@@ -12,9 +12,10 @@ public sealed class FransHeadwear : ModItem
     {
         Item.width = 24;
         Item.height = 20;
-        Item.value = Item.buyPrice(gold: 1);
-        Item.rare = ItemRarityID.Blue;
+        Item.rare = ItemRarityID.Gray;
+        Item.value = 0;
         Item.maxStack = 1;
+        Item.accessory = false;
     }
 }
 
@@ -22,7 +23,6 @@ public sealed class FranZoologistShop : GlobalNPC
 {
     public override void ModifyShop(NPCShop shop)
     {
-        if (shop.NpcType == NPCID.BestiaryGirl)
-            shop.Add<FransHeadwear>();
+        // Fran mode is now tied to carrying ShiFu; keep the retired headwear out of shops.
     }
 }

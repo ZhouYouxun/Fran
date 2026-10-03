@@ -164,7 +164,7 @@ internal static class FranTelekineticPattern
         return total;
     }
 
-    private static float GetHitWeight(FranTelekineticShotKind kind)
+    internal static float GetHitWeight(FranTelekineticShotKind kind)
     {
         if (kind == FranTelekineticShotKind.Planet)
             return 1f + FranBalance.GetFloat(nameof(FranBalance.TelekineticPlanetExplosionDamageMultiplier),

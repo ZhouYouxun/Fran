@@ -24,7 +24,7 @@ public sealed class FranCoreImpactBurst : ModProjectile
         Projectile.tileCollide = false;
         Projectile.ignoreWater = true;
         Projectile.penetrate = -1;
-        Projectile.timeLeft = 24;
+        Projectile.timeLeft = 18;
         Projectile.noEnchantmentVisuals = true;
     }
 
@@ -41,61 +41,56 @@ public sealed class FranCoreImpactBurst : ModProjectile
         {
             SoundEngine.PlaySound(SoundID.Item10 with { Volume = 0.45f, Pitch = 0.2f, MaxInstances = 3 },
                 Projectile.Center);
-            SpawnLayer(afterglow: false);
+            SpawnLayer(release: false);
         }
-        else if (age == 9)
-            SpawnLayer(afterglow: true);
+        else if (age == 5)
+            SpawnLayer(release: true);
 
         Lighting.AddLight(Projectile.Center,
-            Telekinetic_CondensedMindCore.TrailLightBlue.ToVector3() * (0.7f * (1f - age / 24f)));
+            Telekinetic_CondensedMindCore.TrailLightBlue.ToVector3() * (0.7f * (1f - age / 18f)));
     }
 
-    private void SpawnLayer(bool afterglow)
+    private void SpawnLayer(bool release)
     {
         Vector2 center = Projectile.Center;
         float rotation = Projectile.ai[0];
         Color blue = Telekinetic_CondensedMindCore.TrailBlue;
         Color paleBlue = Telekinetic_CondensedMindCore.TrailLightBlue;
-        FranLightingBoltsSystem.SpawnMindCoreBurst(center, rotation, paleBlue, afterglow);
-
-        // 两层合计：14 枚 LightingBolts 亮点 + 10 枚光粒子 + 8 枚火花 + 8 枚 Dust。
-        // Dust 占生成数 20%；关闭通用粒子系统的自动补尘，保持显式配比。
-        int lightCount = afterglow ? 3 : 7;
-        for (int i = 0; i < lightCount; i++)
+        Vector2 forward = rotation.ToRotationVector2();
+        Vector2 side = forward.RotatedBy(MathHelper.PiOver2);
+        // 撞击先收束成核，再沿入射方向排出短碎片，避免二次长尾放射爆发。
+        FranParticleSystem.Spawn(new FranDirectionalRingParticle(center, Vector2.Zero, paleBlue,
+            release ? new Vector2(0.02f, 0.045f) : new Vector2(0.08f, 0.16f),
+            release ? new Vector2(0.10f, 0.20f) : new Vector2(0.02f, 0.045f),
+            rotation, release ? 10 : 6), spawnSupportingDust: false);
+        for (int i = 0; i < 6; i++)
         {
-            float angle = afterglow ? Main.rand.NextFloat(MathHelper.TwoPi)
-                : rotation + MathHelper.Pi / 6f + MathHelper.TwoPi * i / lightCount;
-            Vector2 direction = angle.ToRotationVector2();
-            Vector2 position = center + direction * (afterglow ? 18f : 6f);
-            Vector2 velocity = direction * Main.rand.NextFloat(afterglow ? 2f : 4f, afterglow ? 4f : 7f);
-            FranParticleSystem.Spawn(new FranLightParticle(position, velocity,
-                Main.rand.NextFloat(0.22f, 0.34f), Color.Lerp(blue, paleBlue, Main.rand.NextFloat()),
-                afterglow ? 57 : 45, 0.85f, 1.6f, 2.4f, timeScale: 1f / 3f), spawnSupportingDust: false);
+            float angle = MathHelper.TwoPi * i / 6f;
+            Vector2 offset = forward * MathF.Cos(angle) * 22f + side * MathF.Sin(angle) * 14f;
+            if (!release)
+                FranParticleSystem.Spawn(new FranLightParticle(center + offset, -offset * 0.18f,
+                    0.22f, Color.Lerp(blue, paleBlue, i / 5f), 6, 0.85f, 1.6f, 2.4f), spawnSupportingDust: false);
+            else
+            {
+                Vector2 velocity = forward * Main.rand.NextFloat(5f, 10f) + side * (i - 2.5f) * 0.8f;
+                FranParticleSystem.Spawn(new FranBladeEdgeMoteParticle(center + side * (i - 2.5f) * 2f,
+                    velocity, forward, i % 3 == 0 ? Color.White : paleBlue,
+                    Main.rand.NextFloat(12f, 24f), 1f, 11, 0.86f), spawnSupportingDust: false);
+            }
         }
-
-        int sparkCount = afterglow ? 3 : 5;
-        for (int i = 0; i < sparkCount; i++)
+        if (!release)
+            return;
+        for (int i = 0; i < 4; i++)
         {
-            Vector2 velocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(3.5f, 8.5f);
-            FranParticleSystem.Spawn(new FranSparkParticle(
-                center + Main.rand.NextVector2Circular(12f, 12f), velocity,
-                Color.Lerp(paleBlue, Color.White, Main.rand.NextFloat(0.1f, 0.45f)),
-                Main.rand.NextFloat(0.20f, 0.32f), new Vector2(0.30f, 1.35f),
-                Main.rand.Next(11, 18) * 3, drag: MathF.Pow(0.90f, 1f / 3f)), spawnSupportingDust: false);
-        }
-
-        int dustCount = afterglow ? 3 : 5;
-        for (int i = 0; i < dustCount; i++)
-        {
-            Dust dust = Dust.NewDustPerfect(center + Main.rand.NextVector2Circular(10f, 10f),
-                ModContent.DustType<FranCoreImpactDust>(), Main.rand.NextVector2Unit() * Main.rand.NextFloat(1.6f, 4.2f),
-                100, paleBlue, Main.rand.NextFloat(0.65f, 0.9f));
+            Dust dust = Dust.NewDustPerfect(center + side * (i - 1.5f) * 3f,
+                ModContent.DustType<FranCoreImpactDust>(), forward * 2f + side * (i - 1.5f) * 0.5f,
+                100, paleBlue, Main.rand.NextFloat(0.55f, 0.75f));
             dust.noGravity = true;
             dust.noLight = true;
         }
     }
 }
-// Impact-only blue torch dust with an explicit 45-frame lifetime; flight dust is unchanged.
+// 撞击碎屑快速消退；旧飞行 Dust 类型保留注册以兼容现有内容。
 public sealed class FranCoreImpactDust : ModDust
 {
     public override string Texture => "Terraria/Images/Dust";
@@ -110,9 +105,9 @@ public sealed class FranCoreImpactDust : ModDust
         (int age, float initialScale) = dust.customData is ValueTuple<int, float> state ? state : (0, dust.scale);
         dust.position += dust.velocity;
         dust.velocity *= 0.97f;
-        dust.scale = initialScale * (1f - ++age / 45f);
+        dust.scale = initialScale * (1f - ++age / 16f);
         dust.customData = (age, initialScale);
-        if (age >= 45)
+        if (age >= 16)
             dust.active = false;
         return false;
     }

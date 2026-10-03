@@ -73,7 +73,7 @@ internal sealed class FranSwingCadenceParticle : FranParticle
         {
             case FranSwingParticleStyle.CritSpark:
                 // CritSpark 生命周期短于标准淡出窗口，因此从生成时开始缓慢衰减，避免末帧突消。
-                Position += Velocity;
+                // 位移由 FranParticle.Step 统一完成，避免第一刀火花每帧移动两次。
                 if (Time > Lifetime - 20)
                     opacity *= 0.9f;
                 Velocity *= 0.85f;

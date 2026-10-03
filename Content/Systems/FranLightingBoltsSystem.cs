@@ -341,7 +341,7 @@ internal sealed class FranLightingBoltsSystem : ModSystem
         switch (combo)
         {
             case 0:
-                if (tick % 3 != 0)
+                if (tick % 5 != 0)
                     return;
                 Sparkle(position, tangent * 0.28f,
                     Color.Lerp(color, new Color(255, 224, 174), 0.20f),
@@ -353,12 +353,12 @@ internal sealed class FranLightingBoltsSystem : ModSystem
                 break;
 
             case 1:
-                if (tick % 2 != 0)
+                if (tick % 6 != 0)
                     return;
                 for (int side = -1; side <= 1; side += 2)
                 {
                     Vector2 offset = bladeDirection * side * (3f + intensity * 3f);
-                    Sparkle(position + offset, tangent * side * 0.34f,
+                    Sparkle(position + offset, tangent * 0.34f,
                         side > 0 ? Color.White : Color.Lerp(color, Color.White, 0.44f),
                         new Vector2(1.08f, 0.22f) * (0.72f + intensity * 0.22f),
                         14, tangent.ToRotation(), 0.55f);
@@ -366,39 +366,38 @@ internal sealed class FranLightingBoltsSystem : ModSystem
                 break;
 
             default:
-                if (tick % 3 != 1)
+                if (tick % 4 != 1)
                     return;
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    Vector2 offset = tangent * side * 11f;
-                    Sparkle(position + offset, -tangent * side * (0.65f + intensity * 0.42f),
+                    Vector2 offset = bladeDirection * side * 5f;
+                    Sparkle(position + offset, tangent * (0.65f + intensity * 0.42f),
                         side > 0 ? Color.White : Color.Lerp(color, Color.White, 0.58f),
                         new Vector2(1.72f, 0.27f) * (0.78f + intensity * 0.30f),
-                        15, (-tangent * side).ToRotation(), 0.62f);
+                        15, tangent.ToRotation(), 0.62f);
                 }
                 break;
         }
     }
 
-    /// <summary>第四刀的螺旋点列、横向闪星与退场碎光，按阶段切换运动方向。</summary>
+    /// <summary>第四刀沿剑身前移的闪星，集中在推出阶段，收剑时停止补发。</summary>
     public static void SpawnShiFuFinisherTrack(Vector2 origin, Vector2 bladeDirection,
         float reach, Color color, float progress, int tick)
     {
-        if (Main.dedServ || (tick & 1) != 0)
+        if (Main.dedServ || (tick & 1) != 0 || progress > 0.24f)
             return;
         Vector2 forward = bladeDirection.SafeNormalize(Vector2.UnitX);
         Vector2 normal = forward.RotatedBy(MathHelper.PiOver2);
-        bool release = progress >= 0.18f && progress <= 0.52f;
+        bool release = progress >= 0.10f;
+        float front = MathHelper.Lerp(0.38f, 0.94f, MathHelper.Clamp((progress - 0.06f) / 0.18f, 0f, 1f));
         for (int i = 0; i < 3; i++)
         {
-            float phase = tick * 1.2f + i * MathHelper.TwoPi / 3f;
-            float lane = System.MathF.Sin(phase) * (release ? 10f : 21f);
-            Vector2 position = origin + forward * reach * (0.34f + i * 0.20f) + normal * lane;
-            Vector2 velocity = release ? forward * (5f + i) :
-                progress < 0.18f ? -normal * lane * 0.22f : normal * lane * 0.12f + forward;
+            float lane = (i - 1) * 3f;
+            Vector2 position = origin + forward * reach * (front - i * 0.07f) + normal * lane;
+            Vector2 velocity = release ? forward * (3f + i) : forward - normal * lane * 0.15f;
             Sparkle(position, velocity, i == 1 ? Color.White : color,
                 release ? new Vector2(0.90f, 0.16f) : new Vector2(0.28f, 0.28f),
-                release ? 7 : 11, release ? forward.ToRotation() : phase, 0.65f);
+                release ? 7 : 11, forward.ToRotation(), 0.65f);
         }
     }
 
@@ -413,8 +412,8 @@ internal sealed class FranLightingBoltsSystem : ModSystem
         for (int i = 0; i < 6; i++)
         {
             float side = i % 2 == 0 ? -1f : 1f;
-            Vector2 offset = forward * ((i / 2 - 1) * 13f) + normal * side * (10f + i * 2f);
-            Sparkle(center + offset * scale, forward * 2.5f + normal * side * 1.8f,
+            Vector2 offset = -forward * (i / 2 * 8f) + normal * side * (3f + i * 0.6f);
+            Sparkle(center + offset * scale, forward * 2.5f + normal * side * 0.4f,
                 i % 3 == 0 ? new Color(255, 232, 179) : Color.Lerp(color, Color.White, 0.4f),
                 new Vector2(0.32f, 0.32f) * scale, 12 + i % 3, i * 0.8f, 0.66f);
         }

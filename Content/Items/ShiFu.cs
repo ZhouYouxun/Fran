@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using FranMod.Content.UI;
 using FranMod.Content.Players;
 using FranMod.Content.Projectiles;
+using FranMod.Content.Projectiles.Ultimate;
 using FranMod.Core;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -72,46 +73,62 @@ public sealed class ShiFu : ModItem
 
     public override bool CanUseItem(Player player)
     {
-        if (player.altFunctionUse == 2)
-        {
-            Item.channel = false;
-            Item.shoot = ProjectileID.None;
-            return false;
-        }
-
+        if (player.GetModPlayer<FranDiscPlayer>().Recovering) return false;
         Item.useTime = FranBalance.GetInt(nameof(FranBalance.ShiFuUseTimeFrames), FranBalance.ShiFuUseTimeFrames);
         Item.useAnimation = Item.useTime;
         Item.knockBack = FranBalance.GetFloat(nameof(FranBalance.ShiFuKnockback), FranBalance.ShiFuKnockback);
         Item.channel = true;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
-        Item.shoot = fran.IsFullTacticLoadout(FranSkill.PressurizedQuickdraw)
+        if (player.altFunctionUse == 2 && fran.UltimateActive) return false;
+        Item.shoot = player.altFunctionUse == 2
+            ? ModContent.ProjectileType<FranSpinningDisc>()
+            : fran.VigilActive
+            ? ModContent.ProjectileType<FranVigilSwing>()
+            : fran.IsFullTacticLoadout(FranSkill.PressurizedQuickdraw)
             ? ModContent.ProjectileType<FranQuickdrawDiscHoldout>()
             : ModContent.ProjectileType<ShiFuSwingRebuild>();
-        return player.ownedProjectileCounts[ModContent.ProjectileType<ShiFuSwingRebuild>()] == 0 &&
-            player.ownedProjectileCounts[ModContent.ProjectileType<FranQuickdrawDiscHoldout>()] == 0;
+        if (fran.VigilActive) Item.useAnimation = Item.useTime = FranVigilRules.ReferenceUseAnimation;
+        return player.ownedProjectileCounts[ModContent.ProjectileType<FranSpinningDisc>()] == 0 &&
+            player.ownedProjectileCounts[ModContent.ProjectileType<ShiFuSwingRebuild>()] == 0 &&
+            player.ownedProjectileCounts[ModContent.ProjectileType<FranQuickdrawDiscHoldout>()] == 0 &&
+            player.ownedProjectileCounts[ModContent.ProjectileType<FranVigilSwing>()] == 0;
     }
 
     public override bool Shoot(Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity,
         int type, int damage, float knockback)
     {
-        if (player.altFunctionUse == 2)
-            return false;
-
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
         Vector2 aim = (Main.MouseWorld - player.MountedCenter).SafeNormalize(Vector2.UnitX * player.direction);
-        if (fran.IsFullTacticLoadout(FranSkill.PressurizedQuickdraw))
+        if (player.altFunctionUse == 2)
         {
-            // 全选压缩居合是一套独立的持续形态，不消耗也不推进普通四段连招。
+            int index = Projectile.NewProjectile(source, player.MountedCenter, aim,
+                ModContent.ProjectileType<FranSpinningDisc>(), damage, knockback, player.whoAmI);
+            if (Main.projectile.IndexInRange(index) && Main.projectile[index].ModProjectile is FranSpinningDisc disc)
+            {
+                disc.InitializeAttack(damage, fran.GetActiveTacticSnapshot());
+                Main.projectile[index].netUpdate = true;
+            }
+            return false;
+        }
+        if (fran.VigilActive)
+        {
             fran.ComboIndex = 0;
             fran.ComboReset = 0;
-            int layers = Math.Clamp(fran.GetSkillStacks(FranSkill.PressurizedQuickdraw),
-                1, FranPlayer.MaximumTacticSlots);
-            float discKnockback = knockback * FranBalance.GetFloat(
-                nameof(FranBalance.QuickdrawFullDiscKnockbackMultiplier),
-                FranBalance.QuickdrawFullDiscKnockbackMultiplier);
             Projectile.NewProjectile(source, player.MountedCenter, aim,
-                ModContent.ProjectileType<FranQuickdrawDiscHoldout>(), damage, discKnockback,
-                player.whoAmI, layers);
+                ModContent.ProjectileType<FranVigilSwing>(), damage, knockback, player.whoAmI);
+            return false;
+        }
+
+        if (fran.IsFullTacticLoadout(FranSkill.PressurizedQuickdraw))
+        {
+            // Full quickdraw retains its original sustained whirlwind outside Vigil.
+            fran.ComboIndex = 0;
+            fran.ComboReset = 0;
+            int layers = Math.Clamp(fran.GetSkillStacks(FranSkill.PressurizedQuickdraw), 1, FranPlayer.MaximumTacticSlots);
+            float discKnockback = knockback * FranBalance.GetFloat(
+                nameof(FranBalance.QuickdrawFullDiscKnockbackMultiplier), FranBalance.QuickdrawFullDiscKnockbackMultiplier);
+            Projectile.NewProjectile(source, player.MountedCenter, aim,
+                ModContent.ProjectileType<FranQuickdrawDiscHoldout>(), damage, discKnockback, player.whoAmI, layers);
             return false;
         }
 
@@ -119,14 +136,8 @@ public sealed class ShiFu : ModItem
         int combo = fran.ConsumeNextCombo();
         int unscaledSwordDamage = damage;
         damage = Math.Max(1, (int)(damage * FranBalance.GetComboDamageMultiplier(combo)));
-        // 自定义挥舞也读取物品的攻速收益系数，不能绕过 BonusAttackSpeedMultiplier。
-        float attackSpeed = Math.Max(0.25f, player.GetWeaponAttackSpeed(Item));
-        float baseDuration = FranBalance.GetComboBaseDuration(combo);
-        // 第四刀快速直推；时长仍写入 ai[1]，使持剑、战术和远端玩家共用同一时钟。
-        if (combo == 3)
-            baseDuration *= 0.74f;
-        float evolutionDuration = evolution.ConsumeSwingDurationMultiplier(combo);
-        int duration = Math.Max(12, (int)MathF.Round(baseDuration / attackSpeed * evolutionDuration));
+        // The disc and the left chain share the exact attack-speed and fourth-beat clock.
+        int duration = FranSwordTiming.ConsumeBeatDuration(player, combo);
         FranSkill skill = fran.HasSelectedSkill ? fran.SelectedSkill : FranSkill.None;
         int packedImprint = skill == FranSkill.None ? 0 : (int)skill + 1;
         int projectileIndex = Projectile.NewProjectile(source, player.MountedCenter, aim, type, damage, knockback, player.whoAmI,
@@ -148,6 +159,9 @@ public sealed class ShiFu : ModItem
 
     public override void ModifyTooltips(List<TooltipLine> tooltips)
     {
+        foreach (TooltipLine line in tooltips)
+            if (line.Mod == "Terraria" && line.Name.StartsWith("Tooltip", StringComparison.Ordinal))
+                line.Text = line.Text.Replace("{WheelKey}", GetAssignedKeyOrUnbound(FranModMain.SkillWheelKey));
         ApplyGuidanceLineColors(tooltips);
         FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
         InsertUltimateTooltip(tooltips, fran);
@@ -174,11 +188,10 @@ public sealed class ShiFu : ModItem
 
     private void InsertUltimateTooltip(List<TooltipLine> tooltips, FranPlayer fran)
     {
-        string key = fran.UltimateUnlocked ? "UltimateTooltip" : "UltimateLocked";
         string text = fran.UltimateUnlocked
-            ? Language.GetTextValue($"Mods.Fran.Items.ShiFu.{key}",
-                GetAssignedKeyOrUnbound(FranModMain.UltimateKey))
-            : Language.GetTextValue($"Mods.Fran.Items.ShiFu.{key}");
+            ? Language.GetTextValue("Mods.Fran.Ultimates.ItemTooltip", GetAssignedKeyOrUnbound(FranModMain.UltimateKey),
+                Language.GetTextValue($"Mods.Fran.Ultimates.{fran.SelectedUltimate}.Name"))
+            : Language.GetTextValue("Mods.Fran.Items.ShiFu.UltimateLocked");
         int index = FindGuidanceEndIndex(tooltips);
         int lineNumber = 0;
         foreach (string line in text.Split('\n'))
@@ -267,7 +280,7 @@ public sealed class ShiFu : ModItem
         return Language.GetTextValue("Mods.Fran.Abilities.Dash.Unbound");
     }
 
-    private static string GetAssignedKeyOrUnbound(ModKeybind keybind) =>
+    internal static string GetAssignedKeyOrUnbound(ModKeybind keybind) =>
         TryGetAssignedKey(keybind, out string key) ? key :
             Language.GetTextValue("Mods.Fran.Items.ShiFu.UnboundKey");
 

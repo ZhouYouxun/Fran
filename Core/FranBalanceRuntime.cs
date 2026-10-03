@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -209,6 +209,40 @@ public static partial class FranBalance
         return 1;
     }
 
+    // Column five follows the current milestone, allowing lower early and higher late ratios.
+    public static float GetDiscDamageMultiplier()
+    {
+        float multiplier = 0.45f;
+        int bestRank = -1;
+        foreach (var entry in FranBalanceSource.GetCoreDiscColumnTable(4))
+        {
+            int rank = GetDamageProgressionRank(entry.Milestone);
+            if (IsMilestoneCompleted(entry.Milestone) && rank >= bestRank)
+            {
+                bestRank = rank;
+                multiplier = entry.Value;
+            }
+        }
+        return Math.Max(0f, multiplier);
+    }
+
+    // -1 disables the leash. This is a world-space distance, independent of blade size.
+    public static float GetDiscDistanceLimit()
+    {
+        float distance = 240f;
+        int bestRank = -1;
+        foreach (var entry in FranBalanceSource.GetCoreDiscColumnTable(5))
+        {
+            int rank = GetDamageProgressionRank(entry.Milestone);
+            if (IsMilestoneCompleted(entry.Milestone) && rank >= bestRank)
+            {
+                bestRank = rank;
+                distance = entry.Value;
+            }
+        }
+        return distance < 0f ? float.PositiveInfinity : Math.Max(0f, distance);
+    }
+
     public static float GetCoreSizeMultiplier()
     {
         GetCurrentCoreProgression(out _, out float sizeMultiplier, out _);
@@ -284,6 +318,7 @@ public static partial class FranBalance
 
     public static bool IsTacticUnlocked(FranSkill skill)
     {
+        if (!FranSkillInfo.IsRealSkill(skill)) return false;
         foreach ((FranSkill candidate, FranProgressionMilestone milestone) in
                  FranBalanceSource.GetEnumEnumTable<FranSkill, FranProgressionMilestone>(
                      nameof(TacticUnlockProgression), TacticUnlockProgression))
@@ -683,6 +718,24 @@ internal static class FranBalanceSource
             else if (rawSize is int intSize)
                 parsed.Add((milestone, damage, intSize, dashDamage));
         }
+        return parsed;
+    }
+
+    public static List<(FranProgressionMilestone Milestone, float Value)> GetCoreDiscColumnTable(int column)
+    {
+        List<(FranProgressionMilestone, float)> parsed = new();
+        foreach (string row in GetRows(nameof(FranBalance.CoreProgression)))
+        {
+            List<string> cells = SplitCells(row);
+            if (cells.Count > column && TryParseEnum(cells[0], out FranProgressionMilestone milestone) &&
+                TryParseFloat(cells[column], out float value))
+                parsed.Add((milestone, value));
+        }
+        if (parsed.Count > 0) return parsed;
+        var table = FranBalance.CoreProgression;
+        for (int row = 0; row < table.GetLength(0); row++)
+            if (table[row, 0] is FranProgressionMilestone milestone)
+                parsed.Add((milestone, Convert.ToSingle(table[row, column], CultureInfo.InvariantCulture)));
         return parsed;
     }
 

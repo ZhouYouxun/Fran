@@ -20,15 +20,14 @@ using Terraria.ModLoader;
 namespace FranMod.Content.Projectiles;
 
 // The replacement runtime for ShiFu's left-click chain. No player or NPC velocity is written here.
-public sealed class ShiFuSwingRebuild : ModProjectile
+public sealed class ShiFuSwingRebuild : ModProjectile, IShiFuAttack
 {
     private const int TrailSamples = 72;
     private const int SamplesPerTick = 4;
     private const int GhostAuraDraws = 20;
-    // 师父本体贴图从右手原点到剑尖沿出刀轴的实际长度（源贴图像素）。
-    private const float SuppliedTextureBladeLength = 193.04f;
+    // 从握柄中段到剑尖的源图长度；刀光与攻击长度都以握持点为基准。
     private const float WeaponHiltOffset = 8f;
-    private const float FirstAndThirdSlashVisualReachMultiplier = 0.80f;
+    private const float FirstAndThirdSlashVisualReachMultiplier = 1f;
     // 第四剑持剑起点只额外前移 8 像素，且永不随成长放大。
     private const float FourthWeaponMaximumPush = 8f;
     private readonly Vector2[] tipHistory = new Vector2[TrailSamples];
@@ -68,6 +67,9 @@ public sealed class ShiFuSwingRebuild : ModProjectile
     private bool initialized;
     private bool attackSoundPlayed;
     private int fourthReleaseStage;
+    private int fourthFlowStep;
+    private int swingParticleStep;
+    private float swingParticleRemainder;
     private bool imprintReleaseTriggered;
     private bool evolutionSequenceRegistered;
     private float evolutionDamageMultiplier = 1f;
@@ -88,6 +90,8 @@ public sealed class ShiFuSwingRebuild : ModProjectile
     internal bool HammerHitWindowEnded => Progress > 0.88f;
     // 在主剑乘刀段倍率并取整之前保存；分身用相同基础值均分整轮伤害。
     internal int UnscaledSwordDamage { get; set; }
+    int IShiFuAttack.SkillBaseDamage => UnscaledSwordDamage;
+    int IShiFuAttack.ReserveSkillTakerWisps(int requested) => ReserveSkillTakerWisps(requested);
 
     public override string Texture => FranShiFuVisuals.TexturePath;
 
@@ -299,7 +303,7 @@ public sealed class ShiFuSwingRebuild : ModProjectile
         // 第二剑的 1.2x 与伸展脉冲会叠成约 1.46x，导致回旋刀光悬在实际剑尖外。
         // 将第二剑整套共用几何收回 30%；剑光和碰撞共同读取该长度，避免二次缩放。
         float visualAlignment = Combo == 1 ? 0.70f : 1f;
-        float visibleBladeLength = SuppliedTextureBladeLength * WeaponDrawScale();
+        float visibleBladeLength = FranShiFuVisuals.BladeLengthFromGripPixels * WeaponDrawScale();
         float alignedLength = visibleBladeLength * poseRatio *
             evolution.BladeReachMultiplier * visualAlignment;
         // 即使投入额外范围进化，第二剑也不能再次越过固定不变的武器贴图尖端。
@@ -333,10 +337,15 @@ public sealed class ShiFuSwingRebuild : ModProjectile
 
     private void EmitSwingEffects()
     {
-        if (CanDamage() == false || Main.dedServ)
+        if (Main.dedServ)
             return;
 
         Color color = ElementColor();
+        // 基础粒子按剑路/推出进度取样；跨过窗口边界的快速挥砍也能补齐这一段。
+        EmitSwingCadenceParticles(color);
+        if (CanDamage() == false)
+            return;
+
         Vector2 blade = currentAngle.ToRotationVector2();
         Vector2 tangent = (tipHistory[0] - tipHistory[Math.Min(4, TrailSamples - 1)]).SafeNormalize(blade.RotatedBy(MathHelper.PiOver2));
         Vector2 tip = tipHistory[0];
@@ -357,19 +366,6 @@ public sealed class ShiFuSwingRebuild : ModProjectile
         }
 
         float swingActivity = SwingActivity();
-        // 不触发全局 4:1 Dust 补发；每 16 帧只留一枚微小尘粒。
-        if ((int)Projectile.localAI[0] % 16 == 7)
-        {
-            Dust dust = Dust.NewDustPerfect(Vector2.Lerp(Owner.MountedCenter, tip, 0.68f),
-                DustID.FireworksRGB, (Combo == 3 ? blade : tangent) * 1.2f, 90, color, 0.55f);
-            dust.noGravity = true;
-        }
-        EmitSwingCadenceParticles(blade, tangent, color, swingActivity);
-        if (Combo != 3)
-            global::FranMod.FranLightingBoltsSystem.SpawnShiFuSwingAccent(
-                Vector2.Lerp(Owner.MountedCenter, tip, Combo == 1 ? 0.74f : 0.84f),
-                blade, tangent, color, Combo, swingActivity, (int)Projectile.localAI[0]);
-
         if ((HasTactic(FranSkill.ThunderChain) || HasTactic(FranSkill.ThorsHammer)) &&
             swingActivity > 0.32f && (int)Projectile.localAI[0] % 3 == 0)
         {
@@ -388,30 +384,57 @@ public sealed class ShiFuSwingRebuild : ModProjectile
         return MathF.Sin(activeProgress * MathHelper.Pi);
     }
 
-    private void EmitSwingCadenceParticles(Vector2 blade, Vector2 tangent, Color color,
-        float swingActivity)
+    private void EmitSwingCadenceParticles(Color color)
     {
-        if (swingActivity <= 0.08f)
-            return;
-
         if (Combo == 3)
         {
-            EmitFourthCompressionParticles(blade, color);
+            EmitFourthCompressionParticles(currentAngle.ToRotationVector2(), color);
             return;
         }
 
-        int maximumHistoryIndex = Math.Min(Combo == 2 ? 11 : 8, TrailSamples - 2);
-        int historyIndex = Main.rand.Next(maximumHistoryIndex + 1);
-        Vector2 arcPoint = tipHistory[historyIndex];
-        Vector2 olderPoint = tipHistory[Math.Min(historyIndex + SamplesPerTick, TrailSamples - 1)];
-        Vector2 localTangent = (arcPoint - olderPoint).SafeNormalize(tangent);
-        // 回旋剑的闪光只占据剑路内圈至接近剑尖的位置，避免粒子贴图越过本体最外缘。
-        float alongBlade = Combo == 1
-            ? Main.rand.NextFloat(0.56f, 0.88f)
-            : Main.rand.NextFloat(0.56f, 0.98f);
-        Vector2 position = Vector2.Lerp(Owner.MountedCenter, arcPoint, alongBlade) +
-            Main.rand.NextVector2Circular(1.8f, 1.8f);
-        float speedScale = MathHelper.Lerp(0.82f, 1.08f, swingActivity);
+        float start = Combo switch { 0 => 0.16f, 1 => 0.11f, _ => 0.23f };
+        float end = Combo switch { 0 => 0.60f, 1 => 0.84f, _ => 0.56f };
+        float from = Math.Max(start, (Projectile.localAI[0] - 1f) / Duration);
+        float to = Math.Min(end, Progress);
+        if (to <= from)
+            return;
+
+        ComputePose(from, out float fromAngle, out _, out _);
+        ComputePose(to, out float toAngle, out _, out _);
+        float sweep = Math.Abs(toAngle - fromAngle);
+        if (sweep <= 0.0001f)
+            return;
+
+        // 按走过的弧长角度发射，而非随机回填旧轨迹。每刀总量不再随攻速翻倍。
+        float spacing = Combo == 1 ? 0.24f : 0.22f;
+        float motion = MathHelper.Clamp(sweep / (to - from) / 32f, 0f, 1f);
+        float reach = ParticleBladeLength();
+        for (float distance = spacing - swingParticleRemainder; distance <= sweep; distance += spacing)
+        {
+            float fraction = distance / sweep;
+            Vector2 blade = MathHelper.Lerp(fromAngle, toAngle, fraction).ToRotationVector2();
+            Vector2 tangent = blade.RotatedBy(MathHelper.PiOver2 * Math.Sign(toAngle - fromAngle));
+            Vector2 origin = Owner.MountedCenter + blade * WeaponHiltOffset;
+            EmitBladeParticleSample(origin, blade, tangent, reach, color, motion);
+        }
+        swingParticleRemainder = (swingParticleRemainder + sweep) % spacing;
+    }
+
+    // 与 DrawWeapon 的贴图端点一致，攻击判定的伸展倍率不参与粒子定位。
+    private float ParticleBladeLength() => Math.Max(24f,
+        FranShiFuVisuals.TextureDiagonal * WeaponDrawScale() - FranShiFuVisuals.GripInset);
+
+    private static float FourthPulseProgress(int stage) => 0.08f + stage * 0.06f;
+    private static float FourthPulseAlongBlade(int stage) => 0.56f + stage * 0.20f;
+
+    private void EmitBladeParticleSample(Vector2 origin, Vector2 blade, Vector2 localTangent,
+        float reach, Color color, float motion)
+    {
+        int step = swingParticleStep++;
+        float alongBlade = Combo == 1 ? Main.rand.NextFloat(0.62f, 0.82f) : Main.rand.NextFloat(0.72f, 0.94f);
+        Vector2 position = origin + blade * (reach * alongBlade) + localTangent * Main.rand.NextFloat(-1.5f, 1.5f);
+        float speedScale = MathHelper.Lerp(0.65f, 1f, motion);
+        int lifetime = Math.Clamp((int)(Duration * 0.35f), 6, 15);
         Vector2 velocity;
         FranSwingCadenceParticle particle;
 
@@ -419,25 +442,23 @@ public sealed class ShiFuSwingRebuild : ModProjectile
         {
             case 0:
                 velocity = localTangent.RotatedByRandom(0.10f) * Main.rand.NextFloat(3.4f, 5.4f) * speedScale +
-                    blade * Main.rand.NextFloat(0.15f, 0.48f);
+                    blade * Main.rand.NextFloat(0.05f, 0.18f);
                 particle = FranSwingCadenceParticle.CritSpark(position, velocity,
                     Color.Lerp(color, ImprintSkill == FranSkill.BlueResonance
-                        ? FranResonanceVisuals.Pale : new Color(255, 205, 132), 0.18f));
+                        ? FranResonanceVisuals.Pale : new Color(255, 205, 132), 0.18f), lifetime);
                 break;
 
             case 1:
-                velocity = localTangent.RotatedByRandom(0.15f) * Main.rand.NextFloat(2.8f, 4.8f) * speedScale +
-                    blade * Main.rand.NextFloat(0.12f, 0.42f);
+                velocity = localTangent.RotatedByRandom(0.06f) * Main.rand.NextFloat(1.8f, 3.2f) * speedScale;
                 particle = FranSwingCadenceParticle.SparklePulse(position, velocity,
                     Main.rand.NextBool(4) ? Color.Lerp(color, Color.White, 0.46f) : color,
-                    localTangent.ToRotation(), Main.rand.NextFloat(0.4f, 1.1f));
+                    localTangent.ToRotation(), Main.rand.NextFloat(0.4f, 1.1f), lifetime: lifetime);
                 break;
 
             case 2:
-                velocity = localTangent.RotatedByRandom(0.13f) * Main.rand.NextFloat(4.4f, 7.0f) * speedScale +
-                    blade * Main.rand.NextFloat(0.18f, 0.62f);
+                velocity = localTangent.RotatedByRandom(0.06f) * Main.rand.NextFloat(4.4f, 7.0f) * speedScale;
                 particle = FranSwingCadenceParticle.DrainLineBloom(position, velocity,
-                    Color.Lerp(color, Color.White, 0.10f), Main.rand.NextFloat(0.3f, 0.8f));
+                    Color.Lerp(color, Color.White, 0.10f), Main.rand.NextFloat(0.3f, 0.8f), lifetime);
                 break;
 
             default:
@@ -445,21 +466,39 @@ public sealed class ShiFuSwingRebuild : ModProjectile
         }
 
         FranParticleSystem.Spawn(particle, spawnSupportingDust: false);
-        FranShiFuSwingEffects.Swing(Owner.MountedCenter, position, blade, localTangent,
-            color, Combo, (int)Projectile.localAI[0], swingActivity, ImprintSkill == FranSkill.BlueResonance);
+        FranShiFuSwingEffects.Swing(origin, position, localTangent,
+            color, Combo, step, motion, lifetime, ImprintSkill == FranSkill.BlueResonance);
+        global::FranMod.FranLightingBoltsSystem.SpawnShiFuSwingAccent(
+            origin + blade * reach * (Combo == 1 ? 0.82f : 0.94f),
+            blade, localTangent, color, Combo, MathHelper.Lerp(0.35f, 1f, motion), step);
+        if (step % 8 == 0)
+        {
+            Dust dust = Dust.NewDustPerfect(position, DustID.FireworksRGB,
+                localTangent * 1.2f, 90, color, 0.55f);
+            dust.noGravity = true;
+        }
     }
 
     private void EmitFourthCompressionParticles(Vector2 blade, Color color)
     {
-        float usableReach = Math.Max(48f, currentReach - WeaponHiltOffset - currentWeaponOffset);
-        Vector2 origin = Owner.MountedCenter + blade * (WeaponHiltOffset + currentWeaponOffset);
-        FranShiFuSwingEffects.FinisherFlow(origin, blade, usableReach, color,
-            Progress, (int)Projectile.localAI[0], ImprintSkill == FranSkill.BlueResonance);
+        float usableReach = ParticleBladeLength();
+        // 流光随推出阶段前移；收剑后半段只让已有粒子自然消退。
+        while (fourthFlowStep < 12 && Progress >= 0.06f + fourthFlowStep * 0.028f)
+        {
+            float sampleProgress = 0.06f + fourthFlowStep * 0.028f;
+            Vector2 origin = Owner.MountedCenter + blade * (WeaponHiltOffset + FourthWeaponPushOffset(sampleProgress));
+            FranShiFuSwingEffects.FinisherFlow(origin, blade, usableReach, color,
+                sampleProgress, fourthFlowStep, ImprintSkill == FranSkill.BlueResonance);
+            fourthFlowStep++;
+        }
 
         // 用进度跨阈值触发，在最低 12 帧时长和高攻速下也不会漏掉任一段。
-        while (fourthReleaseStage < 3 && Progress >= 0.10f + fourthReleaseStage * 0.16f)
+        while (fourthReleaseStage < 3 && Progress >= FourthPulseProgress(fourthReleaseStage))
         {
-            FranShiFuSwingEffects.FinisherPulse(origin, blade, usableReach, color, fourthReleaseStage,
+            float releaseProgress = FourthPulseProgress(fourthReleaseStage);
+            Vector2 origin = Owner.MountedCenter + blade * (WeaponHiltOffset + FourthWeaponPushOffset(releaseProgress));
+            Vector2 center = origin + blade * usableReach * FourthPulseAlongBlade(fourthReleaseStage);
+            FranShiFuSwingEffects.FinisherPulse(center, blade, color, fourthReleaseStage,
                 ImprintSkill == FranSkill.BlueResonance);
             fourthReleaseStage++;
         }
@@ -672,12 +711,15 @@ public sealed class ShiFuSwingRebuild : ModProjectile
         int trailDirection = facing;
         Vector2 blade = currentAngle.ToRotationVector2();
         Vector2 trailPivot = Owner.MountedCenter + blade * (WeaponHiltOffset + currentWeaponOffset);
-        // 第一、第三刀只收短刀光，不改变剑身、命中判定或战术弹幕使用的实际攻击长度。
+        // 第一、第三刀的刀光覆盖完整有效剑长，外缘落在剑尖，内缘约从剑长的八成处起。
         float visualTipReach = Combo is 0 or 2
             ? currentReach * FirstAndThirdSlashVisualReachMultiplier
             : currentReach;
         float trailReach = Math.Max(24f,
             visualTipReach - WeaponHiltOffset - currentWeaponOffset);
+        // 第二、第三刀的刀盘及底层刀光共同读取实际剑长，包含世界进度的大小倍率。
+        if (Combo is 1 or 2)
+            trailReach = ParticleBladeLength();
         // 第四剑是纯轴向压缩推出：不调用前三剑共用的挥舞型刀光渲染器。
         if (Combo != 3 && !FranBladeTrailRenderer.TryDrawSlash(trailPivot, currentAngle,
                 trailReach, Progress, color, visualStrength, trailStyle, trailDirection))
@@ -690,11 +732,12 @@ public sealed class ShiFuSwingRebuild : ModProjectile
             return;
 
         FranVfx.BeginAdditive();
+        Vector2 particleTip = trailPivot + blade * ParticleBladeLength();
         switch (Combo)
         {
             case 0:
                 // The first cut stays clean: a small tip corona supports the analytic material arc.
-                Vector2 firstSlashVisualTip = Owner.MountedCenter + blade * visualTipReach;
+                Vector2 firstSlashVisualTip = particleTip;
                 FranVfx.DrawShared("GlowOrbParticle", firstSlashVisualTip, color * (0.34f * visualStrength),
                     0f, 0.15f);
                 FranVfx.DrawShared("HalfStar", firstSlashVisualTip, Color.White * (0.50f * visualStrength),
@@ -704,41 +747,39 @@ public sealed class ShiFuSwingRebuild : ModProjectile
             case 1:
                 // The second cut is a continuous wheel. Two restrained circular smears make the rotation
                 // legible while the analytic trail remains the actual blade material.
-                FranVfx.DrawShared("CircularSmearSmokey", Owner.MountedCenter,
+                DrawSizedSlashDisc("CircularSmearSmokey", Owner.MountedCenter,
                     color * (0.30f * visualStrength), currentAngle * 0.58f,
-                    (0.76f + visualStrength * 0.10f) * 2.7f);
-                FranVfx.DrawShared("CircularSmear", Owner.MountedCenter,
+                    (WeaponHiltOffset + ParticleBladeLength()) * (0.94f + visualStrength * 0.04f));
+                DrawSizedSlashDisc("CircularSmear", Owner.MountedCenter,
                     Color.Lerp(color, Color.White, 0.68f) * (0.20f * visualStrength),
-                    -currentAngle * 0.32f, (0.61f + visualStrength * 0.08f) * 2.7f);
-                FranVfx.DrawShared("HalfStar", tipHistory[0], Color.White * (0.62f * visualStrength),
+                    -currentAngle * 0.32f, (WeaponHiltOffset + ParticleBladeLength()) * (0.78f + visualStrength * 0.04f));
+                FranVfx.DrawShared("HalfStar", particleTip, Color.White * (0.62f * visualStrength),
                     currentAngle, 0.72f);
                 break;
 
             case 2:
                 // This Fran-owned arc is square and centered, so a single uniform scale keeps its
                 // circular geometry intact while it follows the heavy third swing.
-                Texture2D thirdSlashTexture = FranVfx.Shared("FranThirdSlashSmear");
-                float thirdSlashDiameter = Math.Max(1f, Math.Max(thirdSlashTexture.Width, thirdSlashTexture.Height));
-                float thirdSlashScale = visualTipReach * 2f / thirdSlashDiameter;
                 float thirdSlashRotation = currentAngle + (facing > 0 ? MathHelper.Pi : 0f);
-                Vector2 thirdSlashVisualTip = Owner.MountedCenter + blade * visualTipReach;
-                FranVfx.DrawShared("FranThirdSlashSmear", Owner.MountedCenter,
-                    color * (0.34f * visualStrength), thirdSlashRotation, thirdSlashScale);
+                Vector2 thirdSlashVisualTip = particleTip;
+                DrawSizedSlashDisc("FranThirdSlashSmear", Owner.MountedCenter,
+                    color * (0.34f * visualStrength), thirdSlashRotation,
+                    WeaponHiltOffset + ParticleBladeLength());
                 FranVfx.DrawShared("HalfStar", thirdSlashVisualTip, Color.White * (0.78f * visualStrength),
                     tangentRotation(), 1.02f);
                 break;
 
             default:
                 // 三次短闪由近至远推进，间隙露出剑身；没有圆弧刀光或同位三重叠绘。
-                float compressedReach = trailReach;
+                float compressedReach = ParticleBladeLength();
                 for (int stage = 0; stage < 3; stage++)
                 {
-                    float start = 0.07f + stage * 0.16f;
-                    float pulse = FranMotion.Pulse(Progress, start, start + 0.035f,
-                        start + 0.075f, start + 0.16f);
+                    float start = FourthPulseProgress(stage) - 0.02f;
+                    float pulse = FranMotion.Pulse(Progress, start, start + 0.02f,
+                        start + 0.045f, start + 0.08f);
                     if (pulse <= 0.01f)
                         continue;
-                    Vector2 focus = trailPivot + blade * compressedReach * (0.38f + stage * 0.21f);
+                    Vector2 focus = trailPivot + blade * compressedReach * FourthPulseAlongBlade(stage);
                     Color tint = Color.Lerp(color, ImprintSkill == FranSkill.BlueResonance
                         ? FranResonanceVisuals.Cyan : new Color(198, 147, 255), stage * 0.16f);
                     FranVfx.DrawSharedPixels("BloomCircle", focus, tint * (pulse * 0.46f),
@@ -757,6 +798,13 @@ public sealed class ShiFuSwingRebuild : ModProjectile
             .SafeNormalize(blade.RotatedBy(MathHelper.PiOver2)).ToRotation();
     }
 
+    private static void DrawSizedSlashDisc(string textureName, Vector2 center, Color color, float rotation, float radius)
+    {
+        Texture2D texture = FranVfx.Shared(textureName);
+        float diameter = Math.Max(1f, Math.Max(texture.Width, texture.Height));
+        FranVfx.DrawShared(textureName, center, color, rotation, radius * 2f / diameter);
+    }
+
     private static void DrawSafeVertical(string textureName, Vector2 start, Vector2 end, Color color, float width)
     {
         Vector2 edge = end - start;
@@ -773,9 +821,11 @@ public sealed class ShiFuSwingRebuild : ModProjectile
     {
         Texture2D texture = FranShiFuVisuals.Texture;
         Texture2D ghostTexture = FranShiFuVisuals.GhostTexture;
+        Texture2D glowTexture = FranShiFuVisuals.GlowTexture;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         Vector2 origin = new(facing < 0 ? texture.Width : 0f, texture.Height);
         Vector2 ghostOrigin = new(facing < 0 ? ghostTexture.Width : 0f, ghostTexture.Height);
+        Vector2 glowOrigin = new(facing < 0 ? glowTexture.Width : 0f, glowTexture.Height);
         float extra = facing < 0 ? MathHelper.PiOver2 : 0f;
 
         for (int i = 20; i >= 2; i -= 4)
@@ -791,7 +841,7 @@ public sealed class ShiFuSwingRebuild : ModProjectile
         }
 
         Vector2 drawPosition = Owner.MountedCenter + currentAngle.ToRotationVector2() *
-            (WeaponHiltOffset + currentWeaponOffset) - Main.screenPosition;
+            (WeaponHiltOffset + currentWeaponOffset - FranShiFuVisuals.GripInset) - Main.screenPosition;
         float auraRadius = (Combo == 2 ? 6.5f : 5.5f) * visualStrength;
         Color ghostColor = new(energyColor.R, energyColor.G, energyColor.B, 0);
         for (int i = 0; i < GhostAuraDraws; i++)
@@ -799,10 +849,13 @@ public sealed class ShiFuSwingRebuild : ModProjectile
             Vector2 offset = (MathHelper.TwoPi * i / GhostAuraDraws).ToRotationVector2() * auraRadius;
             Main.EntitySpriteDraw(ghostTexture, drawPosition + offset, null,
                 ghostColor * (0.15f * visualStrength), Projectile.rotation, ghostOrigin,
-                (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranShiFuVisuals.TextureScale, effects, 0f);
+                (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranShiFuVisuals.TextureScaleFor(ghostTexture), effects, 0f);
         }
         Main.EntitySpriteDraw(texture, drawPosition, null, lightColor, Projectile.rotation, origin,
             (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranShiFuVisuals.TextureScale, effects, 0f);
+        Main.EntitySpriteDraw(glowTexture, drawPosition, null,
+            Color.White * (0.72f * visualStrength), Projectile.rotation, glowOrigin,
+            (1.05f + (Combo == 2 ? 0.07f : 0f)) * FranShiFuVisuals.TextureScaleFor(glowTexture), effects, 0f);
     }
 }
 
@@ -830,6 +883,7 @@ internal sealed class ShiFuBackDrawPlayer : ModPlayer
             return;
 
         Texture2D texture = FranShiFuVisuals.Texture;
+        Texture2D glowTexture = FranShiFuVisuals.GlowTexture;
         int facing = player.direction;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         // The sword is mounted through its mass centre. Using a bottom corner here pins the blade's
@@ -848,6 +902,14 @@ internal sealed class ShiFuBackDrawPlayer : ModPlayer
             shader = 0
         };
         drawInfo.DrawDataCache.Insert(0, sword);
+
+        // Match the centred back-mounted sword, not the corner-anchored swing rendering.
+        Vector2 glowOrigin = glowTexture.Size() * 0.5f;
+        DrawData glow = new(glowTexture, position, null,
+            Color.White * 0.72f, rotation, glowOrigin,
+            1.02f * FranShiFuVisuals.TextureScaleFor(glowTexture), effects, 0f) { shader = 0 };
+        // Overlay the sword while keeping both entries behind the player's existing draw data.
+        drawInfo.DrawDataCache.Insert(1, glow);
 
         Color goldOutline = new Color(255, 196, 62) * 0.62f;
         for (int i = 0; i < 8; i++)

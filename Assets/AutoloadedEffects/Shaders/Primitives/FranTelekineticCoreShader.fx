@@ -1,13 +1,13 @@
-// Layered blue energy filament for Fran's condensed mind core.
+// Continuous blue pressure wake beneath the segmented rails.
 float globalTime;
 float3 uBodyColor;
 float3 uEdgeColor;
 float3 uCoreColor;
 float uOpacity;
+float uSeed;
 matrix uWorldViewProjection;
 float uDistanceProgress[31];
 sampler uMaterialSampler : register(s1);
-sampler uDetailSampler : register(s2);
 
 struct VertexShaderInput
 {
@@ -42,22 +42,26 @@ float4 PixelShaderFunction(VertexShaderOutput input) : COLOR0
     coords.y = (coords.y - 0.5) / max(input.TextureCoordinates.z, 0.0001) + 0.5;
     coords = saturate(coords);
 
-    float center = saturate(1.0 - abs(coords.y * 2.0 - 1.0));
-    float core = center * center;
-    core *= core * center;
-
-    float2 flowA = coords * float2(2.65, 1.18) + float2(globalTime * -1.87, globalTime * 0.10);
-    float2 flowB = coords * float2(1.18, 2.34) + float2(globalTime * -0.74, globalTime * -0.21);
-    float vapor = tex2D(uMaterialSampler, flowA).r;
-    float filament = tex2D(uDetailSampler, flowB).r;
-    float crossing = saturate(vapor * 0.72 + filament * 0.62);
-    float edgeLift = pow(saturate(center + crossing * 0.45), 3.4);
-    float tail = pow(saturate(1.0 - coords.x), 1.48);
-    float envelope = edgeLift * tail * input.Color.a * saturate(uOpacity);
-
-    float3 energy = lerp(uBodyColor, uEdgeColor, saturate(vapor * 0.82 + filament * 0.22));
-    float hotLine = core * (0.70 + filament * 0.85);
-    return float4(energy + uCoreColor * hotLine, 1.0 + hotLine) * envelope;
+    float y = coords.y * 2.0 - 1.0;
+    float rail = 1.0 - smoothstep(0.05, 0.18, abs(abs(y) - 0.42));
+    float phase = frac(coords.x * 6.0 - globalTime * 2.1 + uSeed);
+    float cell = abs(phase - 0.5) * 2.0;
+    // The moving diamond-shaped braces bind the two rails into discrete pressure cells.
+    float brace = 1.0 - smoothstep(0.045, 0.15, abs(abs(y) + cell * 0.48 - 0.48));
+    brace *= 1.0 - smoothstep(0.48, 0.65, abs(y));
+    float packet = pow(saturate(1.0 - cell), 3.0);
+    // The wake remains continuous between cells; noise modulates its surface, never cuts it out.
+    float flow = tex2D(uMaterialSampler, float2(coords.x * 2.4 - globalTime * 0.9 + uSeed,
+        coords.y * 1.6 + globalTime * 0.12)).r;
+    float interior = (1.0 - smoothstep(0.08, 0.92, abs(y))) * (0.42 + flow * 0.24);
+    float material = rail * (0.68 + packet * 0.50) + brace * 0.82 + interior;
+    float tail = pow(saturate(1.0 - coords.x), 0.62);
+    float coverage = saturate(material * tail * input.Color.a * uOpacity);
+    float3 energy = lerp(uBodyColor, uEdgeColor, saturate(rail * 0.5 + brace * 0.55));
+    energy = lerp(energy, uCoreColor, packet * rail * 0.42);
+    float glow = (rail * 0.24 + brace * 0.13) * tail * input.Color.a * saturate(uOpacity);
+    // AlphaBlend expects premultiplied color. The small emissive term keeps rails visible on bright terrain.
+    return float4(energy * coverage + uEdgeColor * glow, coverage);
 }
 
 technique FranTelekineticCore

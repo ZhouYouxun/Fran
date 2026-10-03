@@ -11,6 +11,11 @@ namespace FranMod.Core.Graphics;
 // 所有坐标都在世界空间；使用 AlphaBlend 的 A=0 光线，不切换外部 SpriteBatch。
 internal static class FranPhantomVisuals
 {
+    internal const float FlightSize = 0.70f;
+    internal const float FlightBrightness = 0.80f;
+    internal static float PortalScale(float age) => MathHelper.Lerp(0.50f, 0.70f,
+        MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(age / 7f, 0f, 1f)));
+
     internal const int ImpactLifetime = 44;
     internal const float ImpactIntensity = 0.70f;
     internal static readonly Color Blue = new(40, 125, 255);
@@ -49,7 +54,8 @@ internal static class FranPhantomVisuals
         float close = 1f - MathHelper.Clamp((age - launchDelay) / 8f, 0f, 1f);
         float visibility = open * close;
         if (visibility <= 0f) return;
-        float radius = 52f * visibility;
+        float size = PortalScale(age);
+        float radius = 52f * visibility * size;
         Texture("BloomCircle", center, new Vector2(radius * 0.72f, radius * 2.1f), angle,
             new Color(3, 10, 30) * (0.88f * visibility));
         // 两道透视门框与断续旋转刻度，中央暗面留出钻出剑体的空间。
@@ -62,15 +68,15 @@ internal static class FranPhantomVisuals
                 float phase = i * MathHelper.TwoPi / 48f + age * (layer == 0 ? 0.025f : -0.035f);
                 Vector2 a = PortalPoint(center, angle, phase, r);
                 Vector2 b = PortalPoint(center, angle, phase + MathHelper.TwoPi / 48f, r);
-                Line(a, b, Light(Blue, 0.22f * visibility), layer == 0 ? 7f : 4f);
-                Line(a, b, Light(layer == 0 ? Cyan : Blue, 0.82f * visibility), layer == 0 ? 1.8f : 1.2f);
+                Line(a, b, Light(Blue, 0.22f * visibility), (layer == 0 ? 7f : 4f) * size);
+                Line(a, b, Light(layer == 0 ? Cyan : Blue, 0.82f * visibility), (layer == 0 ? 1.8f : 1.2f) * size);
             }
         }
         for (int i = 0; i < 6; i++)
         {
             float phase = i * MathHelper.TwoPi / 6f - age * 0.045f;
             Vector2 node = PortalPoint(center, angle, phase, radius * 1.15f);
-            Texture("GlowSpark", node, new Vector2(5f, 16f) * visibility,
+            Texture("GlowSpark", node, new Vector2(5f, 16f) * visibility * size,
                 angle, Light(Cyan, 0.7f * visibility));
         }
     }
@@ -79,7 +85,7 @@ internal static class FranPhantomVisuals
     {
         Vector2 forward = Axis(angle);
         Vector2 normal = Axis(angle + MathHelper.PiOver2);
-        float length = Math.Min(360f, travelDistance);
+        float length = Math.Min(360f, travelDistance) * FlightSize;
         if (length < 1f) return;
         // 在宽肩纹理拖尾外再绘制双轨电流，颜色固定为蓝/青，时间只影响形状。
         for (int strand = 0; strand < 2; strand++)
@@ -90,16 +96,16 @@ internal static class FranPhantomVisuals
                 float t = i / 32f;
                 float envelope = MathF.Sin(MathF.PI * t) * (1f - t * 0.55f);
                 float phase = t * 11f - age * 0.27f + seed * 0.71f + strand * MathF.PI;
-                Vector2 next = center - forward * (length * t) + normal * (MathF.Sin(phase) * 24f * envelope);
+                Vector2 next = center - forward * (length * t) + normal * (MathF.Sin(phase) * 24f * envelope * FlightSize);
                 if (i > 0)
                 {
-                    Line(previous, next, Light(Blue, 0.22f * (1f - t)), 7f * (1f - t) + 1f);
-                    Line(previous, next, Light(Cyan, 0.80f * (1f - t)), 1.8f * (1f - t) + 0.5f);
+                    Line(previous, next, Light(Blue, 0.22f * (1f - t) * FlightBrightness), (7f * (1f - t) + 1f) * FlightSize);
+                    Line(previous, next, Light(Cyan, 0.80f * (1f - t) * FlightBrightness), (1.8f * (1f - t) + 0.5f) * FlightSize);
                 }
                 previous = next;
             }
         }
-        Texture("ForwardSmear", center - forward * 54f, new Vector2(150f, 52f), angle, Light(Blue, 0.72f));
+        Texture("ForwardSmear", center - forward * (54f * FlightSize), new Vector2(150f, 52f) * FlightSize, angle, Light(Blue, 0.72f * FlightBrightness));
     }
 
     private static void Rotate(ref float a, ref float b, float angle)

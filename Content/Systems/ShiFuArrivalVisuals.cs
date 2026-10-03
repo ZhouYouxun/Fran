@@ -206,7 +206,7 @@ public sealed class ShiFuArrivalVisuals : ModSystem
         Vector2 origin = new(texture.Width - 4f, 4f);
         Main.spriteBatch.Draw(texture, tip - Main.screenPosition, null,
             (ghost ? Cyan : Color.White) * opacity, MathHelper.Pi * 0.75f,
-            origin, 0.70f, SpriteEffects.None, 0f);
+            origin, FranShiFuVisuals.NormalizeScaleFor(texture, 0.70f), SpriteEffects.None, 0f);
     }
 
     private static void DrawHalo(Vector2 landing, float strength)

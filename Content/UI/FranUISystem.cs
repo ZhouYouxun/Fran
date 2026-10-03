@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using FranMod.Content.Config;
 using FranMod.Content.Items;
@@ -81,7 +81,7 @@ public sealed class FranUISystem : ModSystem
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
         bool allowed = !Content.Companions.FranCompanionUI.IsOpen && !Content.Companions.FranCompanionUI.Hovering &&
             !FranEvolutionUISystem.IsOpen && !Main.playerInventory && !player.dead &&
-            player.HeldItem.type == ModContent.ItemType<ShiFu>();
+            player.HeldItem.type == ModContent.ItemType<ShiFu>() && !fran.UltimateActive;
         if (!allowed)
         {
             if (wheelOpen)
@@ -156,7 +156,7 @@ public sealed class FranUISystem : ModSystem
     private static bool IsSkillWheelHeld()
     {
         bool keyBound = IsSkillWheelKeyBound();
-        return keyBound ? FranModMain.SkillWheelKey.Current : Main.mouseRight;
+        return keyBound && FranModMain.SkillWheelKey.Current;
     }
 
     private static bool IsSkillWheelKeyBound()
@@ -352,7 +352,7 @@ public sealed class FranUISystem : ModSystem
     private static void DrawUltimateGauge(FranPlayer fran)
     {
         Rectangle outer = GetUltimateGaugeRect(fran);
-        float value = MathHelper.Clamp(fran.UltimateChargeTicks / (float)FranPlayer.UltimateChargeDuration, 0f, 1f);
+        float value = fran.VigilActive ? 1f : MathHelper.Clamp(fran.UltimateChargeTicks / (float)fran.SelectedUltimateChargeDuration, 0f, 1f);
         float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 5.5f);
         Color border = fran.UltimateReady
             ? Color.Lerp(new Color(255, 211, 105), Color.White, pulse * 0.42f)
@@ -431,14 +431,14 @@ public sealed class FranUISystem : ModSystem
         detailsOpacity = detailsOpacity * detailsOpacity * (3f - 2f * detailsOpacity);
         float radius = AnimatedWheelRadius;
 
-        for (int i = 0; i < FranSkillInfo.Count; i++)
+        for (int i = 0; i < FranSkillInfo.Selectable.Length; i++)
         {
-            FranSkill skill = (FranSkill)i;
-            float angle = -MathHelper.PiOver2 + MathHelper.TwoPi * i / FranSkillInfo.Count;
+            FranSkill skill = FranSkillInfo.Selectable[i];
+            float angle = -MathHelper.PiOver2 + MathHelper.TwoPi * i / FranSkillInfo.Selectable.Length;
             Vector2 direction = angle.ToRotationVector2();
             Vector2 center = wheelCenter + direction * radius;
             bool unlocked = FranSkillInfo.IsUnlocked(skill);
-            bool hovered = hoveredSkill == i;
+            bool hovered = hoveredSkill == (int)skill;
             int stacks = fran.GetSkillStacks(skill);
             Color color = unlocked ? FranSkillInfo.Color(skill) : new Color(55, 62, 70);
 
@@ -446,9 +446,9 @@ public sealed class FranUISystem : ModSystem
             float lineEndRadius = Math.Max(lineStartRadius + 2f, radius - 24f);
             DrawLine(wheelCenter + direction * lineStartRadius, wheelCenter + direction * lineEndRadius,
                 color * ((hovered ? 0.82f : 0.22f) * opacity), hovered ? 3f : 1f);
-            int cooldown = fran.SkillCooldowns[i];
+            int cooldown = fran.SkillCooldowns[(int)skill];
             float cooldownRatio = cooldown > 0
-                ? cooldown / (float)Math.Max(1, fran.SkillCooldownMaximums[i])
+                ? cooldown / (float)Math.Max(1, fran.SkillCooldownMaximums[(int)skill])
                 : 0f;
             DrawNativeSkillIcon(center, SkillIconPath(skill),
                 unlocked ? Color.White : new Color(105, 111, 120),
@@ -475,7 +475,7 @@ public sealed class FranUISystem : ModSystem
             fran.GetActiveTacticCount(), fran.AvailableTacticSlots);
         DrawCentered(slotText, new Rectangle((int)wheelCenter.X - 170, (int)wheelCenter.Y + 113, 340, 24),
             new Color(205, 229, 239) * detailsOpacity, 0.8f);
-        DrawCentered(Language.GetTextValue("Mods.Fran.UI.TacticControls"),
+        DrawCentered(Language.GetTextValue("Mods.Fran.UI.TacticControls", ShiFu.GetAssignedKeyOrUnbound(FranModMain.SkillWheelKey)),
             new Rectangle((int)wheelCenter.X - 220, (int)wheelCenter.Y + 136, 440, 22),
             new Color(175, 201, 214) * detailsOpacity, 0.7f);
 
@@ -559,9 +559,9 @@ public sealed class FranUISystem : ModSystem
             return rows;
         }
         // 打开轮盘时按所有战术的最大高度留出屏幕空间，绘制时按当前文字计算。
-        for (int i = 0; i < FranSkillInfo.Count; i++)
+        for (int i = 0; i < FranSkillInfo.Selectable.Length; i++)
         {
-            FranSkill skill = (FranSkill)i;
+            FranSkill skill = FranSkillInfo.Selectable[i];
             Include(0, FranSkillInfo.FirstLayerText(skill));
             Include(0, FranSkillInfo.UnlockText(skill));
             Include(1, FranSkillInfo.AdditionalLayerText(skill));
@@ -574,12 +574,12 @@ public sealed class FranUISystem : ModSystem
 
     private static int FindHoveredSkill(Vector2 mouse)
     {
-        for (int i = 0; i < FranSkillInfo.Count; i++)
+        for (int i = 0; i < FranSkillInfo.Selectable.Length; i++)
         {
-            float angle = -MathHelper.PiOver2 + MathHelper.TwoPi * i / FranSkillInfo.Count;
+            float angle = -MathHelper.PiOver2 + MathHelper.TwoPi * i / FranSkillInfo.Selectable.Length;
             Vector2 center = wheelCenter + angle.ToRotationVector2() * AnimatedWheelRadius;
             if (Vector2.DistanceSquared(mouse, center) <= WheelHitRadius * WheelHitRadius)
-                return i;
+                return (int)FranSkillInfo.Selectable[i];
         }
         return -1;
     }

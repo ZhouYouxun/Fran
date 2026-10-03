@@ -1,4 +1,4 @@
-Mods: {
+﻿Mods: {
 	Fran: {
 		Companion: {
 			Title: Fran · 幻影伙伴战术
@@ -66,19 +66,20 @@ Mods: {
 			}
 
 			ShiFu: {
+				TacticSelection: 当前战术：
+				FullLoadoutInactive: 【全选效果】未触发
+				FullLoadoutActive: 【全选效果】触发 {0} 的全选效果：{1}
 				DisplayName: 师父
 				Tooltip:
 					'''
 					【左键】循环施展4种剑术，与已装配的战术同步进行
-					【右键】呼出战术轮盘，点击战术装配或卸下
+					【右键】转盘攻击：将大剑丢出，跟随鼠标持续旋转切割敌人，松开收回
+					按下“{WheelKey}”，开启轮盘，调整技能组
 					重复装备相同战术可获得更强的效果
 					合理搭配不同战术，可达成意想不到的效果
 					'''
-				UltimateLocked: 【进入困难模式后解锁大招：黑天虎-绝闪】
+				UltimateLocked: 【进入困难模式后解锁大招：绝影】
 				UltimateTooltip: 手持师父时按下 {0} 键释放“黑天虎-绝闪”：对同一目标造成强力斩杀，大招期间无法切换手持武器
-				TacticSelection: 当前战术：
-				FullLoadoutActive: 【全选效果】触发 {0} 的全选效果：{1}
-				FullLoadoutInactive: 【全选效果】未触发
 				UnboundKey: 未绑定
 				GoldenEvolutionRoad: 我们将再一次踏上进化的道路，一条没有尽头的道路
 			}
@@ -207,7 +208,7 @@ Mods: {
 				'''
 				左键星轮图标装配｜
 				左键轮盘下方已装配图标卸下｜
-				再次右键或打开背包关闭
+				再次按下“{0}”或打开背包关闭
 				'''
 			TacticEquipped: 已装配：{0} ×{1}
 			TacticUnequipped: 已卸下：{0}（剩余×{1}）
@@ -404,7 +405,7 @@ Mods: {
 			IntroCombat: 持续左键使用四段大剑连击
 			IntroSkills:
 				'''
-				右键打开或关闭战术轮盘；
+				按下“{0}”打开或关闭战术轮盘；
 				左键上方图标可重复装配，
 				左键下方槽位卸下；
 				背包打开时轮盘自动关闭
@@ -976,6 +977,7 @@ Mods: {
 		}
 
 		Projectiles: {
+			FranSpinningDisc.DisplayName: 转盘攻击
 			// AirDrawSlashProjectile.DisplayName: Air Draw Slash Projectile
 			// FloatingSwordArrayProjectile.DisplayName: Floating Sword Array Projectile
 			// FloatingSwordLaser.DisplayName: Floating Sword Laser
@@ -1061,6 +1063,13 @@ Mods: {
 			// FranThunderBudgetStrike.DisplayName: Fran Thunder Budget Strike
 			// FranCompanion.DisplayName: Fran Companion
 			FranPhantomMatrixImpact.DisplayName: 分身矩阵冲击
+			// FranSingularityShard.DisplayName: Fran Singularity Shard
+			// FranSingularitySmoke.DisplayName: Fran Singularity Smoke
+			// FranSingularityUltimate.DisplayName: Fran Singularity Ultimate
+			// SustainedBlackHole.DisplayName: Sustained Black Hole
+			// FranVigilMeteor.DisplayName: Fran Vigil Meteor
+			// FranVigilSwing.DisplayName: Fran Vigil Swing
+			// FranVigilWave.DisplayName: Fran Vigil Wave
 		}
 	}
 }

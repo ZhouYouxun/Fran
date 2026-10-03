@@ -18,7 +18,6 @@ namespace FranMod.Content.Projectiles;
 // circular holdout. The collision follows the actual moving blade rather than filling the disc.
 public sealed class FranQuickdrawDiscHoldout : ModProjectile
 {
-    private const float SuppliedTextureBladeLength = 193.04f;
     private const float WeaponHiltOffset = 8f;
     private const int TrailStyle = 1;
     private const float GoldenStep = 0.618034f;
@@ -176,7 +175,8 @@ public sealed class FranQuickdrawDiscHoldout : ModProjectile
     private float CalculateReach()
     {
         FranEvolutionPlayer evolution = Owner.GetModPlayer<FranEvolutionPlayer>();
-        float visibleBladeLength = SuppliedTextureBladeLength * 1.05f * FranShiFuVisuals.TextureScale;
+        float visibleBladeLength = FranShiFuVisuals.BladeLengthFromGripPixels *
+            1.05f * FranShiFuVisuals.TextureScale;
         return WeaponHiltOffset + visibleBladeLength * evolution.BladeReachMultiplier;
     }
 
@@ -294,11 +294,13 @@ public sealed class FranQuickdrawDiscHoldout : ModProjectile
     {
         Texture2D texture = FranShiFuVisuals.Texture;
         Texture2D ghostTexture = FranShiFuVisuals.GhostTexture;
+        Texture2D glowTexture = FranShiFuVisuals.GlowTexture;
         SpriteEffects effects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         Vector2 origin = new(facing < 0 ? texture.Width : 0f, texture.Height);
         Vector2 ghostOrigin = new(facing < 0 ? ghostTexture.Width : 0f, ghostTexture.Height);
-        Vector2 drawPosition = Owner.MountedCenter + currentAngle.ToRotationVector2() * WeaponHiltOffset -
-            Main.screenPosition;
+        Vector2 glowOrigin = new(facing < 0 ? glowTexture.Width : 0f, glowTexture.Height);
+        Vector2 drawPosition = Owner.MountedCenter + currentAngle.ToRotationVector2() *
+            (WeaponHiltOffset - FranShiFuVisuals.GripInset) - Main.screenPosition;
         float drawScale = 1.05f * FranShiFuVisuals.TextureScale;
         Color ghostColor = new(energyColor.R, energyColor.G, energyColor.B, 0);
         for (int i = 0; i < 12; i++)
@@ -307,10 +309,13 @@ public sealed class FranQuickdrawDiscHoldout : ModProjectile
                 (4.2f * visualStrength);
             Main.EntitySpriteDraw(ghostTexture, drawPosition + offset, null,
                 ghostColor * (0.12f * visualStrength), Projectile.rotation, ghostOrigin,
-                drawScale, effects, 0f);
+                1.05f * FranShiFuVisuals.TextureScaleFor(ghostTexture), effects, 0f);
         }
         Main.EntitySpriteDraw(texture, drawPosition, null, lightColor * visualStrength,
             Projectile.rotation, origin, drawScale, effects, 0f);
+        Main.EntitySpriteDraw(glowTexture, drawPosition, null,
+            Color.White * (0.72f * visualStrength), Projectile.rotation, glowOrigin,
+            1.05f * FranShiFuVisuals.TextureScaleFor(glowTexture), effects, 0f);
     }
 
     private static float MoveTowards(float current, float target, float maximumDelta)

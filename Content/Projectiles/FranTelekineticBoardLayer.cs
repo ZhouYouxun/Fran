@@ -23,7 +23,7 @@ public sealed class FranTelekineticBoardLayer : PlayerDrawLayer
     protected override void Draw(ref PlayerDrawSet drawInfo)
     {
         Player player = drawInfo.drawPlayer;
-        Texture2D texture = ModContent.Request<Texture2D>("Fran/Textures/翅膀多帧图").Value;
+        Texture2D texture = ModContent.Request<Texture2D>("Fran/Textures/师父飞剑-Sheet").Value;
         Rectangle frame = texture.Frame(1, 7, 0, (int)(Main.GameUpdateCount / 6 % 7));
         // The deck surface is eight pixels below the frame top. Keep it touching the soles.
         Vector2 position = (drawInfo.Position - Main.screenPosition +

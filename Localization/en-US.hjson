@@ -1,4 +1,4 @@
-Mods: {
+﻿Mods: {
 	Fran: {
 		Companion: {
 			Title: Fran · Companion Tactics
@@ -63,19 +63,20 @@ Mods: {
 			}
 
 			ShiFu: {
+				TacticSelection: Current Tactics:
+				FullLoadoutInactive: "[Full Loadout] Inactive"
+				FullLoadoutActive: "[Full Loadout] {0}: {1}"
 				DisplayName: ShiFu
 				Tooltip:
 					'''
 					[Left Click] Cycle through four sword techniques, each synchronized with equipped tactics
-					[Right Click] Open the tactic wheel; click a tactic to equip or remove it
+					[Hold Right Click] Spinning Disc: throw the sword to follow your cursor and continuously cut enemies; release to recall
+					Press "{WheelKey}" to open the wheel and configure your tactics
 					Equipping duplicate tactics strengthens their effect
 					Combining different tactics can lead to unexpected results
 					'''
-				UltimateLocked: "[Enter Hardmode to unlock the Ultimate: Black Heavenly Tiger - Absolute Flash]"
+				UltimateLocked: "[Enter Hardmode to unlock the Ultimate: Shadowless]"
 				UltimateTooltip: While holding ShiFu, press {0} to unleash "Black Heavenly Tiger — Absolute Flash": deliver a powerful execution against one target. Held weapons cannot be switched during the ultimate
-				TacticSelection: Current Tactics:
-				FullLoadoutActive: "[Full Loadout] {0}: {1}"
-				FullLoadoutInactive: "[Full Loadout] Inactive"
 				UnboundKey: Unbound
 				GoldenEvolutionRoad: We will once again set foot on the road of evolution, a road without end
 			}
@@ -188,7 +189,7 @@ Mods: {
 			PureSwordsmanshipLine1: Empty every tactic slot to use pure swordsmanship
 			PureSwordsmanshipLine2: ShiFu's four-cut combo always remains
 			TacticSlots: Tactic slots: {0}/{1}
-			TacticControls: Left-click a wheel icon to equip | left-click an equipped icon below the wheel to remove | right-click again or open inventory to close
+			TacticControls: Left-click a wheel icon to equip | left-click an equipped icon below the wheel to remove | press {0} again or open inventory to close
 			TacticEquipped: Equipped: {0} x{1}
 			TacticUnequipped: Removed: {0} (x{1} remaining)
 		}
@@ -382,7 +383,7 @@ Mods: {
 			ShiFuArrivalPickup: Approach to pick up ShiFu
 			IntroTitle: "[Fran Mode activated]"
 			IntroCombat: Hold left click for the four-part greatsword combo
-			IntroSkills: Right-click to open or close the tactic wheel; left-click upper icons to equip duplicates and lower slots to remove them; opening inventory closes the wheel
+			IntroSkills: Press {0} to open or close the tactic wheel; left-click upper icons to equip duplicates and lower slots to remove them; opening inventory closes the wheel
 			IntroEvolution: Participate in a boss victory to absorb its unique magic stone; press J to shape ShiFu, Fran, and their long-term resonance in the Corridor
 			IntroDash: When Fran Dash is bound, only that key triggers it; when unbound, double-tap left/right instead; equipped dashes take priority
 			IntroPotential: The ultimate charges automatically over three minutes of active play; while holding ShiFu, press G when full to begin Black Heavenly Tiger's execution rush. Held weapons cannot be switched during the ultimate
@@ -753,6 +754,7 @@ Mods: {
 		}
 
 		Projectiles: {
+			FranSpinningDisc.DisplayName: Spinning Disc
 			AirDrawSlashProjectile.DisplayName: Air Draw Slash Projectile
 			FloatingSwordArrayProjectile.DisplayName: Floating Sword Array Projectile
 			FloatingSwordLaser.DisplayName: Floating Sword Laser
@@ -838,6 +840,13 @@ Mods: {
 			FranThunderBudgetStrike.DisplayName: Fran Thunder Budget Strike
 			FranCompanion.DisplayName: Fran Companion
 			FranPhantomMatrixImpact.DisplayName: Phantom Matrix Impact
+			FranSingularityShard.DisplayName: Fran Singularity Shard
+			FranSingularitySmoke.DisplayName: Fran Singularity Smoke
+			FranSingularityUltimate.DisplayName: Fran Singularity Ultimate
+			SustainedBlackHole.DisplayName: Sustained Black Hole
+			FranVigilMeteor.DisplayName: Fran Vigil Meteor
+			FranVigilSwing.DisplayName: Fran Vigil Swing
+			FranVigilWave.DisplayName: Fran Vigil Wave
 		}
 	}
 }

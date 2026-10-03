@@ -43,9 +43,10 @@ public sealed class MultipleBodySmokeTest : ModSystem
 
     private Projectile SpawnBlade(Vector2 origin, Vector2 destination, bool full, int npc = -1)
     {
+        Vector2 heading = (destination - origin).SafeNormalize(Vector2.UnitX);
         int index = Projectile.NewProjectile(source, origin, Vector2.Zero,
             ModContent.ProjectileType<FranShiFuPhantomBlade>(), 100, 0f, 0,
-            FranShiFuPhantomBlade.EncodeLaunchDelay(18f, full), destination.X, destination.Y);
+            FranShiFuPhantomBlade.EncodeLaunchDelay(18f, full), heading.X, heading.Y);
         Projectile p = Main.projectile[index];
         Main.mouseX = (int)destination.X;
         Main.mouseY = (int)destination.Y;
@@ -53,6 +54,120 @@ public sealed class MultipleBodySmokeTest : ModSystem
     }
 
     private static void Tick(Projectile p) => p.Update(p.whoAmI);
+
+    private static void CopyExtraAI(Projectile original, Projectile copy)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, true)) original.ModProjectile.SendExtraAI(writer);
+        stream.Position = 0;
+        using var reader = new BinaryReader(stream);
+        copy.ModProjectile.ReceiveExtraAI(reader);
+    }
+
+    private void TestAttachmentAndTiles(Vector2 center, NPC target)
+    {
+        ClearProjectiles();
+        target.active = true;
+        target.width = target.height = 30;
+        target.Center = center;
+        target.velocity = Vector2.Zero;
+        target.immune[0] = 0;
+        Projectile embedded = SpawnBlade(center - Vector2.UnitX * 280, center, false);
+        for (int i = 0; i < 40 && embedded.friendly; i++) Tick(embedded);
+        Check(embedded.active && !embedded.friendly, "real hit enters attachment");
+        int lifeAfterHit = target.life;
+        Vector2 offset = embedded.Center - target.Center;
+        for (int i = 0; i < 149; i++)
+        {
+            target.Center += new Vector2(1.5f, .25f);
+            Tick(embedded);
+            Check(embedded.active && target.life == lifeAfterHit, "2.5-second attachment deals no extra damage");
+        }
+        Projectile remote = SpawnBlade(embedded.Center, center, false);
+        remote.velocity = new Vector2(15, 3); // A fresh observer has not simulated the initial hit.
+        CopyExtraAI(embedded, remote);
+        Check(remote.ModProjectile.CanDamage() == false && !remote.friendly && remote.damage == 0 && !remote.tileCollide,
+            "late attachment snapshot restores all harmless state");
+        Check(remote.rotation == embedded.rotation && remote.velocity == Vector2.Zero, "insertion angle restored on peer");
+        Main.myPlayer = 1;
+        Tick(remote);
+        Check(remote.active && Vector2.Distance(remote.Center, target.Center + offset) < .001f,
+            "observer follows NPC and waits for owner's detonation");
+        Check(!Main.projectile.Any(p => p.active && p.ModProjectile is FranPhantomMatrixImpact), "observer cannot spawn explosion");
+        Main.myPlayer = 0;
+        Tick(embedded);
+        Check(!embedded.active, "attachment expires after 150 game frames despite extra updates");
+        Projectile[] effects = Main.projectile.Where(p => p.active && p.ModProjectile is FranPhantomMatrixImpact).ToArray();
+        Check(effects.Length == 1 && effects[0].damage == 0 && effects[0].ModProjectile.CanDamage() == false,
+            "only owner creates one harmless delayed explosion");
+        remote.Kill(); // Receive the normal projectile-kill packet after the owner's transition.
+        for (int i = 0; i < 45 && effects[0].active; i++) Tick(effects[0]);
+        Check(target.life == lifeAfterHit, "delayed explosion never adds damage");
+
+        target.active = false;
+        int x0 = (int)center.X / 16, y0 = (int)center.Y / 16;
+        void ClearLane()
+        {
+            ClearProjectiles();
+            for (int x = x0 - 5; x <= x0 + 350; x++)
+                for (int y = y0 - 8; y <= y0 + 8; y++) Main.tile[x, y].ClearEverything();
+        }
+        void Wall(int from, int to)
+        {
+            for (int x = x0 + from; x <= x0 + to; x++)
+                for (int y = y0 - 6; y <= y0 + 6; y++)
+                {
+                    Tile tile = Main.tile[x, y];
+                    tile.HasTile = true;
+                    tile.TileType = TileID.Stone;
+                }
+        }
+        foreach (bool full in new[] { false, true })
+        {
+            ClearLane();
+            Wall(-2, 2); // A portal and charging sword are allowed inside blocks.
+            Wall(12, 12); // First 27 flight frames must also pass through an early thin wall.
+            Projectile blade = SpawnBlade(center, center + Vector2.UnitX * 2000, full);
+            for (int frame = 0; frame < 45; frame++)
+            {
+                Tick(blade);
+                Check(blade.active && !blade.tileCollide, "charge and first 27 flight frames ignore solids");
+            }
+            Check(blade.Center.X > center.X + 500, "blade actually passed early blocks");
+            Tick(blade);
+            Check(blade.active && blade.tileCollide, "tile collision activates on flight frame 28");
+            ClearLane();
+            Wall(150, 150); // Single 16px wall encountered only after grace, at full dash speed.
+            blade = SpawnBlade(center, center + Vector2.UnitX * 2000, full);
+            for (int frame = 0; frame < 85 && blade.active; frame++) Tick(blade);
+            Check(!blade.active && blade.Center.X < (x0 + 151) * 16,
+                "high-speed sword cannot tunnel through a one-tile wall after grace");
+            Check(Main.projectile.Count(p => p.active && p.ModProjectile is FranPhantomMatrixImpact && p.damage == 0) == 1,
+                "wall impact emits exactly one harmless explosion");
+            Check(Main.tile[x0 + 150, y0].HasTile, "visual explosion does not destroy blocks");
+
+            ClearLane();
+            Wall(55, 140); // Grace expires while the sword is still inside a thick wall.
+            blade = SpawnBlade(center, center + Vector2.UnitX * 2000, full);
+            for (int frame = 0; frame < 45; frame++) Tick(blade);
+            Check(blade.active, "thick wall is harmless before grace ends");
+            Tick(blade);
+            Check(!blade.active && blade.Center.X < (x0 + 140) * 16, "grace ending inside solid detonates immediately");
+        }
+        ClearLane();
+        Projectile observer = SpawnBlade(center, center + Vector2.UnitX * 2000, false);
+        for (int frame = 0; frame < 46; frame++) Tick(observer);
+        Main.myPlayer = 1;
+        observer.ModProjectile.OnTileCollide(Vector2.UnitX * 18f);
+        Check(observer.active && !Main.projectile.Any(p => p.active && p.ModProjectile is FranPhantomMatrixImpact),
+            "non-owner tile collision cannot kill or duplicate effects");
+        Main.myPlayer = 0;
+        observer.ModProjectile.OnTileCollide(Vector2.UnitX * 18f);
+        observer.ModProjectile.OnTileCollide(Vector2.UnitX * 18f);
+        Check(Main.projectile.Count(p => p.active && p.ModProjectile is FranPhantomMatrixImpact) == 1,
+            "repeated impact callback is idempotent");
+        ClearLane();
+    }
 
     private void Run()
     {
@@ -116,7 +231,12 @@ public sealed class MultipleBodySmokeTest : ModSystem
                             layers, Vector2.UnitX, 200f);
                         Projectile[] bodies = Main.projectile.Where(p => p.active && p.ModProjectile is FranShiFuPhantomBlade).ToArray();
                         Check(bodies.Length == new[] { 4, 2, 4, 6 }[combo], "actual fixed spawn count");
-                        Check(bodies.All(p => p.ai[0] == bodies[0].ai[0]), "entire phantom formation shares launch time");
+                        Check(bodies.Zip(bodies.Skip(1), (a, b) => b.ai[0] - a.ai[0]).All(gap => gap >= 2f && gap <= 4f),
+                            "current authored 2-4 frame release gaps preserved");
+                        Vector2 commonHeading = (FranMod.Content.Companions.FranCompanionContext.Aim(owner) - owner.MountedCenter).SafeNormalize(Vector2.UnitX * owner.direction);
+                        Check(bodies.All(p => Vector2.Distance(new Vector2(p.ai[1], p.ai[2]), commonHeading) < .0001f),
+                            "all spawn positions share one parallel heading");
+                        Check(bodies.All(p => p.width == 32 && p.height == 32), "blade hitboxes shrink by thirty percent");
                         int total = bodies.Sum(p => p.damage);
                         if (firstTotal < 0) firstTotal = total;
                         Check(total == firstTotal, "actual per-swing group damage equal even with fractional sword multipliers");
@@ -150,15 +270,31 @@ public sealed class MultipleBodySmokeTest : ModSystem
                         Check(p.active && p.Center == origin && p.velocity == Vector2.Zero, "18-frame stationary aim");
                         Check(p.ModProjectile.CanDamage() == false && target.life == before, "aim cannot damage");
                     }
-                    for (int frame = 0; frame < 16 && p.active; frame++)
+                    for (int frame = 0; frame < 16 && p.active && target.life == before; frame++)
                     {
                         Tick(p);
-                        if (target.life < before) Check(!p.active, "hit removes body in the same update");
                     }
-                    Check(target.life < before && !p.active, $"small target hit, size {size}, angle {angle}, full {full}");
+                    Check(target.life < before && p.active && p.ModProjectile.CanDamage() == false,
+                        $"small target hit embeds a harmless sword, size {size}, angle {angle}, full {full}");
+                    Check(!Main.projectile.Any(v => v.active && v.ModProjectile is FranPhantomMatrixImpact), "no premature impact explosion");
+                    Vector2 offset = p.Center - target.Center;
+                    int lifeAfter = target.life;
+                    float stuckRotation = p.rotation;
+                    for (int frame = 0; frame < 4; frame++)
+                    {
+                        target.position += new Vector2(3f, -2f);
+                        Tick(p);
+                        Check(Vector2.Distance(p.Center, target.Center + offset) < .001f && p.rotation == stuckRotation,
+                            "embedded sword follows target without changing insertion angle");
+                        Check(target.life == lifeAfter && p.damage == 0 && !p.friendly, "attachment cannot repeat damage");
+                    }
+                    target.active = false;
+                    Tick(p);
+                    Check(!p.active, "target death detonates the attached sword");
                     Projectile[] impacts = Main.projectile.Where(v => v.active && v.ModProjectile is FranPhantomMatrixImpact).ToArray();
                     Check(impacts.Length == 1 && impacts[0].damage == 0 && impacts[0].ModProjectile.CanDamage() == false,
                         "one synchronized harmless matrix per actual hit");
+                    target.active = true;
                 }
 
         ClearProjectiles();
@@ -185,35 +321,22 @@ public sealed class MultipleBodySmokeTest : ModSystem
         Check(Vector2.Dot(aimed.velocity.SafeNormalize(Vector2.UnitX), Vector2.UnitX) > 0.99999f,
             "charge preserves original direction and excludes enemy outside 20 degrees");
 
-        // 起冲时重新检查固定锥体；移动目标使用预判，飞行修正不得越界。
-        for (int degrees = -16; degrees <= 16; degrees += 8)
-            foreach (float verticalSpeed in new[] { -4f, 0f, 4f })
+        // Nearby enemies must not pull parallel flight paths into a common focus.
+        foreach (float degrees in new[] { -16f, 16f })
+        {
+            ClearProjectiles();
+            Vector2 origin = center - Vector2.UnitX * 800f;
+            target.Center = origin + MathHelper.ToRadians(degrees).ToRotationVector2() * 760f;
+            target.width = target.height = 18;
+            Projectile straight = SpawnBlade(origin, center, false);
+            for (int frame = 0; frame < 44; frame++)
             {
-                ClearProjectiles();
-                Vector2 origin = center - Vector2.UnitX * 800f;
-                target.Center = origin + MathHelper.ToRadians(degrees).ToRotationVector2() * 760f;
-                target.velocity = new Vector2(1f, verticalSpeed);
-                target.width = target.height = 18;
-                target.immune[0] = 0;
-                int lifeBefore = target.life;
-                Projectile tracking = SpawnBlade(origin, center, false);
-                for (int frame = 0; frame < 18; frame++) Tick(tracking);
-                Main.mouseX -= 1400;
-                Tick(tracking);
-                float launchAngle = tracking.velocity.ToRotation();
-                float previousAngle = launchAngle;
-                for (int frame = 0; frame < 24 && tracking.active; frame++)
-                {
-                    target.position += target.velocity;
-                    Tick(tracking);
-                    float heading = tracking.velocity.ToRotation();
-                    Check(Math.Abs(MathHelper.WrapAngle(heading)) <= MathHelper.ToRadians(20.01f), "stays within original 20-degree cone");
-                    Check(Math.Abs(MathHelper.WrapAngle(heading - launchAngle)) <= MathHelper.ToRadians(6.01f), "flight correction limited to six degrees");
-                    Check(Math.Abs(MathHelper.WrapAngle(heading - previousAngle)) <= MathHelper.ToRadians(1.51f), "turn rate limited per frame");
-                    previousAngle = heading;
-                }
-                Check(target.life < lifeBefore && !tracking.active, "intercepts moving target without wide homing");
+                Tick(straight);
+                if (frame >= 18)
+                    Check(Math.Abs(straight.velocity.Y) < .0001f && straight.velocity.X > 0f,
+                        "off-axis enemies cannot turn a parallel blade");
             }
+        }
         target.velocity = Vector2.Zero;
         ClearProjectiles();
         target.Center = center + new Vector2(600f, 30f);
@@ -291,13 +414,15 @@ public sealed class MultipleBodySmokeTest : ModSystem
         }
         target.active = false;
 
-        // Extra-AI roundtrip during charge and in flight: no repeat charge or divergent trajectory.
-        foreach (int ticks in new[] { 7, 19 })
+        TestAttachmentAndTiles(center, target);
+
+        // Extra-AI roundtrip during charge, flight and tile-collision activation.
+        foreach (int ticks in new[] { 7, 19, 43, 48 })
         {
             ClearProjectiles();
             Projectile original = SpawnBlade(center, center + Vector2.UnitX * 2000, true);
             for (int i = 0; i < ticks; i++) Tick(original);
-            Projectile copy = SpawnBlade(original.Center, new Vector2(original.ai[1], original.ai[2]), true);
+            Projectile copy = SpawnBlade(original.Center, original.Center + new Vector2(original.ai[1], original.ai[2]) * 2000f, true);
             copy.velocity = original.velocity;
             using var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, true)) original.ModProjectile.SendExtraAI(writer);
@@ -307,7 +432,8 @@ public sealed class MultipleBodySmokeTest : ModSystem
             {
                 Tick(original); Tick(copy);
                 Check(original.Center == copy.Center && original.velocity == copy.velocity &&
-                    original.ModProjectile.CanDamage() == copy.ModProjectile.CanDamage(), "synchronized phase and velocity");
+                    original.ModProjectile.CanDamage() == copy.ModProjectile.CanDamage() &&
+                    original.tileCollide == copy.tileCollide, "synchronized phase, velocity and tile grace");
             }
         }
     }

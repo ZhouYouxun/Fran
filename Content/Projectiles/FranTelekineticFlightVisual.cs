@@ -10,7 +10,7 @@ namespace FranMod.Content.Projectiles;
 // The board itself is drawn by FranTelekineticBoardLayer so it follows the player's draw position.
 public sealed class FranTelekineticFlightVisual : ModProjectile
 {
-    public override string Texture => "Fran/Textures/翅膀多帧图";
+    public override string Texture => "Fran/Textures/师父飞剑-Sheet";
     public override void SetDefaults()
     {
         Projectile.width = Projectile.height = 2;

@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using FranMod.Content.Companions;
 using FranMod.Content.Players;
 using FranMod.Content.Projectiles;
+using FranMod.Content.Projectiles.BlackHole;
 using FranMod.Content.Systems;
 using FranMod.Core;
 using FranMod.Core.Graphics;
@@ -32,6 +33,9 @@ public sealed class FranModMain : Mod
     private const byte RequestBossProgressChangeMessage = 9;
     private const byte SyncTacticLoadoutMessage = 10;
     internal const byte ShiFuArrivalMessage = 11;
+    private const byte SyncUltimateSelectionMessage = 13;
+    private const byte SyncVigilStateMessage = 15;
+    private const byte SingularityInputMessage = 14;
     public static ModKeybind SkillWheelKey { get; private set; }
     public static ModKeybind UltimateKey { get; private set; }
     public static ModKeybind DashKey { get; private set; }
@@ -41,7 +45,7 @@ public sealed class FranModMain : Mod
 
     public override void Load()
     {
-        SkillWheelKey = KeybindLoader.RegisterKeybind(this, "SkillWheel", "None");
+        SkillWheelKey = KeybindLoader.RegisterKeybind(this, "SkillWheel", "C");
         UltimateKey = KeybindLoader.RegisterKeybind(this, "PotentialRelease", "G");
         DashKey = KeybindLoader.RegisterKeybind(this, "FranDash", "LeftShift");
         EvolutionKey = FranEvolutionInfo.SystemEnabled
@@ -132,6 +136,17 @@ public sealed class FranModMain : Mod
         SendTacticLoadout(playerIndex, tactics, toWho, ignoreClient);
     }
 
+    internal static void SendVigilState(int playerIndex, bool active, int age, int toWho = -1, int ignoreClient = -1)
+    {
+        if (Main.netMode != NetmodeID.Server) return;
+        ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
+        packet.Write(SyncVigilStateMessage);
+        packet.Write((byte)playerIndex);
+        packet.Write(active);
+        packet.Write((ushort)Math.Clamp(age, 0, 3600));
+        packet.Send(toWho, ignoreClient);
+    }
+
     internal static void SendUltimateRequest(Vector2 focusPoint)
     {
         if (Main.netMode != NetmodeID.MultiplayerClient)
@@ -143,6 +158,30 @@ public sealed class FranModMain : Mod
         packet.Send();
     }
 
+    internal static void SendUltimateSelection(int playerIndex, FranUltimateKind kind, int toWho = -1, int ignoreClient = -1)
+    {
+        if (Main.netMode == NetmodeID.SinglePlayer)
+            return;
+        ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
+        packet.Write(SyncUltimateSelectionMessage);
+        packet.Write((byte)playerIndex);
+        packet.Write((byte)kind);
+        packet.Send(toWho, ignoreClient);
+    }
+
+    internal static void SendSingularityInput(int identity, Vector2 target, bool detonate)
+    {
+        if (Main.netMode != NetmodeID.MultiplayerClient)
+            return;
+        ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
+        packet.Write(SingularityInputMessage);
+        packet.Write(identity);
+        packet.Write(target.X);
+        packet.Write(target.Y);
+        packet.Write(detonate);
+        packet.Send();
+    }
+
     internal static void SendUltimateCharge(int playerIndex, int chargeTicks,
         int toWho = -1, int ignoreClient = -1)
     {
@@ -151,7 +190,7 @@ public sealed class FranModMain : Mod
         ModPacket packet = ModContent.GetInstance<FranModMain>().GetPacket();
         packet.Write(SyncUltimateChargeMessage);
         packet.Write((byte)playerIndex);
-        packet.Write((ushort)Math.Clamp(chargeTicks, 0, FranPlayer.UltimateChargeDuration));
+        packet.Write((ushort)Math.Clamp(chargeTicks, 0, Main.player[playerIndex].GetModPlayer<FranPlayer>().SelectedUltimateChargeDuration));
         packet.Send(toWho, ignoreClient);
     }
 
@@ -264,6 +303,43 @@ public sealed class FranModMain : Mod
         byte messageType = reader.ReadByte();
         switch (messageType)
         {
+            case SyncUltimateSelectionMessage:
+            {
+                int playerIndex = reader.ReadByte();
+                FranUltimateKind kind = (FranUltimateKind)reader.ReadByte();
+                if (Main.netMode == NetmodeID.Server)
+                    playerIndex = whoAmI;
+                if (!ValidPlayer(playerIndex))
+                    return;
+                FranPlayer fran = Main.player[playerIndex].GetModPlayer<FranPlayer>();
+                if (Main.netMode != NetmodeID.Server || !fran.UltimateActive && FranUltimateInfo.IsSelectable(kind))
+                    fran.ReceiveUltimateSelection(kind);
+                if (Main.netMode == NetmodeID.Server)
+                    SendUltimateSelection(playerIndex, fran.SelectedUltimate);
+                break;
+            }
+            case SyncVigilStateMessage:
+            {
+                int playerIndex = reader.ReadByte();
+                bool active = reader.ReadBoolean();
+                int age = reader.ReadUInt16();
+                if (Main.netMode == NetmodeID.MultiplayerClient && ValidPlayer(playerIndex))
+                    Main.player[playerIndex].GetModPlayer<FranVigilPlayer>().ReceiveState(active, age);
+                break;
+            }
+            case SingularityInputMessage:
+            {
+                int identity = reader.ReadInt32();
+                Vector2 target = new(reader.ReadSingle(), reader.ReadSingle());
+                bool detonate = reader.ReadBoolean();
+                if (Main.netMode == NetmodeID.Server && ValidPlayer(whoAmI))
+                {
+                    FranSingularityUltimate hole = FranSingularityUltimate.Find(whoAmI);
+                    if (hole is not null && hole.Projectile.identity == identity)
+                        hole.ReceiveInput(target, detonate);
+                }
+                break;
+            }
             case FranCompanionSystem.PacketType:
                 FranCompanionSystem.HandlePacket(reader, whoAmI);
                 break;

@@ -1,4 +1,4 @@
-namespace FranMod.Core;
+﻿namespace FranMod.Core;
 
 /// <summary>
 /// 战术的内部平衡参数。
@@ -80,6 +80,13 @@ public static partial class FranBalance
     public static float TelekineticHardmodeLaserDamageMultiplier = 2f;
     public static float TelekineticHardmodeFoldBladeDamageMultiplier = 0.6f;
     public static float TelekineticHardmodeCoreDamageMultiplier = 1f;
+    // 凝念核：仅在困难模式前且任意 Boss 存活时，命中最终伤害乘此倍率。
+    public static float TelekineticCorePreHardmodeBossDamageMultiplier = 1.4f;
+    // 转盘念动：开局 / 骷髅王后 / 困难模式 / 世纪之花后 / 月后，每拍基础小弹数。
+    // 第三拍额外一枚；额外战术层数各增加一枚。总伤害按同阶段左键配方预算分摊。
+    public static int[] TelekineticDiscCoreCounts = { 1, 2, 3, 4, 6 };
+    public static float DiscPhantomSpawnRadius = 150f;
+    public static float DiscPhantomTargetRange = 800f;
     public static float TelekineticCorePreHardmodeSpeedMultiplier = 0.70f;
     public static float TelekineticCoreHardmodeSpeedMultiplier = 0.85f;
     public static int TelekineticFoldBladeHitLimit = 10;

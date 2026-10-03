@@ -70,15 +70,15 @@ public sealed class FranCompanionUI : ModSystem
         Vector2 mouse = new(Main.mouseX / Main.UIScale, Main.mouseY / Main.UIScale);
         if (!left) return;
         if (!panel.Contains(mouse.ToPoint())) { Close(); return; }
-        for (int row = 0; row < 10; row++)
+        for (int row = 0; row < FranSkillInfo.Selectable.Length + 2; row++)
         {
             if (!Row(row).Contains(mouse.ToPoint())) continue;
-            if (row == 9)
+            if (row == FranSkillInfo.Selectable.Length + 1)
             {
                 FranCompanionSystem.Request(FranCompanionSystem.Command.Dismiss, openId);
                 Close(); return;
             }
-            FranSkill skill = row == 0 ? FranSkill.None : (FranSkill)(row - 1);
+            FranSkill skill = row == 0 ? FranSkill.None : FranSkillInfo.Selectable[row - 1];
             if (skill != FranSkill.None && !FranSkillInfo.IsUnlocked(skill)) return;
             FranCompanionSystem.Request(FranCompanionSystem.Command.Tactic, openId, skill);
         }
@@ -111,16 +111,16 @@ public sealed class FranCompanionUI : ModSystem
             new Vector2(panel.X + 14, panel.Y + 40), Color.White, .72f);
         Utils.DrawBorderString(Main.spriteBatch, Text("Hint"), new Vector2(panel.X + 14, panel.Y + 60), Color.LightGray, .62f);
         Vector2 mouse = new(Main.mouseX / Main.UIScale, Main.mouseY / Main.UIScale);
-        for (int row = 0; row < 10; row++)
+        for (int row = 0; row < FranSkillInfo.Selectable.Length + 2; row++)
         {
             Rectangle area = Row(row);
-            FranSkill tactic = row is > 0 and < 9 ? (FranSkill)(row - 1) : FranSkill.None;
+            FranSkill tactic = row > 0 && row <= FranSkillInfo.Selectable.Length ? FranSkillInfo.Selectable[row - 1] : FranSkill.None;
             bool enabled = tactic == FranSkill.None || FranSkillInfo.IsUnlocked(tactic);
-            bool selected = row == 0 ? own.Automatic : row < 9 && !own.Automatic && own.ManualTactic == tactic;
+            bool selected = row == 0 ? own.Automatic : row <= FranSkillInfo.Selectable.Length && !own.Automatic && own.ManualTactic == tactic;
             Color background = selected ? new Color(45, 82, 106) : new Color(30, 36, 56);
             if (area.Contains(mouse.ToPoint()) && enabled) background = Color.Lerp(background, Color.SlateGray, .35f);
             Main.spriteBatch.Draw(TextureAssets.MagicPixel.Value, area, background);
-            string label = row == 0 ? Text("Automatic") : row == 9 ? Text("Dismiss") : FranSkillInfo.Name(tactic);
+            string label = row == 0 ? Text("Automatic") : row == FranSkillInfo.Selectable.Length + 1 ? Text("Dismiss") : FranSkillInfo.Name(tactic);
             if (!enabled) label += Text("Locked");
             else if (tactic == FranSkill.MagicBarrier) label += Text("ManualOnly");
             if (selected) label = "◆ " + label;

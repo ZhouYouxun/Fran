@@ -32,15 +32,15 @@ public static class FranCompanionDecision
                 s.MissingHealthRatio >= .20f ? 140f : s.MissingHealthRatio >= .10f ? 55f : 15f,
             FranSkill.ThunderChain => 15f + Math.Min(5, s.ClusteredEnemies) * 19f +
                 (s.Thunderstorm ? 32 : 0) - (s.Enemies < 3 ? 30 : 0),
-            FranSkill.PressurizedQuickdraw => 28f + (s.Durable ? 35 : 0) +
-                (s.CanMelee ? 43 : -35) - (s.Speed > 12 ? 25 : 0),
             FranSkill.ThorsHammer => 10f + (s.Durable ? 45 : -40) + (s.Boss ? 15 : 0) +
                 (s.Rain ? 55 : 0) + (s.Speed < 6 ? 24 : 0),
+            FranSkill.PressurizedQuickdraw => 28f + (s.Durable ? 35 : 0) +
+                (s.CanMelee ? 43 : -35) - (s.Speed > 12 ? 25 : 0),
             _ => float.NegativeInfinity
         };
     }
 
-    private static bool FranSkillInfoId(FranSkill skill) => (byte)skill < (byte)FranSkill.Count;
+    private static bool FranSkillInfoId(FranSkill skill) => FranSkillInfo.IsRealSkill(skill);
 
     public static FranSkill Select(Situation situation, ReadOnlySpan<bool> unlocked,
         FranSkill current, int heldTicks, bool actionLocked)

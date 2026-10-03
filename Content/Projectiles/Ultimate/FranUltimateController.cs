@@ -664,6 +664,7 @@ public sealed class FranUltimateController : ModProjectile
         Color edge = FinalStrike ? Color.White : new Color(207, 159, 255);
 
         Texture2D shiFuTexture = FranShiFuVisuals.Texture;
+        Texture2D shiFuGlowTexture = FranShiFuVisuals.GlowTexture;
         int facing = direction.X < 0f ? -1 : 1;
         SpriteEffects swordEffects = facing < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         Vector2 swordOrigin = new(facing < 0 ? shiFuTexture.Width : 0f, shiFuTexture.Height);
@@ -673,6 +674,10 @@ public sealed class FranUltimateController : ModProjectile
         Main.EntitySpriteDraw(shiFuTexture, swordPosition, null,
             Color.Lerp(lightColor, Color.White, 0.62f), swordRotation, swordOrigin,
             (FinalStrike ? 1.42f : 1.24f) * FranShiFuVisuals.TextureScale, swordEffects, 0f);
+        Vector2 glowOrigin = new(facing < 0 ? shiFuGlowTexture.Width : 0f, shiFuGlowTexture.Height);
+        Main.EntitySpriteDraw(shiFuGlowTexture, swordPosition, null,
+            Color.White * flash, swordRotation, glowOrigin,
+            (FinalStrike ? 1.42f : 1.24f) * FranShiFuVisuals.TextureScaleFor(shiFuGlowTexture), swordEffects, 0f);
 
         FranVfx.BeginAdditive();
         if (phase is UltimatePhase.NormalStrike or UltimatePhase.FinalStrike)

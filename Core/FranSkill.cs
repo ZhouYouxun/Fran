@@ -7,10 +7,14 @@ namespace FranMod.Core;
 public static class FranSkillInfo
 {
     public static int Count => (int)FranSkill.Count;
+    // All eight tactics remain available; ultimate placeholders only borrow their icons.
+    public static readonly FranSkill[] Selectable = [FranSkill.TelekineticCatapult, FranSkill.SkillTaker,
+        FranSkill.MagicBarrier, FranSkill.MultipleBodyCreation, FranSkill.BlueResonance,
+        FranSkill.ThunderChain, FranSkill.PressurizedQuickdraw, FranSkill.ThorsHammer];
 
     public static int CurrentStage => FranBalance.GetCurrentTacticStage();
 
-    public static bool IsUnlocked(FranSkill skill) => FranBalance.IsTacticUnlocked(skill);
+    public static bool IsUnlocked(FranSkill skill) => IsRealSkill(skill) && FranBalance.IsTacticUnlocked(skill);
 
     public static Color Color(FranSkill skill) => skill switch
     {

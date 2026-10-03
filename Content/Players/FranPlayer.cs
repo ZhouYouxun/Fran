@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using FranMod.Content.Buffs;
@@ -6,6 +6,7 @@ using FranMod.Content.Companions;
 using FranMod.Content.Config;
 using FranMod.Content.Items;
 using FranMod.Content.Projectiles;
+using FranMod.Content.Projectiles.BlackHole;
 using FranMod.Core;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -31,6 +32,7 @@ public sealed class FranPlayer : ModPlayer
     public bool FranMode { get; private set; }
     private readonly FranSkill[] equippedTactics = new FranSkill[FranBalance.TacticStorageCapacity];
     public int UltimateChargeTicks;
+    public FranUltimateKind SelectedUltimate { get; private set; }
     public Vector2 UltimateGaugeAnchor = DefaultUltimateGaugeAnchor;
     public int DashTimer;
     public int DashCooldown;
@@ -50,6 +52,7 @@ public sealed class FranPlayer : ModPlayer
     private readonly HashSet<int> dashHitNpcs = new();
     private static readonly Dictionary<Type, PropertyInfo> ExternalDashIdProperties = new();
     private bool introShown;
+    private bool receivedStartingShiFu;
     private bool wasFranMode;
     private bool networkFranMode;
     private bool shiFuBonded;
@@ -81,8 +84,13 @@ public sealed class FranPlayer : ModPlayer
     public bool HasExternalWings => Player.wingsLogic > 0 &&
         !FranTelekineticFlightSystem.IsTelekineticWingSlot(Player.wingsLogic);
     public bool UltimateUnlocked => Main.hardMode;
-    public bool UltimateReady => UltimateUnlocked && UltimateChargeTicks >= UltimateChargeDuration;
-    public bool UltimateActive => Player.ownedProjectileCounts[ModContent.ProjectileType<FranUltimateController>()] > 0;
+    public int SelectedUltimateChargeDuration => SelectedUltimate == FranUltimateKind.Vigil ? FranVigilRules.ChargeFrames : UltimateChargeDuration;
+    public bool VigilActive => Player.GetModPlayer<FranVigilPlayer>().Active;
+    public bool UltimateReady => UltimateUnlocked && UltimateChargeTicks >= SelectedUltimateChargeDuration;
+    public bool ExecutionUltimateActive => Player.ownedProjectileCounts[ModContent.ProjectileType<FranUltimateController>()] > 0;
+    internal FranSingularityUltimate ActiveSingularity => FranSingularityUltimate.Find(Player.whoAmI);
+    public bool BlockingUltimateActive => ExecutionUltimateActive || ActiveSingularity is not null;
+    public bool UltimateActive => BlockingUltimateActive || VigilActive;
     public bool HoldingShiFu => Player.HeldItem.type == ModContent.ItemType<ShiFu>();
 
     private bool HasNamedExternalDash()
@@ -135,8 +143,9 @@ public sealed class FranPlayer : ModPlayer
         for (int i = 0; i < MaximumTacticSlots; i++)
             savedTactics.Add(FranSkillInfo.IsRealSkill(equippedTactics[i]) ? (int)equippedTactics[i] : -1);
         tag["EquippedTacticsV1"] = savedTactics;
+        tag["SelectedUltimateV1"] = (int)SelectedUltimate;
         if (UltimateChargeTicks > 0)
-            tag["UltimateChargeTicks"] = Math.Clamp(UltimateChargeTicks, 0, UltimateChargeDuration);
+            tag["UltimateChargeTicks"] = Math.Clamp(UltimateChargeTicks, 0, SelectedUltimateChargeDuration);
         if (Vector2.DistanceSquared(UltimateGaugeAnchor, DefaultUltimateGaugeAnchor) > 0.000001f)
         {
             tag["UltimateGaugeX"] = UltimateGaugeAnchor.X;
@@ -148,6 +157,8 @@ public sealed class FranPlayer : ModPlayer
             tag["ShiFuBonded"] = true;
         if (restoreShiFuAfterRespawnCount > 0)
             tag["ShiFuRespawnCount"] = restoreShiFuAfterRespawnCount;
+        if (receivedStartingShiFu)
+            tag["ReceivedStartingShiFu"] = true;
     }
 
     public override void LoadData(TagCompound tag)
@@ -157,7 +168,7 @@ public sealed class FranPlayer : ModPlayer
         {
             IList<int> saved = tag.GetList<int>("EquippedTacticsV1");
             for (int i = 0; i < Math.Min(MaximumTacticSlots, saved.Count); i++)
-                equippedTactics[i] = saved[i] >= 0 && saved[i] < FranSkillInfo.Count
+                equippedTactics[i] = saved[i] >= 0 && saved[i] < FranSkillInfo.Count && FranSkillInfo.IsRealSkill((FranSkill)saved[i])
                     ? (FranSkill)saved[i]
                     : FranSkill.None;
         }
@@ -178,10 +189,12 @@ public sealed class FranPlayer : ModPlayer
                     _ => legacy
                 };
             }
-            if (value >= 0 && value < FranSkillInfo.Count)
+            if (value >= 0 && value < FranSkillInfo.Count && FranSkillInfo.IsRealSkill((FranSkill)value))
                 equippedTactics[0] = (FranSkill)value;
         }
         UltimateChargeTicks = Math.Clamp(tag.GetInt("UltimateChargeTicks"), 0, UltimateChargeDuration);
+        ReceiveUltimateSelection((FranUltimateKind)tag.GetInt("SelectedUltimateV1"));
+        UltimateChargeTicks = Math.Min(UltimateChargeTicks, SelectedUltimateChargeDuration);
         float gaugeX = tag.ContainsKey("UltimateGaugeX") ? tag.GetFloat("UltimateGaugeX") : DefaultUltimateGaugeAnchor.X;
         float gaugeY = tag.ContainsKey("UltimateGaugeY") ? tag.GetFloat("UltimateGaugeY") : DefaultUltimateGaugeAnchor.Y;
         UltimateGaugeAnchor = new Vector2(MathHelper.Clamp(gaugeX, 0f, 1f),
@@ -190,16 +203,24 @@ public sealed class FranPlayer : ModPlayer
         introShown = tag.GetBool("IntroShown");
         shiFuBonded = tag.GetBool("ShiFuBonded");
         restoreShiFuAfterRespawnCount = Math.Clamp(tag.GetInt("ShiFuRespawnCount"), 0, 59);
+        receivedStartingShiFu = tag.GetBool("ReceivedStartingShiFu");
+    }
+
+    public override void OnEnterWorld()
+    {
+        if (Player.whoAmI != Main.myPlayer || receivedStartingShiFu)
+            return;
+
+        receivedStartingShiFu = true;
+        Player.QuickSpawnItem(Player.GetSource_Misc("FranStartingShiFu"), ModContent.ItemType<ShiFu>());
     }
 
     public override void ResetEffects()
     {
         TelekineticFlightEnabled = false;
         bool localAuthority = Main.netMode == NetmodeID.SinglePlayer || Player.whoAmI == Main.myPlayer;
-        // Holding ShiFu must enable its combat kit. Character name and the favorited headwear remain
-        // alternate activation routes, while remote players retain their synchronized state fallback.
-        FranMode = IsFranName(Player.name) || HasShiFu ||
-            (localAuthority ? HasFavoritedHeadwear() : networkFranMode);
+        // ShiFu in the inventory is the sole activation route; remote players use synced state.
+        FranMode = localAuthority ? HasShiFu : networkFranMode;
         if (!FranMode)
             return;
 
@@ -314,6 +335,7 @@ public sealed class FranPlayer : ModPlayer
     {
         FranPlayer copy = (FranPlayer)targetCopy;
         copy.FranMode = FranMode;
+        copy.SelectedUltimate = SelectedUltimate;
         Array.Copy(equippedTactics, copy.equippedTactics, MaximumTacticSlots);
     }
 
@@ -322,6 +344,8 @@ public sealed class FranPlayer : ModPlayer
         FranPlayer copy = (FranPlayer)clientPlayer;
         if (copy.FranMode != FranMode)
             FranModMain.SendFranMode(Player.whoAmI, FranMode);
+        if (copy.SelectedUltimate != SelectedUltimate)
+            FranModMain.SendUltimateSelection(Player.whoAmI, SelectedUltimate);
         if (!TacticLoadoutEquals(copy.equippedTactics))
             FranModMain.SendTacticLoadout(Player.whoAmI, equippedTactics);
     }
@@ -331,11 +355,29 @@ public sealed class FranPlayer : ModPlayer
         FranModMain.SendFranMode(Player.whoAmI, FranMode, toWho, fromWho);
         FranModMain.SendCombatState(Player.whoAmI, DashTimer, DashVelocity, toWho, fromWho);
         FranModMain.SendTacticLoadout(Player.whoAmI, equippedTactics, toWho, fromWho);
+        FranModMain.SendUltimateSelection(Player.whoAmI, SelectedUltimate, toWho, fromWho);
         if (Main.netMode == NetmodeID.Server)
             FranModMain.SendUltimateCharge(Player.whoAmI, UltimateChargeTicks, toWho, fromWho);
     }
 
     internal void ReceiveNetworkMode(bool active) => networkFranMode = active;
+
+    internal void ReceiveUltimateSelection(FranUltimateKind kind)
+    {
+        SelectedUltimate = FranUltimateInfo.IsSelectable(kind) ? kind : FranUltimateKind.BlackHeavenlyTiger;
+        // Preserve elapsed charge, never convert a five-second charge into a full execution.
+        UltimateChargeTicks = Math.Min(UltimateChargeTicks, SelectedUltimateChargeDuration);
+        ultimateReadyAnnounced = UltimateReady;
+    }
+
+    internal bool TrySelectUltimate(FranUltimateKind kind)
+    {
+        if (!UltimateUnlocked || UltimateActive || !FranUltimateInfo.IsSelectable(kind) || SelectedUltimate == kind)
+            return false;
+        ReceiveUltimateSelection(kind);
+        FranModMain.SendUltimateSelection(Player.whoAmI, kind);
+        return true;
+    }
 
     internal void ReceiveNetworkCombatState(int dashTimer, Vector2 dashVelocity)
     {
@@ -348,7 +390,7 @@ public sealed class FranPlayer : ModPlayer
     internal void ReceiveUltimateCharge(int chargeTicks)
     {
         bool wasReady = UltimateReady;
-        UltimateChargeTicks = UltimateUnlocked ? Math.Clamp(chargeTicks, 0, UltimateChargeDuration) : 0;
+        UltimateChargeTicks = UltimateUnlocked ? Math.Clamp(chargeTicks, 0, SelectedUltimateChargeDuration) : 0;
         if (!wasReady && UltimateReady && Player.whoAmI == Main.myPlayer)
             SoundEngine.PlaySound(FranCombatSounds.UltimateReady, Player.Center);
         ultimateReadyAnnounced = UltimateReady;
@@ -370,6 +412,7 @@ public sealed class FranPlayer : ModPlayer
 
     private void MaintainUltimateHeldItem()
     {
+        ActiveSingularity?.LockHeldWeapon(Player);
         if (!UltimateActive)
             return;
         foreach (Projectile projectile in Main.ActiveProjectiles)
@@ -472,7 +515,7 @@ public sealed class FranPlayer : ModPlayer
 
     public override void PreUpdateMovement()
     {
-        if (!FranMode || DashTimer <= 0 && !UltimateActive)
+        if (!FranMode || DashTimer <= 0 && !ExecutionUltimateActive)
             return;
 
         // Fran's dash is an impulse rather than a forced movement rail. Aerial Hunt may provide
@@ -485,9 +528,21 @@ public sealed class FranPlayer : ModPlayer
 
     public override void SetControls()
     {
-        if (!UltimateActive && !Content.UI.FranUISystem.IsWheelOpen)
+        if (ActiveSingularity is { } singularity)
+        {
+            Player.controlUseItem = false;
+            Player.controlUseTile = false;
+            if (singularity.WeaponLocked)
+            {
+                Player.controlThrow = false;
+                Player.controlInv = false;
+                singularity.LockHeldWeapon(Player);
+            }
             return;
-        if (Content.UI.FranUISystem.IsWheelOpen && !UltimateActive)
+        }
+        if (!BlockingUltimateActive && !Content.UI.FranUISystem.IsWheelOpen)
+            return;
+        if (Content.UI.FranUISystem.IsWheelOpen && !BlockingUltimateActive)
         {
             Player.controlUseItem = false;
             Player.controlUseTile = false;
@@ -507,7 +562,7 @@ public sealed class FranPlayer : ModPlayer
         MaintainUltimateHeldItem();
     }
 
-    public override bool CanUseItem(Item item) => !UltimateActive && !Content.UI.FranUISystem.IsWheelOpen;
+    public override bool CanUseItem(Item item) => !BlockingUltimateActive && !Content.UI.FranUISystem.IsWheelOpen;
 
     public override void ModifyHurt(ref Player.HurtModifiers modifiers)
     {
@@ -620,7 +675,7 @@ public sealed class FranPlayer : ModPlayer
     }
 
     public override bool ImmuneTo(PlayerDeathReason damageSource, int cooldownCounter, bool dodgeable) =>
-        FranCompanionContext.IsActor(Player) || FranMode && (DashTimer > 0 || UltimateActive);
+        FranCompanionContext.IsActor(Player) || FranMode && (DashTimer > 0 || ExecutionUltimateActive);
 
     public int ConsumeNextCombo()
     {
@@ -632,13 +687,14 @@ public sealed class FranPlayer : ModPlayer
 
     public FranSkill GetEquippedTactic(int slot)
     {
-        if (slot < 0 || slot >= Math.Min(AvailableTacticSlots, MaximumTacticSlots))
+        if (VigilActive || slot < 0 || slot >= Math.Min(AvailableTacticSlots, MaximumTacticSlots))
             return FranSkill.None;
         return FranSkillInfo.IsRealSkill(equippedTactics[slot]) ? equippedTactics[slot] : FranSkill.None;
     }
 
     public int GetActiveTacticCount()
     {
+        if (VigilActive) return 0;
         int count = 0;
         for (int i = 0; i < Math.Min(AvailableTacticSlots, MaximumTacticSlots); i++)
             if (FranSkillInfo.IsRealSkill(equippedTactics[i]))
@@ -648,7 +704,7 @@ public sealed class FranPlayer : ModPlayer
 
     public int GetSkillStacks(FranSkill skill)
     {
-        if (!FranSkillInfo.IsRealSkill(skill))
+        if (VigilActive || !FranSkillInfo.IsRealSkill(skill))
             return 0;
         int count = 0;
         for (int i = 0; i < Math.Min(AvailableTacticSlots, MaximumTacticSlots); i++)
@@ -946,14 +1002,14 @@ public sealed class FranPlayer : ModPlayer
         FranEvolutionPlayer evolution = Player.GetModPlayer<FranEvolutionPlayer>();
         int pulseInterval = Math.Max(1, FranBalance.GetInt(nameof(FranBalance.EvolutionUltimateChargePulseInterval),
             FranBalance.EvolutionUltimateChargePulseInterval));
-        int chargeGain = evolution.AcceleratedUltimateCharge && Main.GameUpdateCount % (ulong)pulseInterval == 0
+        int chargeGain = SelectedUltimate != FranUltimateKind.Vigil && evolution.AcceleratedUltimateCharge && Main.GameUpdateCount % (ulong)pulseInterval == 0
             ? Math.Max(1, FranBalance.GetInt(nameof(FranBalance.EvolutionUltimateChargePulseAmount),
                 FranBalance.EvolutionUltimateChargePulseAmount))
             : 1;
         UltimateChargeTicks += chargeGain;
-        if (UltimateChargeTicks >= UltimateChargeDuration)
+        if (UltimateChargeTicks >= SelectedUltimateChargeDuration)
         {
-            UltimateChargeTicks = UltimateChargeDuration;
+            UltimateChargeTicks = SelectedUltimateChargeDuration;
             AnnounceUltimateReady();
             if (Main.netMode == NetmodeID.Server)
                 FranModMain.SendUltimateCharge(Player.whoAmI, UltimateChargeTicks);
@@ -972,7 +1028,7 @@ public sealed class FranPlayer : ModPlayer
         if (Player.whoAmI != Main.myPlayer || Main.playerInventory || Player.mouseInterface)
             return;
 
-        if (FranModMain.UltimateKey.JustPressed && HoldingShiFu && UltimateReady && !UltimateActive)
+        if (FranModMain.UltimateKey.JustPressed && (VigilActive || HoldingShiFu && UltimateReady && !UltimateActive))
         {
             Vector2 focusPoint = Main.MouseWorld;
             if (Main.netMode == NetmodeID.MultiplayerClient)
@@ -1025,7 +1081,7 @@ public sealed class FranPlayer : ModPlayer
     }
 
     private bool CanStartFranDash() =>
-        !UltimateActive && !HasExternalDash && DashCooldown <= 0 && !Player.mount.Active && !Player.pulley &&
+        !BlockingUltimateActive && !HasExternalDash && DashCooldown <= 0 && !Player.mount.Active && !Player.pulley &&
         Player.grappling[0] == -1 && !Player.tongued;
 
     private Vector2 ResolveManualDashDirection()
@@ -1064,7 +1120,11 @@ public sealed class FranPlayer : ModPlayer
         DashTimer = DashDuration;
         DashCooldown = evolution.DashCooldownTicks;
         DashVelocity = direction * dashSpeed;
-        Player.velocity = DashVelocity;
+        // Horizontal Black Tiger dashes preserve jump/fall momentum. Omnidirectional
+        // dashes keep their authored vertical impulse.
+        Player.velocity = Math.Abs(direction.Y) <= 0.05f
+            ? new Vector2(DashVelocity.X, Player.velocity.Y)
+            : DashVelocity;
         // Cancel a fallback framework dash that may have reacted to the same double tap earlier
         // in the update order. Equipped external dashes never reach StartDash in the first place.
         Player.dashDelay = 0;
@@ -1227,18 +1287,6 @@ public sealed class FranPlayer : ModPlayer
             Projectile.NewProjectile(Player.GetSource_Misc("FloatingShiFu"), Player.Center, Vector2.Zero, type, 0, 0f, Player.whoAmI);
     }
 
-    private bool HasFavoritedHeadwear()
-    {
-        int type = ModContent.ItemType<FransHeadwear>();
-        for (int i = 0; i < 50; i++)
-            if (Player.inventory[i].type == type && Player.inventory[i].favorited)
-                return true;
-        return false;
-    }
-
-    private static bool IsFranName(string name) =>
-        string.Equals(name?.Trim(), "Fran", StringComparison.OrdinalIgnoreCase) || name?.Trim() is "フラン" or "弗兰";
-
     private static Color LitColor(Color baseColor, Color environmentLight) =>
         new(baseColor.ToVector3() * environmentLight.ToVector3());
 
@@ -1249,7 +1297,7 @@ public sealed class FranPlayer : ModPlayer
         introShown = true;
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroTitle"), new Color(145, 225, 255));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroCombat"), Color.White);
-        Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroSkills"), new Color(185, 215, 255));
+        Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroSkills", ShiFu.GetAssignedKeyOrUnbound(FranModMain.SkillWheelKey)), new Color(185, 215, 255));
         if (FranEvolutionInfo.SystemEnabled)
             Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroEvolution"), new Color(205, 178, 245));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroDash"), new Color(185, 215, 255));
@@ -1258,6 +1306,11 @@ public sealed class FranPlayer : ModPlayer
 
     internal bool TryStartUltimate(Vector2 requestedFocus)
     {
+        if (Main.netMode != NetmodeID.MultiplayerClient && VigilActive)
+        {
+            Player.GetModPlayer<FranVigilPlayer>().SetActive(false);
+            return true;
+        }
         if (!UltimateUnlocked || Main.netMode == NetmodeID.MultiplayerClient || !FranMode || Player.dead || !UltimateReady ||
             UltimateActive || !HoldingShiFu)
             return false;
@@ -1270,13 +1323,36 @@ public sealed class FranPlayer : ModPlayer
 
         int strikeDamage = GetUltimateStrikeDamage();
 
+        if (SelectedUltimate == FranUltimateKind.Singularity &&
+            (FranSingularityUltimate.FindAny() is not null || SustainedBlackHole.FindSoleBlackHole() is not null))
+            return false;
+
+        if (SelectedUltimate == FranUltimateKind.Vigil)
+        {
+            UltimateChargeTicks = 0;
+            ultimateChargeSyncTimer = 0;
+            ultimateReadyAnnounced = false;
+            Player.GetModPlayer<FranVigilPlayer>().SetActive(true);
+            if (Main.netMode == NetmodeID.Server) FranModMain.SendUltimateCharge(Player.whoAmI, 0);
+            return true;
+        }
+
         if (DashTimer > 0)
             EndDash(sync: false);
+        int ultimateType = SelectedUltimate == FranUltimateKind.Singularity
+            ? ModContent.ProjectileType<FranSingularityUltimate>() : ModContent.ProjectileType<FranUltimateController>();
+        if (SelectedUltimate == FranUltimateKind.Singularity)
+            strikeDamage = Math.Max(1, Player.GetWeaponDamage(Player.HeldItem));
         int projectileIndex = Projectile.NewProjectile(Player.GetSource_Misc("FranUltimate"), Player.Center,
-            Vector2.Zero, ModContent.ProjectileType<FranUltimateController>(), strikeDamage, 8f,
+            Vector2.Zero, ultimateType, strikeDamage, 8f,
             Player.whoAmI, requestedFocus.X, requestedFocus.Y, Player.selectedItem);
         if (!Main.projectile.IndexInRange(projectileIndex))
             return false;
+
+        if (SelectedUltimate == FranUltimateKind.Singularity)
+            foreach (Projectile active in Main.ActiveProjectiles)
+                if (active.owner == Player.whoAmI && active.ModProjectile is ShiFuSwingRebuild or FranQuickdrawDiscHoldout or FranSpinningDisc)
+                    active.Kill();
 
         UltimateChargeTicks = 0;
         ultimateChargeSyncTimer = 0;

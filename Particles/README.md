@@ -1,5 +1,7 @@
 # Fran 粒子与武器特效库
 
+2026-09-28：守望强化光波按用户要求移植，新增共享素材 `VigilGlowOrb/VigilSpark/VigilSparkle/VigilRing/VigilSolidCircle`；来源与许可边界见 `Docs/Vigil.md`。复用 `CL_BloomCircle`。组合适配器 `FranVigilWaveParticles.cs` 从本目录读取这些共享素材，不依赖外部模组资源路径。
+
 本目录是 Fran 项目专用的粒子资源库。拥有专属位图的单贴图粒子必须把
 `类名.cs` 与 `类名.png` 放在这里，并通过 `Fran/Particles/<类名>` 加载。粒子系统使用的共享
 Bloom、字形、火花、拖尾条、噪声等材质也必须在本目录保存完整副本；原图可以继续保留在

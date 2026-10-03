@@ -29,9 +29,10 @@ internal static class FranProjectileTrailRenderer
     private static bool shaderTrailFaulted;
     private static bool telekineticWaveShaderFaulted;
     private static bool telekineticCoreShaderFaulted;
-    // Long enough for the core to keep a continuous ribbon at maximum chase speed.
-    internal const int TelekineticCoreHistoryLength = 136;
+    // 念核只保留短距离双轨，追踪加速不会拖出横跨屏幕的长剑气。
+    internal const int TelekineticCoreHistoryLength = 24;
     internal const int TelekineticCoreSamples = 30;
+    private const float TelekineticCoreTrailLength = 180f;
 
     public static bool TryDrawTelekineticCore(Projectile projectile, Color bodyColor,
         Color edgeColor, Color coreColor, float opacity)
@@ -40,8 +41,7 @@ internal static class FranProjectileTrailRenderer
             !float.IsFinite(opacity) || opacity <= 0.01f)
             return false;
 
-        // Full history fits even at maximum chase speed. Keep the existing per-segment guard
-        // so a teleport cannot produce a screen-spanning triangle.
+        // 先按世界距离裁短，再均匀取样。只改变显示轨迹，不改移动或命中判定。
         List<Vector2> points = BuildTelekineticCorePoints(projectile, out float[] distanceProgress);
         if (points.Count < 3)
             return false;
@@ -67,18 +67,16 @@ internal static class FranProjectileTrailRenderer
             shader.TrySetParameter("uCoreColor", coreColor);
             shader.TrySetParameter("uOpacity", MathHelper.Clamp(opacity, 0f, 1f));
             shader.TrySetParameter("uDistanceProgress", distanceProgress);
+            shader.TrySetParameter("uSeed", projectile.identity * 0.618034f % 1f);
             shader.SetTexture(ModContent.Request<Texture2D>("Fran/Assets/TrailNoiseReference/FranTrailBlobNoise").Value,
                 1, SamplerState.LinearWrap);
-            shader.SetTexture(ModContent.Request<Texture2D>("Terraria/Images/Extra_189").Value,
-                2, SamplerState.LinearWrap);
             device.BlendState = BlendState.AlphaBlend;
             // Keep the visual ribbon narrow, independently of Fran's gameplay hitbox.
             PrimitiveSettings settings = new(
-                completion => 12f * projectile.scale * Utils.GetLerpValue(0f, 0.1f,
-                    distanceProgress[Math.Clamp((int)MathF.Round(completion * TelekineticCoreSamples), 0, TelekineticCoreSamples)], true),
+                completion => projectile.scale * MathHelper.Lerp(10f, 2f, completion),
                 completion => Color.White,
                 Smoothen: false, Pixelate: false, Shader: shader);
-            // Already smoothed/resampled above. Never smooth a second time inside Luminance.
+            // Already resampled by distance above; keep the short cell layout inside Luminance.
             PrimitiveRenderer.RenderTrail(points, settings, points.Count);
             return true;
         }
@@ -103,41 +101,96 @@ internal static class FranProjectileTrailRenderer
     private static List<Vector2> BuildTelekineticCorePoints(Projectile projectile, out float[] distanceProgress)
     {
         distanceProgress = new float[TelekineticCoreSamples + 1];
-        List<Vector2> controls = new(TelekineticCoreHistoryLength);
+        List<Vector2> controls = new(TelekineticCoreHistoryLength + 1) { projectile.Center };
+        List<float> distances = new(TelekineticCoreHistoryLength + 1) { 0f };
+        float total = 0f;
         foreach (Vector2 oldPosition in projectile.oldPos)
         {
             if (oldPosition == Vector2.Zero)
-                continue;
+                break;
             Vector2 point = oldPosition + projectile.Size * 0.5f;
-            if (!IsFinite(point) || controls.Count > 0 &&
+            if (!IsFinite(point) ||
                 Vector2.DistanceSquared(point, controls[^1]) > MaximumSegmentLength * MaximumSegmentLength)
                 break;
+            float length = Vector2.Distance(point, controls[^1]);
+            if (length < 0.001f)
+                continue;
+            float remaining = TelekineticCoreTrailLength - total;
+            if (length >= remaining)
+            {
+                controls.Add(Vector2.Lerp(controls[^1], point, remaining / length));
+                distances.Add(TelekineticCoreTrailLength);
+                total = TelekineticCoreTrailLength;
+                break;
+            }
+            total += length;
             controls.Add(point);
+            distances.Add(total);
         }
-        if (controls.Count < 2)
+        if (controls.Count < 2 || !float.IsFinite(total) || total <= 0.001f)
             return new List<Vector2>();
-        // Width and UV.x use cumulative distance rather than Luminance's uniform sample index.
+        // 每节能量脉冲按路径距离排布；急转弯不使用会甩出额外弧线的插值。
         List<Vector2> points = new(TelekineticCoreSamples + 1);
-        for (int j = 0; j < TelekineticCoreSamples; j++)
+        int segment = 1;
+        for (int j = 0; j <= TelekineticCoreSamples; j++)
         {
-            float curve = j / (float)TelekineticCoreSamples * (controls.Count - 1);
-            int index = (int)curve;
-            Vector2 point = Vector2.CatmullRom(controls[Math.Max(index - 1, 0)], controls[index],
-                controls[Math.Min(index + 1, controls.Count - 1)],
-                controls[Math.Min(index + 2, controls.Count - 1)], curve - index);
-            if (!IsFinite(point))
-                return new List<Vector2>();
-            points.Add(point);
+            float completion = j / (float)TelekineticCoreSamples;
+            float distance = total * completion;
+            while (segment < controls.Count - 1 && distances[segment] < distance)
+                segment++;
+            float fraction = (distance - distances[segment - 1]) /
+                Math.Max(0.001f, distances[segment] - distances[segment - 1]);
+            points.Add(Vector2.Lerp(controls[segment - 1], controls[segment], fraction));
+            distanceProgress[j] = completion;
         }
-        points.Add(controls[^1]);
-        for (int i = 1; i < points.Count; i++)
-            distanceProgress[i] = distanceProgress[i - 1] + Vector2.Distance(points[i - 1], points[i]);
-        float total = distanceProgress[^1];
-        if (!float.IsFinite(total) || total <= 0.001f)
-            return new List<Vector2>();
-        for (int i = 1; i < points.Count; i++)
-            distanceProgress[i] /= total;
         return points;
+    }
+
+    public static void DrawTelekineticCoreFallback(Projectile projectile, Color color)
+    {
+        List<Vector2> points = BuildTelekineticCorePoints(projectile, out _);
+        FranVfx.BeginAdditive();
+        try
+        {
+            for (int i = 1; i < points.Count; i++)
+            {
+                float completion = i / (float)(points.Count - 1);
+                Vector2 side = (points[i - 1] - points[i]).SafeNormalize(Vector2.UnitX).RotatedBy(MathHelper.PiOver2);
+                Vector2 offset = side * MathHelper.Lerp(4f, 1f, completion) * projectile.scale;
+                for (int sign = -1; sign <= 1; sign += 2)
+                    FranVfx.DrawVertical("FranVfx_ThinEndedLine", points[i - 1] + offset * sign,
+                        points[i] + offset * sign, color * ((1f - completion) * 0.65f), 1.6f * projectile.scale);
+            }
+        }
+        finally { FranVfx.EndAdditive(); }
+    }
+
+    public static void DrawTelekineticCoreHead(Projectile projectile, Color body, Color edge)
+    {
+        Vector2 forward = projectile.velocity.SafeNormalize(Vector2.UnitX);
+        Vector2 side = forward.RotatedBy(MathHelper.PiOver2);
+        float pulse = MathF.Sin(Main.GlobalTimeWrappedHourly * 12f + projectile.identity * 1.7f);
+        float scale = projectile.scale;
+        Vector2 center = projectile.Center;
+        Vector2[] corners =
+        [
+            center + forward * 16f * scale,
+            center + side * (6.5f + pulse) * scale,
+            center - forward * 10f * scale,
+            center - side * (6.5f + pulse) * scale
+        ];
+        FranVfx.BeginAdditive();
+        try
+        {
+            FranVfx.DrawSharedPixels("BloomCircle", center, body * (0.45f * scale),
+                projectile.rotation, new Vector2(30f, 22f) * scale);
+            for (int i = 0; i < 4; i++)
+                FranVfx.DrawVertical("FranVfx_ThinEndedLine", corners[i], corners[(i + 1) % 4],
+                    edge * (0.85f * scale), 1.8f * scale);
+            FranVfx.DrawSharedPixels("BloomCircle", center, Color.White * (0.8f * scale),
+                projectile.rotation, new Vector2(11f, 7f) * scale);
+        }
+        finally { FranVfx.EndAdditive(); }
     }
 
     private static void WarnTelekineticCoreShader(string message)
@@ -148,13 +201,16 @@ internal static class FranProjectileTrailRenderer
     }
 
     public static bool TryDraw(Projectile projectile, FranProjectileTrailProfile profile,
-        Color bodyColor, Color edgeColor, Color coreColor, float halfWidth, float opacity)
+        Color bodyColor, Color edgeColor, Color coreColor, float halfWidth, float opacity, float lengthScale = 1f)
     {
         if (Main.dedServ || shaderTrailFaulted || projectile.oldPos is null || projectile.oldPos.Length < 2 ||
             !IsFinite(projectile.Center) || !float.IsFinite(halfWidth) || !float.IsFinite(opacity))
             return false;
 
         List<Vector2> points = CollectSafePoints(projectile);
+        if (lengthScale != 1f)
+            for (int i = 0; i < points.Count; i++)
+                points[i] = Vector2.Lerp(projectile.Center, points[i], lengthScale);
         if (points.Count < 3 || !ShaderManager.TryGetShader("Fran.FranBladeTrailShader", out ManagedShader shader))
             return false;
 
@@ -214,9 +270,12 @@ internal static class FranProjectileTrailRenderer
     }
 
     public static void DrawFallback(Projectile projectile, FranProjectileTrailProfile profile,
-        Color color, float width, float opacity)
+        Color color, float width, float opacity, float lengthScale = 1f)
     {
         List<Vector2> points = CollectSafePoints(projectile);
+        if (lengthScale != 1f)
+            for (int i = 0; i < points.Count; i++)
+                points[i] = Vector2.Lerp(projectile.Center, points[i], lengthScale);
         if (points.Count < 2)
             return;
 

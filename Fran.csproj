@@ -4,6 +4,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Tests\**\*.cs" />
+    <Compile Include="Tests\Runtime\VigilSmokeTest.cs" Condition="'$(FranVigilTests)' == 'true'" />
+    <Compile Include="Tests\Runtime\SingularitySmokeTest.cs" Condition="'$(FranSingularityTests)' == 'true'" />
+    <Compile Include="Tests\Runtime\ShiFuTextureSmokeTest.cs" Condition="'$(FranTextureTests)' == 'true'" />
     <Compile Include="Tests\Runtime\CompanionSmokeTest.cs" Condition="'$(FranCompanionTests)' == 'true'" />
     <Compile Include="Tests\Runtime\MultipleBodySmokeTest.cs" Condition="'$(FranMultipleBodyTests)' == 'true'" />
     <Compile Include="Tests\Runtime\HammerSmokeTest.cs" Condition="'$(FranHammerTests)' == 'true'" />
