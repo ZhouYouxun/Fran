@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FranMod.Core;
 using FranMod.Particles;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -20,13 +21,13 @@ internal static class ShiFuToolProgression
     {
         get
         {
-            int stage = NPC.downedMoonlord ? 7 :
-                NPC.downedGolemBoss ? 6 :
-                NPC.downedPlantBoss ? 5 :
-                NPC.downedMechBoss1 && NPC.downedMechBoss2 && NPC.downedMechBoss3 ? 4 :
-                Main.hardMode ? 3 :
-                NPC.downedBoss3 ? 2 :
-                NPC.downedBoss2 ? 1 : 0;
+            int stage = FranBalance.IsMilestoneCompleted(FranProgressionMilestone.MoonLord) ? 7 :
+                FranBalance.IsMilestoneCompleted(FranProgressionMilestone.Golem) ? 6 :
+                FranBalance.IsMilestoneCompleted(FranProgressionMilestone.Plantera) ? 5 :
+                FranBalance.IsMilestoneCompleted(FranProgressionMilestone.AllMechanicalBosses) ? 4 :
+                FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) ? 3 :
+                FranBalance.IsMilestoneCompleted(FranProgressionMilestone.Skeletron) ? 2 :
+                FranBalance.IsMilestoneCompleted(FranProgressionMilestone.AnyEvilBoss) ? 1 : 0;
 
             return stage switch
             {

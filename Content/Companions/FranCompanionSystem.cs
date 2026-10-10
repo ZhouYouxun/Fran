@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using FranMod.Content.Items;
 using FranMod.Core;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -14,8 +13,6 @@ public sealed class FranCompanionSystem : ModSystem
 {
     internal const byte PacketType = 12;
     internal enum Command : byte { Summon, Dismiss, Tactic }
-    private static int nextSummonId;
-    private static readonly ulong[] LastSummonRequest = new ulong[255];
     private static readonly Dictionary<int, FranCompanion> CompanionCache = new();
 
     public override void Load()
@@ -39,7 +36,6 @@ public sealed class FranCompanionSystem : ModSystem
 
     public override void OnWorldLoad()
     {
-        Array.Clear(LastSummonRequest);
         CompanionCache.Clear();
     }
 
@@ -149,31 +145,10 @@ public sealed class FranCompanionSystem : ModSystem
         Player player = Main.player[playerIndex];
         if (!player.active || player.dead || player.CCed) return;
         FranCompanion existing = FindOwned(playerIndex);
-        bool holdingStaff = player.HeldItem.type == ModContent.ItemType<FranCompanionStaff>();
         switch (command)
         {
-            case Command.Summon when holdingStaff:
-                if (LastSummonRequest[playerIndex] != 0 && Main.GameUpdateCount - LastSummonRequest[playerIndex] < 20) return;
-                LastSummonRequest[playerIndex] = Main.GameUpdateCount;
-                if (existing is not null) { existing.Recall(player); return; }
-                int index = Projectile.NewProjectile(player.GetSource_ItemUse(player.HeldItem),
-                    player.Center - new Vector2(player.direction * 48f, 48f), Vector2.Zero,
-                    ModContent.ProjectileType<FranCompanion>(), 0, 0f, FranCompanionContext.VirtualSlot,
-                    playerIndex, (byte)FranSkill.TelekineticCatapult);
-                if (index >= 0 && index < Main.maxProjectiles && Main.projectile[index].ModProjectile is FranCompanion summon)
-                {
-                    // NewProjectile initializes ai[] only for Main.myPlayer; root creation
-                    // in singleplayer intentionally keeps the real player's identity intact.
-                    summon.Projectile.ai[0] = playerIndex;
-                    summon.Projectile.ai[1] = (byte)FranSkill.TelekineticCatapult;
-                    summon.Projectile.ai[2] = 0f;
-                    summon.SummonId = ++nextSummonId;
-                    summon.Recall(player);
-                    summon.Projectile.netUpdate = true;
-                }
-                break;
             case Command.Dismiss when existing is not null:
-                if (holdingStaff || existing.SummonId == id && existing.CanInteract(playerIndex)) existing.Dismiss();
+                if (existing.SummonId == id && existing.CanInteract(playerIndex)) existing.Dismiss();
                 break;
             case Command.Tactic when existing is not null && existing.SummonId == id && existing.CanInteract(playerIndex):
                 if (tactic == FranSkill.None || FranSkillInfo.IsRealSkill(tactic) && FranSkillInfo.IsUnlocked(tactic))

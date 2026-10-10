@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
-using FranMod.Content.Items;
 using Terraria;
 using Terraria.GameContent.Events;
 
@@ -188,10 +187,7 @@ public static partial class FranBalance
 
     public static int GetBaseDamage(Player player)
     {
-        int damage = GetProgressionBaseDamage();
-        return FranDamageDebugger.TryGetFavoritedDamage(player, out int debugDamage)
-            ? debugDamage
-            : damage;
+        return GetProgressionBaseDamage();
     }
 
     public static int GetProgressionBaseDamage()
@@ -347,9 +343,9 @@ public static partial class FranBalance
     public static int GetTacticCooldown(FranSkill skill) =>
         GetArrayValue(nameof(TacticCooldownFrames), TacticCooldownFrames, (int)skill, 0);
 
-    public static float GetTelekineticCoreSpeedMultiplier() => !Main.hardMode
+    public static float GetTelekineticCoreSpeedMultiplier() => !IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh)
         ? GetFloat(nameof(TelekineticCorePreHardmodeSpeedMultiplier), TelekineticCorePreHardmodeSpeedMultiplier)
-        : NPC.downedPlantBoss ? 1f
+        : IsMilestoneCompleted(FranProgressionMilestone.Plantera) ? 1f
         : GetFloat(nameof(TelekineticCoreHardmodeSpeedMultiplier), TelekineticCoreHardmodeSpeedMultiplier);
 
     public static float GetComboDamageMultiplier(int combo) =>
@@ -397,9 +393,9 @@ public static partial class FranBalance
 
     public static int GetTelekineticLaserDamagingHits()
     {
-        int progressionIndex = NPC.downedMoonlord ? 3 :
-            NPC.downedPlantBoss ? 2 :
-            Main.hardMode ? 1 : 0;
+        int progressionIndex = IsMilestoneCompleted(FranProgressionMilestone.MoonLord) ? 3 :
+            IsMilestoneCompleted(FranProgressionMilestone.Plantera) ? 2 :
+            IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) ? 1 : 0;
         return Math.Max(1, GetArrayValue(nameof(TelekineticLaserDamagingHits),
             TelekineticLaserDamagingHits, progressionIndex, 1));
     }
@@ -419,13 +415,12 @@ public static partial class FranBalance
         return Math.Clamp(slots, 1, Math.Max(1, TacticStorageCapacity));
     }
 
-    // 念动弹射只在五个关键节点重组弹幕。它严格读取对应的原版首领旗标，
-    // 不采用跳流程的向前补齐，避免新世界因其他进度来源直接显示终型。
+    // 念动弹射在五个关键节点重组弹幕，沿用统一的最高 Boss 向前补齐规则。
     public static int GetTelekineticPatternStage() =>
-        NPC.downedMoonlord ? 4 :
-        NPC.downedPlantBoss ? 3 :
-        Main.hardMode ? 2 :
-        NPC.downedBoss3 ? 1 : 0;
+        IsMilestoneCompleted(FranProgressionMilestone.MoonLord) ? 4 :
+        IsMilestoneCompleted(FranProgressionMilestone.Plantera) ? 3 :
+        IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) ? 2 :
+        IsMilestoneCompleted(FranProgressionMilestone.Skeletron) ? 1 : 0;
 
     public static float GetTelekineticFormationDamageMultiplier(int projectileCount) => projectileCount switch
     {
@@ -467,7 +462,8 @@ public static partial class FranBalance
         FranProgressionMilestone.Destroyer => NPC.downedMechBoss1,
         FranProgressionMilestone.Twins => NPC.downedMechBoss2,
         FranProgressionMilestone.SkeletronPrime => NPC.downedMechBoss3,
-        FranProgressionMilestone.AnyMechanicalBoss => NPC.downedMechBossAny,
+        FranProgressionMilestone.AnyMechanicalBoss =>
+            NPC.downedMechBossAny || NPC.downedMechBoss1 || NPC.downedMechBoss2 || NPC.downedMechBoss3,
         FranProgressionMilestone.AnyTwoMechanicalBosses =>
             (NPC.downedMechBoss1 ? 1 : 0) + (NPC.downedMechBoss2 ? 1 : 0) +
             (NPC.downedMechBoss3 ? 1 : 0) >= 2,
@@ -506,7 +502,7 @@ public static partial class FranBalance
         if ((NPC.downedMechBoss1 ? 1 : 0) + (NPC.downedMechBoss2 ? 1 : 0) +
             (NPC.downedMechBoss3 ? 1 : 0) >= 2)
             return 60;
-        if (NPC.downedMechBossAny)
+        if (NPC.downedMechBossAny || NPC.downedMechBoss1 || NPC.downedMechBoss2 || NPC.downedMechBoss3)
             return 50;
         if (NPC.downedQueenSlime)
             return 45;

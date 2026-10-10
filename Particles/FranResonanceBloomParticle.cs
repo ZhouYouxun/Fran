@@ -11,15 +11,16 @@ internal sealed class FranResonanceBloomParticle : FranParticle
 {
     public override bool Additive => false;
 
-    internal static void SpawnBurst(Vector2 center, float direction, float size)
+    internal static void SpawnBurst(Vector2 center, float direction, float size, bool includeHealSeal = true)
     {
         if (!FranResonanceVisuals.Visible(center))
             return;
-        FranParticleSystem.Spawn(new FranResonanceBloomParticle
-        {
-            Position = center, Scale = size, Rotation = direction,
-            Color = FranResonanceVisuals.Cyan, Lifetime = 32
-        }, spawnSupportingDust: false);
+        if (includeHealSeal)
+            FranParticleSystem.Spawn(new FranResonanceBloomParticle
+            {
+                Position = center, Scale = size, Rotation = direction,
+                Color = FranResonanceVisuals.Cyan, Lifetime = 32
+            }, spawnSupportingDust: false);
         for (int i = 0; i < 3; i++)
         {
             float angle = direction + i * MathHelper.TwoPi / 3f;

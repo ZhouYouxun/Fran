@@ -68,7 +68,8 @@ public sealed class FranVigilPlayer : ModPlayer
     public override void PostUpdate()
     {
         if (!Active) return;
-        if (Player.dead || !Main.hardMode || !Player.GetModPlayer<FranPlayer>().HasShiFu)
+        if (Player.dead || !FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) ||
+            !Player.GetModPlayer<FranPlayer>().HasShiFu)
         {
             if (Main.netMode != NetmodeID.MultiplayerClient) SetActive(false);
             return;

@@ -18,22 +18,25 @@ using Terraria.ModLoader;
 namespace FranMod.Content.Projectiles;
 
 
-internal static class ShiFuImprintCombat
+internal static partial class ShiFuImprintCombat
 {
     private static Vector2 AttackOrigin(Player owner, Projectile attack) =>
         attack.ModProjectile is FranSpinningDisc ? attack.Center : owner.MountedCenter;
+    private static int SkillSourceDamage(Projectile attack, int combo) =>
+        attack.ModProjectile is FranSpinningDisc disc ? disc.SkillDamageForBeat(combo) : attack.damage;
 
     public static void TriggerSwing(Player owner, Projectile swing, int combo, FranSkill skill,
-        int tacticLayers, Vector2 direction, float reach)
+        int tacticLayers, Vector2 direction, float reach, NPC discHitTarget = null)
     {
         if (Main.myPlayer != owner.whoAmI)
             return;
         tacticLayers = Math.Clamp(tacticLayers, 1, FranPlayer.MaximumTacticSlots);
 
         FranPlayer fran = owner.GetModPlayer<FranPlayer>();
-        FranVanillaDustEffects.SkillRelease(AttackOrigin(owner, swing) + direction.SafeNormalize(Vector2.UnitX * owner.direction) * 26f,
-            direction, skill, FranSkillInfo.Color(skill), 7 + combo * 2,
-            combo == 3 ? 1.12f : 0.92f);
+        if (swing.ModProjectile is not FranSpinningDisc)
+            FranVanillaDustEffects.SkillRelease(AttackOrigin(owner, swing) + direction.SafeNormalize(Vector2.UnitX * owner.direction) * 26f,
+                direction, skill, FranSkillInfo.Color(skill), 7 + combo * 2,
+                combo == 3 ? 1.12f : 0.92f);
         switch (skill)
         {
             case FranSkill.TelekineticCatapult:
@@ -53,7 +56,7 @@ internal static class ShiFuImprintCombat
 
             case FranSkill.ThunderChain:
                 SpawnThunderCircuit(owner, swing, combo, tacticLayers, direction,
-                    fran.IsFullTacticLoadout(FranSkill.ThunderChain));
+                    fran.IsFullTacticLoadout(FranSkill.ThunderChain), discHitTarget);
                 break;
 
             case FranSkill.BlueResonance:
@@ -69,10 +72,12 @@ internal static class ShiFuImprintCombat
                 break;
 
             case FranSkill.ThorsHammer when combo == 3 && fran.AdvanceHammerRound(tacticLayers):
+                if (swing.ModProjectile is FranSpinningDisc disc && !disc.AllowHammerDrop())
+                    break;
                 Vector2 hammerTarget = owner.Center + new Vector2(Main.rand.NextFloat(-150f, 150f),
                     Main.rand.NextFloat(-260f, -170f));
                 Projectile.NewProjectile(swing.GetSource_FromThis(), hammerTarget, Vector2.Zero,
-                    ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(swing.damage *
+                    ModContent.ProjectileType<ThorsHammerMarker>(), Math.Max(1, (int)(SkillSourceDamage(swing, combo) *
                         FranBalance.GetFloat(nameof(FranBalance.ThorsHammerDropDamageMultiplier),
                             FranBalance.ThorsHammerDropDamageMultiplier) *
                         (1f + FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExtraLayerDamageMultiplier),
@@ -84,13 +89,15 @@ internal static class ShiFuImprintCombat
     }
 
     public static void OnSwordHit(Player owner, Projectile swing, NPC target, int combo, FranSkill skill,
-        int tacticLayers, Vector2 direction, int damageDone)
+        int tacticLayers, Vector2 direction, int damageDone, bool firstDiscHit = true)
     {
         if (skill == FranSkill.None)
             return;
         tacticLayers = Math.Clamp(tacticLayers, 1, FranPlayer.MaximumTacticSlots);
 
         FranImprintTargetGlobalNPC imprint = target.GetGlobalNPC<FranImprintTargetGlobalNPC>();
+        bool discHit = swing.ModProjectile is FranSpinningDisc;
+        Vector2 contact = swing.ModProjectile is FranSpinningDisc disc ? disc.ContactPoint(target) : target.Center;
         if (skill == FranSkill.SkillTaker)
         {
             if (Main.netMode == NetmodeID.MultiplayerClient && Main.myPlayer != owner.whoAmI)
@@ -100,22 +107,25 @@ internal static class ShiFuImprintCombat
             owner.GetModPlayer<FranPlayer>().AddStolenContactDamage(target.damage);
             if (!Main.dedServ)
             {
-                for (int i = 0; i < 4; i++)
+                for (int i = 0; i < (discHit ? 2 : 4); i++)
                 {
                     Vector2 velocity = Main.rand.NextVector2Circular(3.8f, 3.8f) - Vector2.UnitY * 1.2f;
-                    FranParticleSystem.Spawn(new FranSkillGlyphParticle(target.Center, velocity,
-                        new Color(210, 95, 255), 0.72f + markStrength * 0.12f, Main.rand.Next(18, 26)));
+                    FranParticleSystem.Spawn(new FranSkillGlyphParticle(contact, velocity,
+                        new Color(210, 95, 255), (discHit ? 0.46f : 0.72f) + markStrength * 0.12f,
+                        discHit ? Main.rand.Next(10, 16) : Main.rand.Next(18, 26)));
                 }
                 if (markStrength >= 0.995f)
                     SoundEngine.PlaySound(SoundID.Item103 with { Volume = 0.36f, Pitch = 0.34f }, target.Center);
             }
             if (Main.myPlayer == owner.whoAmI)
             {
-                FranBurst.Spawn(swing.GetSource_OnHit(target), target.Center, owner.whoAmI,
-                    FranBurstStyle.SkillTaker, 0.76f + markStrength * 0.08f, rotation: direction.ToRotation());
+                FranBurst.Spawn(swing.GetSource_OnHit(target), contact, owner.whoAmI,
+                    FranBurstStyle.SkillTaker, (discHit ? 0.42f : 0.76f) + markStrength * 0.08f, rotation: direction.ToRotation());
                 float launchAngle = direction.SafeNormalize(Vector2.UnitX).ToRotation();
                 int wispCount = FranBalance.GetInt(nameof(FranBalance.SkillTakerBaseWispCount),
                     FranBalance.SkillTakerBaseWispCount);
+                if (swing.ModProjectile is FranSpinningDisc wispDisc)
+                    wispCount = firstDiscHit ? DiscBudgetCount(wispCount, wispDisc.SkillCycle, combo) : 0;
                 wispCount = swing.ModProjectile is IShiFuAttack attack
                     ? attack.ReserveSkillTakerWisps(wispCount) : 0;
                 for (int i = 0; i < wispCount; i++)
@@ -125,9 +135,9 @@ internal static class ShiFuImprintCombat
                     // phase, jitter, speed, or alternating turn sign.
                     float angle = launchAngle + i * MathHelper.TwoPi / wispCount;
                     Vector2 velocity = angle.ToRotationVector2() * 12.5f;
-                    Projectile.NewProjectile(swing.GetSource_OnHit(target), target.Center, velocity,
+                    Projectile.NewProjectile(swing.GetSource_OnHit(target), contact, velocity,
                         ModContent.ProjectileType<FranSkillTakerWisp>(),
-                        Math.Max(1, (int)(swing.damage *
+                        Math.Max(1, (int)(SkillSourceDamage(swing, combo) *
                             FranBalance.GetFloat(nameof(FranBalance.SkillTakerWispDamageMultiplier),
                                 FranBalance.SkillTakerWispDamageMultiplier) * FranTacticOutputBudget.Scale(FranSkill.SkillTaker))),
                         swing.knockBack * 0.18f, owner.whoAmI, -1f, markStrength);
@@ -141,22 +151,34 @@ internal static class ShiFuImprintCombat
         switch (skill)
         {
             case FranSkill.BlueResonance:
+                if (swing.ModProjectile is FranSpinningDisc echoDisc)
+                {
+                    if (!firstDiscHit) break;
+                    int count = DiscButterflyCount(BlueEchoCount(combo, tacticLayers), echoDisc.SkillCycle, combo);
+                    SpawnBlueResonanceEchoes(owner, swing, combo, tacticLayers, target.Center,
+                        swing.GetSource_OnHit(target), target.whoAmI + 1f,
+                        damageOverride: echoDisc.SkillDamageForBeat(combo), emissionLimit: count);
+                    break;
+                }
                 SpawnBlueResonanceEchoes(owner, swing, combo, tacticLayers, target.Center,
                     swing.GetSource_OnHit(target), target.whoAmI + 1f);
                 break;
         }
     }
 
-    private static void SpawnBlueResonanceEchoes(Player owner, Projectile swing, int combo,
-        int tacticLayers, Vector2 center, IEntitySource source, float encodedTarget)
-    {
-        int echoCount = (combo == 3
+    private static int BlueEchoCount(int combo, int tacticLayers) => (combo == 3
             ? FranBalance.GetInt(nameof(FranBalance.BlueResonanceFinisherBaseCount),
                 FranBalance.BlueResonanceFinisherBaseCount)
             : FranBalance.GetInt(nameof(FranBalance.BlueResonanceNormalBaseCount),
                 FranBalance.BlueResonanceNormalBaseCount)) +
             (tacticLayers - 1) * FranBalance.GetInt(nameof(FranBalance.BlueResonanceExtraLayerCount),
                 FranBalance.BlueResonanceExtraLayerCount);
+
+    private static void SpawnBlueResonanceEchoes(Player owner, Projectile swing, int combo,
+        int tacticLayers, Vector2 center, IEntitySource source, float encodedTarget,
+        int singleIndex = -1, int damageOverride = 0, int emissionLimit = -1)
+    {
+        int echoCount = BlueEchoCount(combo, tacticLayers);
         float phase = Main.rand.NextFloat(MathHelper.TwoPi);
         float minimumRadius = Math.Max(12f, FranBalance.GetFloat(
             nameof(FranBalance.BlueResonanceSpawnRadiusMinimum), FranBalance.BlueResonanceSpawnRadiusMinimum));
@@ -168,7 +190,8 @@ internal static class ShiFuImprintCombat
         float maximumDrift = Math.Max(minimumDrift, FranBalance.GetFloat(
             nameof(FranBalance.BlueResonanceInitialDriftSpeedMaximum),
             FranBalance.BlueResonanceInitialDriftSpeedMaximum));
-        for (int i = 0; i < echoCount; i++)
+        for (int i = Math.Max(0, singleIndex); i < (singleIndex < 0
+            ? (emissionLimit < 0 ? echoCount : Math.Min(echoCount, emissionLimit)) : singleIndex + 1); i++)
         {
             // A golden-angle spread keeps large groups separated while the jitter prevents each
             // swing from producing the same regular ring.
@@ -178,36 +201,49 @@ internal static class ShiFuImprintCombat
             // The echoes materialize around the center and barely drift before committing to a target.
             Vector2 driftDirection = radial.RotatedBy(Main.rand.NextFloat(-MathHelper.Pi, MathHelper.Pi));
             Vector2 initialVelocity = driftDirection * Main.rand.NextFloat(minimumDrift, maximumDrift);
+            bool discEmission = swing.ModProjectile is FranSpinningDisc;
+            if (swing.ModProjectile is FranSpinningDisc disc)
+            {
+                radial = (swing.rotation + (singleIndex < 0 ? i * 0.22f : 0f)).ToRotationVector2();
+                spawnPosition = swing.Center + radial * disc.Radius * 0.88f;
+                // Disc echoes start with a visible radial scatter, then retain the
+                // existing healing/enemy homing once their opening phase ends.
+                initialVelocity = radial * Main.rand.NextFloat(5.5f, 7.5f) +
+                    radial.RotatedBy(MathHelper.PiOver2) * Main.rand.NextFloat(-1.2f, 1.2f);
+            }
             Projectile.NewProjectile(source, spawnPosition, initialVelocity,
                 ModContent.ProjectileType<FranBlueResonanceEcho>(),
-                Math.Max(1, (int)(swing.damage * (combo == 3
+                Math.Max(1, (int)((damageOverride > 0 ? damageOverride : swing.damage) * (combo == 3
                     ? FranBalance.GetFloat(nameof(FranBalance.BlueResonanceFinisherDamageMultiplier),
                         FranBalance.BlueResonanceFinisherDamageMultiplier)
                     : FranBalance.GetFloat(nameof(FranBalance.BlueResonanceNormalDamageMultiplier),
                         FranBalance.BlueResonanceNormalDamageMultiplier)) * FranTacticOutputBudget.Scale(FranSkill.BlueResonance))),
                 swing.knockBack * 0.3f, owner.whoAmI, encodedTarget,
-                i, FranBlueResonanceEcho.EncodeEchoCount(echoCount));
+                i, FranBlueResonanceEcho.EncodeEchoCount(echoCount) * (discEmission ? -1f : 1f));
         }
     }
 
     private static void SpawnDiscTelekineticCores(Player owner, Projectile disc, int combo, int layers)
     {
+        if (disc.ModProjectile is not FranSpinningDisc cutter) return;
         int stage = FranBalance.GetTelekineticPatternStage();
-        int[] counts = FranBalanceSource.GetIntArray(nameof(FranBalance.TelekineticDiscCoreCounts), FranBalance.TelekineticDiscCoreCounts);
-        int count = Math.Max(1, counts[Math.Clamp(stage, 0, counts.Length - 1)]) + (combo == 2 ? 1 : 0) + layers - 1;
-        // Convert the full left-click budget into small cores. No waves, lasers or planets
-        // are spawned here; increasing late-game count divides this same budget further.
+        int leftCount = LeftTelekineticProjectileCount(owner, combo, layers);
+        int count = DiscBudgetCount(leftCount, cutter.SkillCycle, combo);
+        // Convert the left-click projectile pool into cores, keeping four fifths of
+        // its count and budget over five cycles. Waves and planets stay left-only.
         List<FranTelekineticShot> reference = new(16);
         FranTelekineticPattern.Fill(reference, stage, combo, layers, owner.direction);
         float weight = 0f;
         foreach (FranTelekineticShot shot in reference)
             weight += shot.Weight * shot.Count * FranTelekineticPattern.GetHitWeight(shot.Kind);
-        float perCore = weight * FranTelekineticPattern.GetDamageScale(stage, FranBalance.GetAvailableTacticSlots()) / count;
+        float perCore = weight * FranTelekineticPattern.GetDamageScale(stage, FranBalance.GetAvailableTacticSlots()) /
+            Math.Max(1, leftCount);
         float phase = Main.rand.NextFloat(MathHelper.TwoPi);
         for (int i = 0; i < count; i++)
         {
             float angle = phase + MathHelper.TwoPi * (i + Main.rand.NextFloat(-0.32f, 0.32f)) / count;
-            SpawnTelekineticPressureCore(owner, disc, angle.ToRotationVector2(), 0f, perCore);
+            SpawnTelekineticPressureCore(owner, disc, angle.ToRotationVector2(), 0f, perCore,
+                damageOverride: cutter.SkillDamageForBeat(combo));
         }
         FranParticleEffects.BloomPulse(disc.Center, new Color(70, 165, 255), 12f, 50f, 10, 0.55f, true);
     }
@@ -220,22 +256,39 @@ internal static class ShiFuImprintCombat
         float damageScale = FranTelekineticPattern.GetDamageScale(stage, FranBalance.GetAvailableTacticSlots());
         List<FranTelekineticShot> shots = new(16);
         FranTelekineticPattern.Fill(shots, stage, combo, tacticLayers, owner.direction);
+        bool waveCarriesShots = stage >= 2;
+        if (waveCarriesShots)
+        {
+            int waveIndex = Projectile.NewProjectile(swing.GetSource_FromThis(), owner.MountedCenter + direction * 28f,
+                direction * Math.Max(1f, FranBalance.GetFloat(nameof(FranBalance.TelekineticFoldBladeLaunchSpeed),
+                    FranBalance.TelekineticFoldBladeLaunchSpeed)),
+                ModContent.ProjectileType<Telekinetic_DestructiveWave>(), swing.damage,
+                swing.knockBack, owner.whoAmI, owner.direction, 0f, 1f);
+            if (Main.projectile.IndexInRange(waveIndex) &&
+                Main.projectile[waveIndex].ModProjectile is Telekinetic_DestructiveWave wave)
+                wave.EnablePatternEmission(stage, combo, tacticLayers, owner.direction);
+        }
         foreach (FranTelekineticShot shot in shots)
         {
             float multiplier = shot.Weight * damageScale;
             switch (shot.Kind)
             {
                 case FranTelekineticShotKind.Core:
-                    SpawnTelekineticPressureCore(owner, swing, direction, shot.Offset, multiplier);
+                    if (!waveCarriesShots)
+                        SpawnTelekineticPressureCore(owner, swing, direction, shot.Offset, multiplier,
+                            visualScale: shot.Scale);
                     break;
                 case FranTelekineticShotKind.Wave:
-                    SpawnTelekineticFoldBlade(owner, swing, direction, shot.Offset, shot.Angle, shot.Scale, multiplier);
-                    break;
-                case FranTelekineticShotKind.Laser:
-                    SpawnTelekineticLaser(owner, swing, direction, shot.Offset, shot.Scale, multiplier, shot.SuppressLaunchBurst);
+                    if (!waveCarriesShots)
+                        SpawnTelekineticFoldBlade(owner, swing, direction, shot.Offset, shot.Angle, shot.Scale, multiplier);
                     break;
                 case FranTelekineticShotKind.Planet:
-                    SpawnTelekineticPlanetChain(owner, swing, target, multiplier, shot.Count);
+                    // 配方预算仍按原来的单轮权重计算：两轮触发一次、触发时伤害翻倍，
+                    // 既保持长期平均输出，也不改右键由同一配方换算出的念核伤害。
+                    if (owner.GetModPlayer<FranPlayer>().AdvanceTelekineticPlanetFinisher())
+                        SpawnTelekineticPlanetChain(owner, swing, target, multiplier * Math.Max(0f,
+                            FranBalance.GetFloat(nameof(FranBalance.TelekineticFinisherPlanetReleaseDamageMultiplier),
+                                FranBalance.TelekineticFinisherPlanetReleaseDamageMultiplier)), shot.Count);
                     break;
             }
         }
@@ -257,72 +310,55 @@ internal static class ShiFuImprintCombat
                 direction.ToRotation(), 0f, 0.92f);
         }
 
-        owner.GetModPlayer<FranPlayer>().ShakeScreen(owner.Center,
-            (combo switch { 0 => 1.0f, 1 => 1.35f, 2 => 1.8f, _ => 2.8f }) + stage * 0.08f);
     }
 
-    private static void SpawnTelekineticPressureCore(Player owner, Projectile swing, Vector2 direction, float lateralOffset, float damageScale)
+    internal static void SpawnTelekineticPressureCore(Player owner, Projectile swing, Vector2 direction, float lateralOffset, float damageScale,
+        Vector2? spawnOverride = null, int damageOverride = 0, float visualScale = 1f,
+        Vector2? launchOverride = null, bool judgementStar = false)
     {
         Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
-        Vector2 spawn = AttackOrigin(owner, swing) + direction * 28f + normal * lateralOffset;
+        Vector2 spawn = spawnOverride ?? AttackOrigin(owner, swing) + direction * 28f + normal * lateralOffset;
         // High-speed blade pressure shot, with a circular-edge velocity offset of 20%.
         // Formation counts, spawn offsets and base damage remain the tactic's own values.
         bool fullLoadout = owner.GetModPlayer<FranPlayer>().IsFullTacticLoadout(FranSkill.TelekineticCatapult);
         Vector2 launchVelocity = fullLoadout
             ? direction * 30f + Main.rand.NextVector2CircularEdge(6f, 6f)
             : direction.RotatedByRandom(MathHelper.ToRadians(2f)) * 30f;
-        launchVelocity *= FranBalance.GetTelekineticCoreSpeedMultiplier();
+        launchVelocity = (launchOverride ?? launchVelocity) * FranBalance.GetTelekineticCoreSpeedMultiplier();
         int index = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, launchVelocity,
             ModContent.ProjectileType<Telekinetic_CondensedMindCore>(),
-            Math.Max(1, (int)(swing.damage * damageScale)), swing.knockBack * 0.52f,
-            owner.whoAmI, fullLoadout ? 1f : 0f);
+            Math.Max(1, (int)((damageOverride > 0 ? damageOverride : swing.damage) * damageScale)), swing.knockBack * 0.52f,
+            owner.whoAmI, judgementStar ? 2f : 0f, 0f, visualScale);
         if (!Main.projectile.IndexInRange(index))
             return;
         Projectile core = Main.projectile[index];
         core.netUpdate = true;
     }
 
-    private static void SpawnTelekineticFoldBlade(Player owner, Projectile swing, Vector2 baseDirection,
-        float lateralOffset, float angleOffset, float scale, float damageScale)
+    internal static void SpawnTelekineticFoldBlade(Player owner, Projectile swing, Vector2 baseDirection,
+        float lateralOffset, float angleOffset, float scale, float damageScale, Vector2? spawnOverride = null,
+        int damageOverride = 0)
     {
-        if (!Main.hardMode)
+        if (!FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh))
             scale *= FranBalance.GetFloat(nameof(FranBalance.TelekineticFoldBladePreHardmodeScaleMultiplier),
                 FranBalance.TelekineticFoldBladePreHardmodeScaleMultiplier);
         Vector2 normal = baseDirection.RotatedBy(MathHelper.PiOver2);
         Vector2 direction = baseDirection.RotatedBy(angleOffset).SafeNormalize(baseDirection);
-        Vector2 spawn = owner.MountedCenter + baseDirection * 30f + normal * lateralOffset;
+        Vector2 spawn = spawnOverride ?? owner.MountedCenter + baseDirection * 30f + normal * lateralOffset;
         float curveSign = MathF.Sign(MathF.Abs(angleOffset) > 0.001f ? angleOffset : lateralOffset);
         float launchSpeed = Math.Max(1f, FranBalance.GetFloat(
             nameof(FranBalance.TelekineticFoldBladeLaunchSpeed),
             FranBalance.TelekineticFoldBladeLaunchSpeed));
         int index = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, direction * launchSpeed,
             ModContent.ProjectileType<Telekinetic_DestructiveWave>(),
-            Math.Max(1, (int)(swing.damage * damageScale)), swing.knockBack * 0.56f,
+            Math.Max(1, (int)((damageOverride > 0 ? damageOverride : swing.damage) * damageScale)),
+            swing.knockBack * 0.56f,
             owner.whoAmI, curveSign, 0f, scale);
         if (Main.projectile.IndexInRange(index))
         {
             Main.projectile[index].scale = scale;
             Main.projectile[index].netUpdate = true;
         }
-    }
-
-    private static void SpawnTelekineticLaser(Player owner, Projectile swing, Vector2 direction,
-        float lateralOffset, float scale, float damageScale, bool suppressLaunchBurst)
-    {
-        Vector2 normal = direction.RotatedBy(MathHelper.PiOver2);
-        Vector2 spawn = owner.MountedCenter + direction * 26f + normal * lateralOffset;
-        int index = Projectile.NewProjectile(swing.GetSource_FromThis(), spawn, direction * 11.8f,
-            ModContent.ProjectileType<Telekinetic_Flash>(),
-            Math.Max(1, (int)(swing.damage * damageScale)), swing.knockBack * 0.64f,
-            owner.whoAmI, 0f, 0f, suppressLaunchBurst ? -1f : 0f);
-        if (!Main.projectile.IndexInRange(index))
-            return;
-
-        Projectile laser = Main.projectile[index];
-        laser.scale = scale;
-        int hitboxSize = Math.Max(24, (int)MathF.Round(32f * scale));
-        laser.Resize(hitboxSize, hitboxSize);
-        laser.netUpdate = true;
     }
 
     private static void SpawnTelekineticPlanetChain(Player owner, Projectile swing, Vector2 target, float damageScale, int planetCount)
@@ -351,8 +387,8 @@ internal static class ShiFuImprintCombat
     private static void SpawnMultipleBodies(Player owner, Projectile swing, Vector2 direction,
         int layers, int combo, bool fullLoadout)
     {
-        bool discAttack = swing.ModProjectile is FranSpinningDisc;
-        float orbitPhase = discAttack ? Main.rand.NextFloat(MathHelper.TwoPi) : 0f;
+        if (swing.ModProjectile is FranSpinningDisc)
+            return;
         Vector2 requestedTarget = ClampTarget(owner, FranCompanionContext.Aim(owner), 2400f);
         Vector2 lockedTarget = requestedTarget;
         direction = (lockedTarget - owner.MountedCenter).SafeNormalize(Vector2.UnitX * owner.direction);
@@ -372,14 +408,6 @@ internal static class ShiFuImprintCombat
             float formationIndex = i - centerIndex;
             Vector2 origin = owner.MountedCenter - direction * (72f + Math.Abs(formationIndex) * 13f) +
                 normal * formationIndex * 48f - Vector2.UnitY * (20f + (i % 2) * 12f);
-            if (discAttack)
-            {
-                float angle = orbitPhase + MathHelper.TwoPi * (i + Main.rand.NextFloat(-0.4f, 0.4f)) / count;
-                float radius = Math.Max(24f, FranBalance.GetFloat(nameof(FranBalance.DiscPhantomSpawnRadius), FranBalance.DiscPhantomSpawnRadius));
-                origin = swing.Center + angle.ToRotationVector2() * radius;
-                NPC target = FindNearestTarget(swing.Center, FranBalance.GetFloat(nameof(FranBalance.DiscPhantomTargetRange), FranBalance.DiscPhantomTargetRange));
-                direction = ((target?.Center ?? swing.Center) - origin).SafeNormalize(-angle.ToRotationVector2());
-            }
             float delay = releaseDelay;
             int index = Projectile.NewProjectile(swing.GetSource_FromThis(), origin, Vector2.Zero,
                 ModContent.ProjectileType<FranShiFuPhantomBlade>(),
@@ -388,23 +416,20 @@ internal static class ShiFuImprintCombat
                 FranShiFuPhantomBlade.EncodeLaunchDelay(delay, fullLoadout),
                 direction.X, direction.Y);
             if (Main.projectile.IndexInRange(index))
-            {
-                if (discAttack && Main.projectile[index].ModProjectile is FranShiFuPhantomBlade phantom)
-                    phantom.SetDiscTargeting(swing.Center);
                 Main.projectile[index].netUpdate = true;
-            }
             // This owner-side random interval is sent through ai[0], keeping every client in step.
             releaseDelay += Main.rand.Next(2, 5);
         }
     }
 
     private static void SpawnThunderCircuit(Player owner, Projectile swing, int combo, int tacticLayers,
-        Vector2 swingDirection, bool fullLoadout)
+        Vector2 swingDirection, bool fullLoadout, NPC discHitTarget = null)
     {
         bool discAttack = swing.ModProjectile is FranSpinningDisc;
         Vector2 origin = AttackOrigin(owner, swing);
         SoundEngine.PlaySound(SoundID.Item93, origin);
-        Vector2 mouseTarget = discAttack ? origin : ClampTarget(owner, FranCompanionContext.Aim(owner), 780f);
+        Vector2 mouseTarget = discAttack ? discHitTarget?.Center ?? origin :
+            ClampTarget(owner, FranCompanionContext.Aim(owner), 780f);
         // 电路锚点、连接和分支仅负责演出，所有雷链伤害统一从预算落雷结算。
 
         if (combo == 0)
@@ -413,7 +438,7 @@ internal static class ShiFuImprintCombat
             int baseAnchorCount = 1 + FranBalance.GetInt(
                 nameof(FranBalance.ThunderChainNormalSupportingBoltCount),
                 FranBalance.ThunderChainNormalSupportingBoltCount);
-            int anchorCount = Math.Clamp(baseAnchorCount + tacticLayers - 1, 2, 5);
+            int anchorCount = discAttack ? 4 : Math.Clamp(baseAnchorCount + tacticLayers - 1, 2, 5);
             NPC target = FindNearestTarget(mouseTarget, 520f);
             Vector2 destination = target?.Center ?? mouseTarget;
             Vector2 forward = (destination - origin).SafeNormalize(
@@ -430,13 +455,28 @@ internal static class ShiFuImprintCombat
                 Vector2 position = Vector2.Lerp(origin + forward * 52f,
                     destination, pathCompletion) + normal * weave;
                 if (discAttack)
-                    position = origin + (swing.rotation + MathHelper.TwoPi * i / anchorCount).ToRotationVector2() * 120f;
+                    position = origin + (Main.GlobalTimeWrappedHourly * 1.1f +
+                        MathHelper.TwoPi * i / 4f).ToRotationVector2() * 120f;
                 int attachedTarget = !discAttack && i == anchorCount - 1 && target is not null ? target.whoAmI + 1 : 0;
                 int node = Projectile.NewProjectile(swing.GetSource_FromThis(), position, Vector2.Zero,
                     ModContent.ProjectileType<FranThunderCircuitNode>(), placementDamage,
                     swing.knockBack * 0.16f, owner.whoAmI, attachedTarget, i, tacticLayers);
                 if (Main.projectile.IndexInRange(node))
-                    Main.projectile[node].scale = 0.92f + i * 0.055f + (tacticLayers - 1) * 0.035f;
+                {
+                    Projectile anchor = Main.projectile[node];
+                    anchor.scale = 0.92f + i * 0.055f + (tacticLayers - 1) * 0.035f;
+                    if (discAttack && anchor.ModProjectile is FranThunderCircuitNode discNode)
+                        discNode.AttachToDisc(swing, i);
+                }
+            }
+            if (discAttack)
+            {
+                // A hit must make the first stage visibly arc around the cutter;
+                // these links are visual only, as on the left-click circuit.
+                List<Projectile> ring = GetThunderCircuitAnchors(owner);
+                for (int i = 0; i < (ring.Count == 2 ? 1 : ring.Count); i++)
+                    SpawnThunderCircuitLink(swing, owner, ring[i].Center,
+                        ring[(i + 1) % ring.Count].Center, 0, i * 2, 0.75f, false, fullLoadout);
             }
             return;
         }
@@ -449,14 +489,20 @@ internal static class ShiFuImprintCombat
             Vector2 forward = (mouseTarget - origin).SafeNormalize(
                 swingDirection.SafeNormalize(Vector2.UnitX * owner.direction));
             Vector2 normal = forward.RotatedBy(MathHelper.PiOver2);
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < (discAttack ? 4 : 2); i++)
             {
-                Vector2 position = Vector2.Lerp(origin, mouseTarget, 0.48f + i * 0.36f) +
-                    normal * (i == 0 ? -42f : 18f);
-                Projectile.NewProjectile(swing.GetSource_FromThis(), position, Vector2.Zero,
+                Vector2 position = discAttack
+                    ? origin + (Main.GlobalTimeWrappedHourly * 1.1f + i * MathHelper.PiOver2)
+                        .ToRotationVector2() * 120f
+                    : Vector2.Lerp(origin, mouseTarget, 0.48f + i * 0.36f) +
+                        normal * (i == 0 ? -42f : 18f);
+                int node = Projectile.NewProjectile(swing.GetSource_FromThis(), position, Vector2.Zero,
                     ModContent.ProjectileType<FranThunderCircuitNode>(),
                     0,
                     swing.knockBack * 0.16f, owner.whoAmI, 0f, i, tacticLayers);
+                if (discAttack && Main.projectile.IndexInRange(node) &&
+                    Main.projectile[node].ModProjectile is FranThunderCircuitNode discNode)
+                    discNode.AttachToDisc(swing, i);
             }
             anchors = GetThunderCircuitAnchors(owner);
         }
@@ -467,9 +513,8 @@ internal static class ShiFuImprintCombat
             anchor.timeLeft = Math.Max(anchor.timeLeft, 132);
             if (discAttack)
             {
-                anchor.ai[0] = 0f;
-                anchor.Center = origin + (swing.rotation + MathHelper.TwoPi * i / anchors.Count).ToRotationVector2() * 120f;
-                anchor.netUpdate = true;
+                if (anchor.ModProjectile is FranThunderCircuitNode discNode)
+                    discNode.AttachToDisc(swing, i);
             }
         }
 
@@ -484,7 +529,8 @@ internal static class ShiFuImprintCombat
                     0.88f + i * 0.05f, false, fullLoadout);
                 start = end;
             }
-            SpawnThunderRain(owner, swing, anchors[^1].Center, combo, tacticLayers, fullLoadout);
+            SpawnThunderRain(owner, swing, discHitTarget?.Center ?? anchors[^1].Center,
+                combo, tacticLayers, fullLoadout);
             return;
         }
 
@@ -519,12 +565,13 @@ internal static class ShiFuImprintCombat
                     0,
                     swing.knockBack * 0.34f, owner.whoAmI, 0f, Math.Clamp(maximumJumps, 2, 7), tacticLayers);
             }
-            SpawnThunderRain(owner, swing, launchAnchor.Center, combo, tacticLayers, fullLoadout);
+            SpawnThunderRain(owner, swing, discHitTarget?.Center ?? launchAnchor.Center,
+                combo, tacticLayers, fullLoadout);
             return;
         }
 
         NPC finalTarget = FindNearestTarget(mouseTarget, 760f);
-        Vector2 focus = finalTarget?.Center ?? mouseTarget;
+        Vector2 focus = discHitTarget?.Center ?? finalTarget?.Center ?? mouseTarget;
         int returnDamage = 0;
         for (int i = 0; i < anchors.Count; i++)
             SpawnThunderCircuitLink(swing, owner, anchors[i].Center, focus, returnDamage,
@@ -635,9 +682,17 @@ internal static class ShiFuImprintCombat
         int tracked = (finisher
             ? FranBalance.GetInt(nameof(FranBalance.ThunderChainFinisherTrackedTargetCount), FranBalance.ThunderChainFinisherTrackedTargetCount)
             : FranBalance.GetInt(nameof(FranBalance.ThunderChainNormalTrackedTargetCount), FranBalance.ThunderChainNormalTrackedTargetCount)) + tacticLayers - 1;
-        int count = Math.Max(2, 1 + supporting + tracked);
+        int leftCount = Math.Max(2, 1 + supporting + tracked);
+        int count = swing.ModProjectile is FranSpinningDisc disc
+            ? Math.Max(1, DiscBudgetCount(leftCount, disc.SkillCycle, combo)) : leftCount;
         int slots = FranBalance.GetAvailableTacticSlots();
-        int fullCount = Math.Max(2, count + (slots - tacticLayers) * 2);
+        int fullCount = Math.Max(2, leftCount + (slots - tacticLayers) * 2);
+        float primaryWeight = FranTacticOutputBudget.ThunderPerSwingRatio(true, fullCount, fullLoadout);
+        float secondaryWeight = FranTacticOutputBudget.ThunderPerSwingRatio(false, fullCount, fullLoadout);
+        float discDamageCorrection = swing.ModProjectile is FranSpinningDisc
+            ? 0.8f * (primaryWeight + (leftCount - 1) * secondaryWeight) /
+                Math.Max(0.001f, primaryWeight + (count - 1) * secondaryWeight)
+            : 1f;
         List<NPC> targets = new();
         foreach (NPC npc in Main.ActiveNPCs)
             if (npc.CanBeChasedBy() && npc.DistanceSQ(focus) <= 650f * 650f &&
@@ -652,7 +707,7 @@ internal static class ShiFuImprintCombat
             Vector2 impact = target?.Center ?? FindEmptyThunderImpact(focus, targets, i, count);
             float multiplier = FranTacticOutputBudget.ThunderPerSwingRatio(i == 0, fullCount,
                 fullLoadout);
-            int totalDamage = Math.Max(2, (int)(swing.damage * multiplier));
+            int totalDamage = Math.Max(2, (int)(SkillSourceDamage(swing, combo) * multiplier * discDamageCorrection));
             if (i == 0 && finisher)
             {
                 // 第四刀的主雷继续等电路收束后落下，避免再叠加一条无预算的重复主雷。

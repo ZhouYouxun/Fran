@@ -44,6 +44,7 @@ public sealed class FranPlayer : ModPlayer
     public int StolenContactDamage;
     public int StolenContactDamageTimer;
     public int HammerComboRounds;
+    private int telekineticPlanetFinisherRounds;
     public readonly int[] SkillCooldowns = new int[FranSkillInfo.Count];
     public readonly int[] SkillCooldownMaximums = new int[FranSkillInfo.Count];
     public bool TelekineticFlightEnabled { get; private set; }
@@ -72,7 +73,7 @@ public sealed class FranPlayer : ModPlayer
         get
         {
             int type = ModContent.ItemType<ShiFu>();
-            return Player.HasItem(type) || Player.whoAmI == Main.myPlayer && Main.mouseItem.type == type;
+            return Player.HasItem(type);
         }
     }
     public int AvailableTacticSlots => FranBalance.GetAvailableTacticSlots();
@@ -83,7 +84,7 @@ public sealed class FranPlayer : ModPlayer
     public bool HasExternalDash => Player.dashType != 0 || HasNamedExternalDash();
     public bool HasExternalWings => Player.wingsLogic > 0 &&
         !FranTelekineticFlightSystem.IsTelekineticWingSlot(Player.wingsLogic);
-    public bool UltimateUnlocked => Main.hardMode;
+    public bool UltimateUnlocked => FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh);
     public int SelectedUltimateChargeDuration => SelectedUltimate == FranUltimateKind.Vigil ? FranVigilRules.ChargeFrames : UltimateChargeDuration;
     public bool VigilActive => Player.GetModPlayer<FranVigilPlayer>().Active;
     public bool UltimateReady => UltimateUnlocked && UltimateChargeTicks >= SelectedUltimateChargeDuration;
@@ -208,6 +209,7 @@ public sealed class FranPlayer : ModPlayer
 
     public override void OnEnterWorld()
     {
+        telekineticPlanetFinisherRounds = 0;
         if (Player.whoAmI != Main.myPlayer || receivedStartingShiFu)
             return;
 
@@ -250,7 +252,8 @@ public sealed class FranPlayer : ModPlayer
                     FranBalance.MagicBarrierFullLoadoutLifeRegen));
         }
 
-        if (!Main.hardMode || Player.mount.Active || HasExternalWings)
+        if (!FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) ||
+            Player.mount.Active || HasExternalWings)
             return;
 
         int wingSlot = FranTelekineticFlightSystem.GetCurrentWingSlot();
@@ -510,6 +513,7 @@ public sealed class FranPlayer : ModPlayer
         ultimateChargeSyncTimer = 0;
         ultimateReadyAnnounced = false;
         HammerComboRounds = 0;
+        telekineticPlanetFinisherRounds = 0;
         RemoveLockedTactics();
     }
 
@@ -683,6 +687,15 @@ public sealed class FranPlayer : ModPlayer
         ComboIndex = (ComboIndex + 1) % 4;
         ComboReset = Player.GetModPlayer<FranEvolutionPlayer>().ComboResetDuration;
         return current;
+    }
+
+    public bool AdvanceTelekineticPlanetFinisher()
+    {
+        int interval = Math.Max(1, FranBalance.GetInt(
+            nameof(FranBalance.TelekineticFinisherPlanetCycleInterval),
+            FranBalance.TelekineticFinisherPlanetCycleInterval));
+        telekineticPlanetFinisherRounds++;
+        return telekineticPlanetFinisherRounds % interval == 0;
     }
 
     public FranSkill GetEquippedTactic(int slot)
@@ -884,6 +897,19 @@ public sealed class FranPlayer : ModPlayer
         Player.statLife += healed;
         Player.HealEffect(healed, true);
         return true;
+    }
+
+    private float discResonanceHealingRemainder;
+
+    public bool ApplyDiscResonanceHealing(int amount)
+    {
+        if (Main.netMode == NetmodeID.MultiplayerClient || amount <= 0 ||
+            Player.statLife >= Player.statLifeMax2)
+            return false;
+        float scaled = amount * 0.8f + discResonanceHealingRemainder;
+        int healing = (int)(scaled + 0.0001f);
+        discResonanceHealingRemainder = scaled - healing;
+        return ApplyResonanceHealing(healing);
     }
 
     public void ShakeScreen(Vector2 source, float power, float maxDistance = 1400f)
@@ -1297,7 +1323,7 @@ public sealed class FranPlayer : ModPlayer
         introShown = true;
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroTitle"), new Color(145, 225, 255));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroCombat"), Color.White);
-        Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroSkills", ShiFu.GetAssignedKeyOrUnbound(FranModMain.SkillWheelKey)), new Color(185, 215, 255));
+        Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroSkills", ShiFu.WheelOpenInstruction()), new Color(185, 215, 255));
         if (FranEvolutionInfo.SystemEnabled)
             Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroEvolution"), new Color(205, 178, 245));
         Main.NewText(Language.GetTextValue("Mods.Fran.Notices.IntroDash"), new Color(185, 215, 255));

@@ -1,4 +1,4 @@
-﻿Mods: {
+Mods: {
 	Fran: {
 		Companion: {
 			Title: Fran · 幻影伙伴战术
@@ -13,19 +13,6 @@
 		}
 
 		Items: {
-			FranCompanionStaff: {
-				DisplayName: 弗兰的约定
-				Tooltip:
-					'''
-					召唤无敌的 Fran 幻影伙伴，始终手持师父，自带翅膀
-					自动选择已解锁战术；靠近并右键 Fran 可手动指定
-					魔力屏障仅能手动指定，连段结束后切换
-					再次使用召回伙伴；右键使用本物品取消召唤
-					每位玩家最多一名，不占召唤栏；伤害受世界进度与召唤伤害加成影响
-					当前外观暂用钛金套，后续将换为 Fran 专属贴图
-					'''
-			}
-
 			Foreword: {
 				DisplayName: 前情提要
 				Tooltip:
@@ -51,20 +38,6 @@
 					'''
 			}
 
-			FransHeadwear: {
-				DisplayName: 弗兰的头饰
-				Tooltip:
-					'''
-					将本物品放在背包中并标记为收藏，
-					即可进入“弗兰人物模式”
-					效果与把角色命名为“Fran / フラン / 弗兰”完全相同
-					开启弗兰外观、师父系统、冲刺与黑天虎大招
-					人物被动：免疫摔落并获得夜视，
-					并强化近战伤害与攻击速度
-					测试版暂时使用原版猫耳图标
-					'''
-			}
-
 			ShiFu: {
 				TacticSelection: 当前战术：
 				FullLoadoutInactive: 【全选效果】未触发
@@ -74,12 +47,14 @@
 					'''
 					【左键】循环施展4种剑术，与已装配的战术同步进行
 					【右键】转盘攻击：将大剑丢出，跟随鼠标持续旋转切割敌人，松开收回
-					按下“{WheelKey}”，开启轮盘，调整技能组
+					{WheelInstruction}
 					重复装备相同战术可获得更强的效果
 					合理搭配不同战术，可达成意想不到的效果
 					'''
 				UltimateLocked: 【进入困难模式后解锁大招：绝影】
 				UltimateTooltip: 手持师父时按下 {0} 键释放“黑天虎-绝闪”：对同一目标造成强力斩杀，大招期间无法切换手持武器
+				WheelBound: 按下“{0}”打开技能菜单，再按一次关闭；开关背包也会关闭
+				WheelBoundHold: 长按“{0}”打开技能菜单，松开关闭；开关背包也会关闭
 				UnboundKey: 未绑定
 				GoldenEvolutionRoad: 我们将再一次踏上进化的道路，一条没有尽头的道路
 			}
@@ -130,17 +105,6 @@
 					可反复使用，会生成可拾取的师父
 					'''
 			}
-
-			FranDamageDebugger: {
-				DisplayName: 师父伤害调试器
-				Tooltip:
-					'''
-					作弊调试工具，无法合成
-					左键打开基础伤害面板
-					放在背包并收藏时生效
-					仅覆盖师父的基础面板伤害
-					'''
-			}
 		}
 
 		Rarities.ShiFuPrismaticRarity.DisplayName: 师徒棱彩
@@ -185,7 +149,7 @@
 		}
 
 		Keybinds: {
-			SkillWheel.DisplayName: 师父技能轮
+			SkillWheel.DisplayName: 技能菜单
 			PotentialRelease.DisplayName: 黑天虎·绝闪
 			FranDash.DisplayName: 弗兰冲刺
 			MagicStoneCorridor.DisplayName: 师父的魔石回廊
@@ -386,29 +350,15 @@
 			}
 		}
 
-		DamageDebug: {
-			Title: 师父基础伤害调试
-			Active: 当前伤害覆盖已启用
-			Inactive: 收藏本物品后启用
-			Apply: 应用
-			Hint: 按回车或点击应用保存数值
-			Saved: 数值已经写入调试工具
-			Invalid: 请输入1至99999999
-			StoredDamage: 存储伤害：{0}
-			Enabled: 状态：收藏覆盖已启用
-			Disabled: 状态：收藏后才会启用
-		}
-
 		Notices: {
 			ShiFuArrivalPickup: 靠近，拾起师父
 			IntroTitle: 【弗兰人物模式已启动】
 			IntroCombat: 持续左键使用四段大剑连击
 			IntroSkills:
 				'''
-				按下“{0}”打开或关闭战术轮盘；
+				{0}；
 				左键上方图标可重复装配，
 				左键下方槽位卸下；
-				背包打开时轮盘自动关闭
 				'''
 			IntroEvolution:
 				'''
@@ -770,7 +720,7 @@
 				}
 
 				HoldSkillWheelToOpen: {
-					Label: "[i:Cog] 将技能轮盘更改为长按触发"
+					Label: "[i:Cog] 菜单按键是否长按"
 					Tooltip:
 						'''
 						默认关闭；关闭时点击技能轮盘按键打开，
@@ -846,18 +796,18 @@
 					四段剑术始终完整保留；
 					根据当前世界进度，
 					重新编排念压核、折念刃、
-					高速激光与天降星球
+					强化念核与天降星球
 					'''
-				FirstLayer: 单层：按当前时期运行四刀弹幕编排；未全选时念核集中直射
+				FirstLayer: 单层：按当前时期运行四刀弹幕编排；念核始终追踪，未全选时集中发射
 				AdditionalLayer: 叠层：每层增加一枚念压核
-				FullLoadout: 全选：念核散射并获得追踪，形成密集追踪阵列
+				FullLoadout: 全选：念核向外散射，形成密集追踪阵列
 
 				CurrentState: {
 					Stage0: 单层：一念核｜二延核｜三双核｜四重核
 					Stage1: 单层：一念核｜二折刃｜三双核折刃｜四双折刃
-					Stage2: 单层：一激光｜二光折刃｜三双光念核｜四重光
-					Stage3: 单层：一光念核｜二光双刃｜三双光双核｜四重光双刃
-					Stage4: 单层：一光念核｜二光双刃｜三双光双核｜四三星球
+					Stage2: 单层：一强化核｜二强化核折刃｜三三枚强化核｜四重强化核
+					Stage3: 单层：一双强化核｜二强化核折刃｜三四枚强化核｜四强化核折刃
+					Stage4: 单层：一双强化核｜二强化核折刃｜三四枚强化核｜四强化核；每两轮第四刀附带星球轰击
 				}
 			}
 
@@ -1070,6 +1020,8 @@
 			// FranVigilMeteor.DisplayName: Fran Vigil Meteor
 			// FranVigilSwing.DisplayName: Fran Vigil Swing
 			// FranVigilWave.DisplayName: Fran Vigil Wave
+			// FranOrbitingDiscBlade.DisplayName: Fran Orbiting Disc Blade
+			// Telekinetic_EmissionWave.DisplayName: Telekinetic_ Emission Wave
 		}
 	}
 }

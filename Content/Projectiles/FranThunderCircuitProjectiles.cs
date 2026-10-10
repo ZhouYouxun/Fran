@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using FranMod.Content.Companions;
 using FranMod.Content.Players;
 using FranMod.Core;
@@ -19,10 +20,14 @@ namespace FranMod.Content.Projectiles;
 public sealed class FranThunderCircuitNode : ModProjectile
 {
     private FranFissionArc[] corona;
+    private int discParentIndex = -1;
+    private int discParentIdentity = -1;
+    private int discOrbitSlot;
+    private int missingDiscFrames;
     private const int Lifetime = 180;
-    private const int StableVisualFrames = 15;
-    private const int UnstableVisualFrames = 10;
-    private const float UnstableVisualOffset = 5f;
+    private const int StableVisualFrames = 12;
+    private const int UnstableVisualFrames = 7;
+    private const float UnstableVisualOffset = 4f;
     private const string StarTexture = "Fran/Textures/Particles/KsTexture/star_09";
     private const string TwirlTexture = "Fran/Textures/Particles/KsTexture/twirl_01";
     private float Age => Projectile.localAI[0];
@@ -50,12 +55,59 @@ public sealed class FranThunderCircuitNode : ModProjectile
 
     public override bool ShouldUpdatePosition() => false;
 
+    public void AttachToDisc(Projectile disc, int slot)
+    {
+        if (discParentIndex == disc.whoAmI && discParentIdentity == disc.identity &&
+            discOrbitSlot == slot) return;
+        discParentIndex = disc.whoAmI;
+        discParentIdentity = disc.identity;
+        discOrbitSlot = slot;
+        Projectile.ai[0] = 0f;
+        Projectile.netUpdate = true;
+    }
+
+    public override void SendExtraAI(BinaryWriter writer)
+    {
+        writer.Write((short)discParentIndex);
+        writer.Write(discParentIdentity);
+        writer.Write((byte)discOrbitSlot);
+    }
+
+    public override void ReceiveExtraAI(BinaryReader reader)
+    {
+        discParentIndex = reader.ReadInt16();
+        discParentIdentity = reader.ReadInt32();
+        discOrbitSlot = reader.ReadByte();
+    }
+
     public override bool? CanDamage() => Age is >= 1f and <= 6f ? null : false;
 
     public override void AI()
     {
         Projectile.localAI[0]++;
         Projectile.rotation += 0.025f + Order * 0.003f;
+
+        if (discParentIndex >= 0)
+        {
+            Projectile disc = Main.projectile.IndexInRange(discParentIndex)
+                ? Main.projectile[discParentIndex] : null;
+            if (disc?.ModProjectile is FranSpinningDisc { IsReturning: true })
+            {
+                Projectile.Kill();
+                return;
+            }
+            if (disc is null || !disc.active || disc.owner != Projectile.owner ||
+                disc.identity != discParentIdentity ||
+                disc.ModProjectile is not FranSpinningDisc)
+            {
+                if (++missingDiscFrames > 20) Projectile.Kill();
+                return;
+            }
+            missingDiscFrames = 0;
+            float phase = Main.GlobalTimeWrappedHourly * 1.1f +
+                discOrbitSlot * MathHelper.PiOver2;
+            Projectile.Center = disc.Center + phase.ToRotationVector2() * 120f;
+        }
 
         if (AttachedTargetIndex >= 0 && Main.npc.IndexInRange(AttachedTargetIndex))
         {
@@ -67,18 +119,18 @@ public sealed class FranThunderCircuitNode : ModProjectile
         if (Age == 1f)
         {
             FranLightingBoltsSystem.SpawnThunderImpact(Projectile.Center,
-                Order % 2 == 0 ? new Color(154, 112, 255) : new Color(104, 210, 255),
+                new Color(170, 110, 255),
                 0.48f + 0.06f * TacticLayers);
         }
 
-        float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 8.2f + Order * 1.73f);
-        Lighting.AddLight(Projectile.Center, 0.10f + pulse * 0.07f, 0.13f + pulse * 0.08f,
-            0.38f + pulse * 0.18f);
+        float pulse = 0.5f + 0.5f * MathF.Sin(Main.GlobalTimeWrappedHourly * 8.2f * 1.3f + Order * 1.73f);
+        Lighting.AddLight(Projectile.Center, 0.22f + pulse * 0.10f, 0.08f + pulse * 0.05f,
+            0.36f + pulse * 0.17f);
     }
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
-        FranLightingBoltsSystem.SpawnThunderImpact(target.Center, new Color(130, 180, 255), 0.44f);
+        FranLightingBoltsSystem.SpawnThunderImpact(target.Center, new Color(170, 110, 255), 0.44f);
     }
 
     public override bool PreDraw(ref Color lightColor)
@@ -87,17 +139,16 @@ public sealed class FranThunderCircuitNode : ModProjectile
         float ending = FranMotion.Smooth(FranMotion.Segment(Projectile.timeLeft, 0f, 18f));
         float opacity = deploy * ending;
         float rotation = Main.GlobalTimeWrappedHourly * 3.2f;
-        // DragonRageC 的原始脉动幅度是 0.12；雷链球只保留一半，也就是 0.06。
-        float pulse = 1f + 0.06f * MathF.Sin(Main.GlobalTimeWrappedHourly * MathHelper.TwoPi);
-        float scale = 0.2f * Projectile.scale * pulse;
+        // Keep the restrained 0.06 amplitude while pulsing 30% faster.
+        float pulse = 1f + 0.06f * MathF.Sin(Main.GlobalTimeWrappedHourly * MathHelper.TwoPi * 1.3f);
+        float scale = 0.16f * Projectile.scale * pulse;
         Vector2 visualCenter = Projectile.Center + GetUnstableVisualOffset();
-        Color lightningColor = Order % 2 == 0 ? new Color(156, 112, 255) : new Color(103, 213, 255);
+        Color lightningColor = new(170, 110, 255);
         Texture2D star = ModContent.Request<Texture2D>(StarTexture).Value;
         Texture2D twirl = ModContent.Request<Texture2D>(TwirlTexture).Value;
 
-        // 完整保留 DragonRageC 能量火球的 star_09 橙色星核与两层 twirl_01；
-        // 只按需求把大小脉动幅度减半，并沿用本弹幕自身的出现/消失透明度。
-        Color starColor = Color.Orange * opacity;
+        // Violet star core and two rotating rings share the node's fade.
+        Color starColor = new Color(190, 105, 255) * opacity;
         starColor.A = 0;
         Main.EntitySpriteDraw(star, visualCenter - Main.screenPosition, null, starColor, rotation,
             star.Size() * 0.5f, scale, SpriteEffects.None, 0f);
@@ -106,7 +157,7 @@ public sealed class FranThunderCircuitNode : ModProjectile
         {
             float offsetAngle = rotation * (i == 0 ? 1.8f : -1.2f);
             float ringScale = scale * (i == 0 ? 0.8f : 0.7f);
-            Color ringColor = (i == 0 ? Color.OrangeRed : Color.White) * (0.6f * opacity);
+            Color ringColor = (i == 0 ? new Color(145, 75, 245) : new Color(220, 185, 255)) * (0.6f * opacity);
             ringColor.A = 0;
             Main.EntitySpriteDraw(twirl, visualCenter - Main.screenPosition, null, ringColor, offsetAngle,
                 twirl.Size() * 0.5f, ringScale, SpriteEffects.None, 0f);
@@ -119,12 +170,12 @@ public sealed class FranThunderCircuitNode : ModProjectile
             corona = new FranFissionArc[4];
             for (int i = 0; i < corona.Length; i++)
                 corona[i] = new FranFissionArc((MathHelper.TwoPi * i / 4f + Projectile.identity).ToRotationVector2()
-                    * (32f + TacticLayers * 2f), Projectile.identity * 397 + i, 1.1f, 1);
+                    * (32f + TacticLayers * 2f) * 0.8f, Projectile.identity * 397 + i, 1.1f, 1);
         }
         for (int i = 0; i < 4; i++)
         {
             corona[i].Draw(Main.spriteBatch, visualCenter, lightningColor,
-                (Age + i * 4) % 22f, 15f, 2f, opacity * 0.78f);
+                (Age + i * 4) % 22f, 12f, 1.6f, opacity * 0.78f);
         }
         FranVfx.EndAdditive();
         return false;

@@ -42,6 +42,9 @@ public sealed class FranCoreImpactBurst : ModProjectile
             SoundEngine.PlaySound(SoundID.Item10 with { Volume = 0.45f, Pitch = 0.2f, MaxInstances = 3 },
                 Projectile.Center);
             SpawnLayer(release: false);
+            if (Projectile.ai[1] > 0f)
+                FranLightingBoltsSystem.SpawnMindCoreJudgementHitLights(
+                    Projectile.Center, Projectile.ai[0].ToRotationVector2());
         }
         else if (age == 5)
             SpawnLayer(release: true);

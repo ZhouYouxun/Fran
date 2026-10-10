@@ -94,7 +94,8 @@ public sealed class FranUltimateController : ModProjectile
     public override bool ShouldUpdatePosition() => false;
 
     public override bool? CanDamage() =>
-        Main.hardMode && (phase is UltimatePhase.NormalStrike or UltimatePhase.FinalStrike) &&
+        FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) &&
+        (phase is UltimatePhase.NormalStrike or UltimatePhase.FinalStrike) &&
         Vector2.DistanceSquared(collisionStart, collisionEnd) > 4f ? null : false;
 
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
@@ -150,7 +151,8 @@ public sealed class FranUltimateController : ModProjectile
     public override void AI()
     {
         Player owner = Owner;
-        if (!Main.hardMode || !owner.active || owner.dead || LockedItemSlot < 0 ||
+        if (!FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) ||
+            !owner.active || owner.dead || LockedItemSlot < 0 ||
             LockedItemSlot >= owner.inventory.Length ||
             owner.inventory[LockedItemSlot].type != ModContent.ItemType<ShiFu>())
         {

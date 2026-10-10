@@ -82,6 +82,36 @@ internal sealed class FranLightingBoltsSystem : ModSystem
         }
     }
 
+    // Judgement 光波的十字星节奏：只使用本模组已有的原版 PrettySparkle 粒子池。
+    public static void SpawnTelekineticEmissionStar(Vector2 center, Vector2 forward, float scale = 1f)
+    {
+        if (Main.dedServ || Main.gameMenu) return;
+        float rotation = forward.SafeNormalize(Vector2.UnitX).ToRotation();
+        Vector2 drift = -forward.SafeNormalize(Vector2.UnitX) * 0.35f;
+        Sparkle(center, drift, new Color(80, 185, 255),
+            new Vector2(1.20f, 0.28f) * scale, 16, rotation, 0.42f);
+        Sparkle(center, drift, new Color(210, 245, 255),
+            new Vector2(1.20f, 0.28f) * scale, 16,
+            rotation + MathHelper.PiOver2, 0.42f);
+    }
+
+    // 凝念核命中后只补四枚小光点，避免覆盖它原本的命中碎片和光环。
+    public static void SpawnMindCoreJudgementHitLights(Vector2 center, Vector2 forward)
+    {
+        if (Main.dedServ || Main.gameMenu) return;
+        float rotation = forward.SafeNormalize(Vector2.UnitX).ToRotation();
+        Sparkle(center, Vector2.Zero, new Color(215, 245, 255),
+            new Vector2(1.05f, 0.28f), 18, rotation, 0.45f);
+        Sparkle(center, Vector2.Zero, new Color(85, 185, 255),
+            new Vector2(1.05f, 0.28f), 18, rotation + MathHelper.PiOver2, 0.45f);
+        for (int side = -1; side <= 1; side += 2)
+        {
+            Vector2 offset = (rotation + MathHelper.PiOver2).ToRotationVector2() * (side * 7f);
+            Sparkle(center + offset, offset * 0.12f, new Color(125, 215, 255),
+                new Vector2(0.56f, 0.21f), 15, rotation, 0.34f);
+        }
+    }
+
     public static void SpawnIonizingRadiation(Vector2 position, Color color, float scale = 1f)
     {
         const int arms = 3;

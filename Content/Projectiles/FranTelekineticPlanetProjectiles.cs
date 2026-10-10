@@ -404,6 +404,7 @@ public sealed class Telekinetic_GravityStarfall : ModProjectile
 public sealed class Telekinetic_GravityStarfallExplosion : ModProjectile
 {
     private const int Lifetime = 12;
+    private bool hitShakeTriggered;
     private int Variant => Math.Clamp((int)Projectile.ai[0], 0, 9);
     private float Diameter => MathHelper.Clamp(Projectile.ai[1], 64f, 118f);
     private float ImpactRotation => Projectile.ai[2];
@@ -429,6 +430,14 @@ public sealed class Telekinetic_GravityStarfallExplosion : ModProjectile
 
     public override bool ShouldUpdatePosition() => false;
     public override bool? CanDamage() => Projectile.timeLeft >= Lifetime - 3 ? null : false;
+
+    public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
+    {
+        if (hitShakeTriggered)
+            return;
+        hitShakeTriggered = true;
+        Main.LocalPlayer.GetModPlayer<FranPlayer>().ShakeScreen(target.Center, 4.6f * 0.7f);
+    }
 
     public override void OnSpawn(IEntitySource source)
     {
@@ -493,7 +502,6 @@ public sealed class Telekinetic_GravityStarfallExplosion : ModProjectile
             dust.noGravity = true;
         }
 
-        Main.LocalPlayer.GetModPlayer<FranPlayer>().ShakeScreen(Projectile.Center, 4.6f);
     }
 
     public override bool PreDraw(ref Color lightColor)

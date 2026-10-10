@@ -35,13 +35,37 @@ public sealed class FranShiFuPhantomBlade : ModProjectile
     private bool discTargeting;
     private Vector2 discTargetOrigin;
     private int discTarget = -1;
+    private int discIdentity = -1;
+    private int discSlot = -1;
+    private Vector2 discOffset;
 
     // Only right-click clones acquire enemies. Left-click clones keep their parallel cursor aim.
-    internal void SetDiscTargeting(Vector2 center)
+    internal void SetDiscTargeting(Projectile disc)
     {
         discTargeting = true;
-        discTargetOrigin = center;
+        discTargetOrigin = disc.Center;
+        discIdentity = disc.identity;
+        discSlot = disc.whoAmI;
+        discOffset = Projectile.Center - disc.Center;
         UpdateDiscTarget();
+    }
+
+    private void FollowDiscFormation()
+    {
+        if (!discTargeting || discIdentity < 0) return;
+        Projectile carrier = Main.projectile.IndexInRange(discSlot) ? Main.projectile[discSlot] : null;
+        bool Matches(Projectile p) => p is not null && p.active && p.owner == Projectile.owner &&
+            p.identity == discIdentity && p.ModProjectile is FranSpinningDisc;
+        if (!Matches(carrier))
+        {
+            carrier = null;
+            foreach (Projectile candidate in Main.ActiveProjectiles)
+                if (Matches(candidate)) { carrier = candidate; discSlot = candidate.whoAmI; break; }
+        }
+        if (carrier is null) return;
+        discTargetOrigin = carrier.Center;
+        formationOrigin = carrier.Center + discOffset;
+        Projectile.Center = formationOrigin;
     }
 
     private void UpdateDiscTarget()
@@ -121,6 +145,9 @@ public sealed class FranShiFuPhantomBlade : ModProjectile
         writer.Write(discTargetOrigin.X);
         writer.Write(discTargetOrigin.Y);
         writer.Write(discTarget);
+        writer.Write(discIdentity);
+        writer.Write(discOffset.X);
+        writer.Write(discOffset.Y);
     }
 
     public override void ReceiveExtraAI(BinaryReader reader)
@@ -137,6 +164,8 @@ public sealed class FranShiFuPhantomBlade : ModProjectile
         discTargeting = reader.ReadBoolean();
         discTargetOrigin = new Vector2(reader.ReadSingle(), reader.ReadSingle());
         discTarget = reader.ReadInt32();
+        discIdentity = reader.ReadInt32();
+        discOffset = new Vector2(reader.ReadSingle(), reader.ReadSingle());
         attachedEntity = Attached && attachedNpc < Main.maxNPCs ? Main.npc[attachedNpc] : null;
         if (Attached)
         {
@@ -160,7 +189,11 @@ public sealed class FranShiFuPhantomBlade : ModProjectile
         }
         if (!launched)
         {
-            if (Projectile.numUpdates == 0) UpdateDiscTarget();
+            if (Projectile.numUpdates == 0)
+            {
+                FollowDiscFormation();
+                UpdateDiscTarget();
+            }
             Projectile.velocity = Vector2.Zero;
             // ai[1..2] 保存整组共用的单位方向，各剑从自己的位置平行出发。
             Vector2 forward = InitialDirection;
@@ -224,6 +257,7 @@ public sealed class FranShiFuPhantomBlade : ModProjectile
         Vector2 normal = forward.RotatedBy(MathHelper.PiOver2);
         if (!launched)
         {
+            if (discTargeting) return; // Disc clones condense on its rim; no detached portal field.
             if ((int)age % 3 != 0) return;
             Vector2 portal = formationOrigin - forward * 46f;
             for (int i = 0; i < 2; i++)
@@ -375,8 +409,8 @@ public sealed class FranShiFuPhantomBlade : ModProjectile
             FranPhantomVisuals.DrawFlight(Projectile.Center, direction.ToRotation(), age,
                 FlightDistance(Math.Max(0f, age - LaunchDelay)), Projectile.identity);
         }
-        Vector2 portalCenter = formationOrigin - InitialDirection * 46f;
-        if (!Attached) FranPhantomVisuals.DrawPortal(portalCenter, InitialDirection.ToRotation(), age, LaunchDelay);
+        Vector2 portalCenter = discTargeting ? formationOrigin : formationOrigin - InitialDirection * 46f;
+        if (!Attached && !discTargeting) FranPhantomVisuals.DrawPortal(portalCenter, InitialDirection.ToRotation(), age, LaunchDelay);
         float emergence = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(age / 9f, 0f, 1f));
         Vector2 drawCenter = launched ? Projectile.Center : Vector2.Lerp(portalCenter, formationOrigin, emergence);
         if (Attached) drawCenter += new Vector2(0f, Projectile.gfxOffY) - direction * (10f * BladeSize * SwordTextureSize);

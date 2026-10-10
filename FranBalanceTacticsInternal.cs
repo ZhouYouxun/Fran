@@ -78,13 +78,14 @@ public static partial class FranBalance
 
     // 困难模式念动单位之间的相对分配权重。
     public static float TelekineticHardmodeLaserDamageMultiplier = 2f;
+    public static float TelekineticLaserSpeedMultiplier = 0.70f;
+    // 困难模式右键念动弹射：激光按转盘切割面板伤害继续乘此倍率。
+    public static float TelekineticDiscHitLaserDamageMultiplier = 0.6f;
     public static float TelekineticHardmodeFoldBladeDamageMultiplier = 0.6f;
     public static float TelekineticHardmodeCoreDamageMultiplier = 1f;
     // 凝念核：仅在困难模式前且任意 Boss 存活时，命中最终伤害乘此倍率。
     public static float TelekineticCorePreHardmodeBossDamageMultiplier = 1.4f;
-    // 转盘念动：开局 / 骷髅王后 / 困难模式 / 世纪之花后 / 月后，每拍基础小弹数。
-    // 第三拍额外一枚；额外战术层数各增加一枚。总伤害按同阶段左键配方预算分摊。
-    public static int[] TelekineticDiscCoreCounts = { 1, 2, 3, 4, 6 };
+    // 转盘念动的小弹数量读取当前时期的左键配方，五轮内保留其中 80%。
     public static float DiscPhantomSpawnRadius = 150f;
     public static float DiscPhantomTargetRange = 800f;
     public static float TelekineticCorePreHardmodeSpeedMultiplier = 0.70f;
@@ -100,6 +101,9 @@ public static partial class FranBalance
         1, 3, 3, 5
     };
     public static float TelekineticFinisherPlanetDamageMultiplier = 0.17f;
+    // 终型星球轰击由每轮四连击一次改为每两轮一次；单次星球和爆炸伤害随之翻倍。
+    public static int TelekineticFinisherPlanetCycleInterval = 2;
+    public static float TelekineticFinisherPlanetReleaseDamageMultiplier = 2f;
     public static float TelekineticPlanetExplosionDamageMultiplier = 0.75f;
 
     // 战术二：技能夺取者。
@@ -164,6 +168,7 @@ public static partial class FranBalance
     public static float BlueResonanceNormalDamageMultiplier = 0.18f;
     public static float BlueResonanceFinisherDamageMultiplier = 0.14f;
     public static float BlueResonanceEnemyFinalDamageMultiplier = 0.70f; // 蝶变共鸣仅对敌伤害再降低30%，不影响治疗。
+    public static float BlueResonanceWeaponDamagePenaltyPerSlot = 0.15f;
     public static int BlueResonanceHealingLifeDivisor = 80;
     public static int BlueResonanceHealingMinimum = 2;
     public static int BlueResonanceHealingMaximum = 7;

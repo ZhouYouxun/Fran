@@ -9,6 +9,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.Audio;
+using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -22,6 +23,8 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
     private int flightVisualTick;
     internal static readonly Color TrailBlue = new(28, 145, 235);
     internal static readonly Color TrailLightBlue = new(55, 178, 235);
+    private bool UpgradedVisual => FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh);
+    private float UpgradeVisualScale => Projectile.ai[2] > 0f ? Projectile.ai[2] : 1f;
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -38,7 +41,7 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
         Projectile.friendly = true;
         Projectile.penetrate = -1;
         Projectile.ignoreWater = true;
-        Projectile.tileCollide = !NPC.downedBoss1;
+        Projectile.tileCollide = !FranBalance.IsMilestoneCompleted(FranProgressionMilestone.EyeOfCthulhu);
         Projectile.timeLeft = 135;
         Projectile.DamageType = DamageClass.Melee;
         Projectile.usesLocalNPCImmunity = true;
@@ -48,8 +51,8 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
 
     public override void AI()
     {
-        // 击败克苏鲁之眼后才解锁念核穿墙；追踪仍由发射时的全选标记独立控制。
-        Projectile.tileCollide = !NPC.downedBoss1;
+        // 击败克苏鲁之眼后才解锁念核穿墙；追踪不依赖技能槽是否全选。
+        Projectile.tileCollide = !FranBalance.IsMilestoneCompleted(FranProgressionMilestone.EyeOfCthulhu);
         NPC target = ResolveHomingTarget();
         Projectile.extraUpdates = target is null ? 1 : 2;
         if (target is not null && !hasHit)
@@ -61,13 +64,15 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
 
         // 粒子按游戏帧发射，追踪时增加子更新不会把视觉密度也提高。
         if (!Main.dedServ && Projectile.numUpdates == 0 && !hasHit)
+        {
             EmitCoreFlightParticles();
+            if (UpgradedVisual)
+                EmitUpgradedFlightParticles();
+        }
     }
 
     private NPC ResolveHomingTarget()
     {
-        if (Projectile.ai[0] != 1f)
-            return null;
         bool CanTrack(NPC npc) => npc.CanBeChasedBy(Projectile, false) &&
             Projectile.WithinRange(npc.Center, FranMindCoreGuidance.AcquisitionRadius + npc.width / 2 + npc.height / 2);
 
@@ -121,12 +126,26 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
                 new Vector2(0.015f, 0.035f), Projectile.rotation, 9), spawnSupportingDust: false);
     }
 
+    private void EmitUpgradedFlightParticles()
+    {
+        Vector2 forward = Projectile.velocity.SafeNormalize(Vector2.UnitX);
+        Lighting.AddLight(Projectile.Center, TrailLightBlue.ToVector3() * 0.32f * Projectile.scale);
+        if (flightVisualTick % 3 == 0)
+            FranParticleSystem.Spawn(new FranDirectionalRingParticle(Projectile.Center,
+                -forward * 0.5f, TrailLightBlue, new Vector2(0.045f, 0.045f) * UpgradeVisualScale,
+                new Vector2(0.016f, 0.016f) * UpgradeVisualScale, Projectile.rotation, 11),
+                spawnSupportingDust: false);
+        if (flightVisualTick % 9 == 0)
+            FranLightingBoltsSystem.SpawnTelekineticEmissionStar(
+                Projectile.Center, forward, 0.52f * UpgradeVisualScale);
+    }
+
     public override bool? CanDamage() => hasHit ? false : null;
 
     public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
     {
         // 命中时实时判断，Boss 死亡或进入困难模式后，已发射的念核也不再享受增伤。
-        if (Main.hardMode)
+        if (FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh))
             return;
         foreach (NPC npc in Main.ActiveNPCs)
         {
@@ -143,8 +162,10 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
     {
         if (Projectile.oldPos[0] == Vector2.Zero)
             return false;
+        float collisionPoint = 0f;
         return Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(),
-            Projectile.oldPos[0] + Projectile.Size * 0.5f, Projectile.Center);
+            Projectile.oldPos[0] + Projectile.Size * 0.5f, Projectile.Center,
+            UpgradedVisual ? 5f : 0f, ref collisionPoint);
     }
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
@@ -156,7 +177,7 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
         if (Main.myPlayer == Projectile.owner)
             Projectile.NewProjectile(Projectile.GetSource_OnHit(target), target.Center, Vector2.Zero,
                 ModContent.ProjectileType<FranCoreImpactBurst>(), 0, 0f, Projectile.owner,
-                Projectile.velocity.ToRotation());
+                Projectile.velocity.ToRotation(), UpgradedVisual ? 1f : 0f);
         Projectile.timeLeft = Math.Min(Projectile.timeLeft, 12);
         Projectile.velocity *= 0.2f;
         Projectile.damage = 0;
@@ -194,7 +215,44 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
                 TrailBlue, TrailLightBlue, Color.White, 1f))
             FranProjectileTrailRenderer.DrawTelekineticCoreFallback(Projectile, TrailLightBlue);
         FranProjectileTrailRenderer.DrawTelekineticCoreHead(Projectile, TrailBlue, TrailLightBlue);
+        if (UpgradedVisual)
+            DrawUpgradedCoreHalo();
         return false;
+    }
+
+    private void DrawUpgradedCoreHalo()
+    {
+        float pulse = 0.92f + 0.08f * MathF.Sin(Main.GlobalTimeWrappedHourly * 12f + Projectile.identity);
+        float size = Projectile.scale * UpgradeVisualScale * pulse;
+        Vector2 forward = Projectile.rotation.ToRotationVector2();
+        Vector2 side = forward.RotatedBy(MathHelper.PiOver2);
+        FranVfx.BeginAdditive();
+        try
+        {
+            FranVfx.DrawSharedPixels("BloomCircle", Projectile.Center,
+                TrailLightBlue * (0.42f * Projectile.scale), Projectile.rotation,
+                new Vector2(36f, 36f) * size);
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 ray = (i % 2 == 0 ? forward : side) * (i < 2 ? 1f : -1f);
+                FranVfx.DrawVertical("FranVfx_ThinEndedLine", Projectile.Center + ray * 3f * size,
+                    Projectile.Center + ray * 18f * size, TrailLightBlue * 0.66f, 2.1f * size);
+            }
+            FranVfx.DrawSharedPixels("BloomCircle", Projectile.Center,
+                Color.White * (0.58f * Projectile.scale), Projectile.rotation,
+                new Vector2(15f, 15f) * size);
+            if (Projectile.ai[0] == 2f)
+            {
+                Vector2 tip = Projectile.Center + forward * 11f * size;
+                FranVfx.DrawOriginalPixels("FranFlashFourPoint", tip,
+                    new Color(65, 190, 255, 0) * (0.78f * Projectile.scale),
+                    Projectile.rotation, new Vector2(58f, 39f) * size);
+                FranVfx.DrawOriginalPixels("FranFlashFourPoint", tip,
+                    new Color(255, 255, 255, 0) * (0.94f * Projectile.scale),
+                    Projectile.rotation, new Vector2(38f, 31f) * size);
+            }
+        }
+        finally { FranVfx.EndAdditive(); }
     }
 }
 
@@ -210,6 +268,15 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
     private const float ActiveLifetime = 43f;
     private const float DamageEndTime = 34f;
     private const float TerrainDissipationLifetime = 16f;
+    private const int FirstEmissionFrame = 6;
+    private const int EmissionInterval = 7;
+    private const int EmissionPulses = 4;
+    private bool emitsPattern;
+    private int emissionStage;
+    private int emissionCombo;
+    private int emissionLayers;
+    private int emissionFacing;
+    private int emissionDamage;
     private ref float Age => ref Projectile.localAI[0];
     private ref float DamagingHitCount => ref Projectile.localAI[1];
     private ref float DissipationAge => ref Projectile.localAI[2];
@@ -219,6 +286,17 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
     private float SwingSign => Projectile.ai[0] < 0f ? -1f : 1f;
     private int DamagingHitLimit => Math.Max(1, FranBalance.GetInt(
         nameof(FranBalance.TelekineticFoldBladeHitLimit), FranBalance.TelekineticFoldBladeHitLimit));
+
+    internal void EnablePatternEmission(int stage, int combo, int layers, int facing)
+    {
+        emitsPattern = true;
+        emissionStage = stage;
+        emissionCombo = combo;
+        emissionLayers = layers;
+        emissionFacing = facing;
+        emissionDamage = Projectile.damage;
+        Projectile.netUpdate = true;
+    }
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.TerraBlade2Shot}";
 
@@ -239,7 +317,7 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         Projectile.penetrate = -1;
         Projectile.timeLeft = 90;
         Projectile.ignoreWater = true;
-        Projectile.tileCollide = true;
+        Projectile.tileCollide = !FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh);
         Projectile.usesLocalNPCImmunity = true;
         Projectile.localNPCHitCooldown = 10;
         Projectile.ownerHitCheck = true;
@@ -258,6 +336,7 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         }
 
         Age++;
+        Projectile.tileCollide = !FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh);
         Vector2 forward = Projectile.velocity.SafeNormalize(Vector2.UnitX);
         Projectile.rotation = forward.ToRotation();
         Projectile.ownerHitCheck = Age <= 6f;
@@ -268,8 +347,8 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         Projectile.Opacity = Utils.Remap(Age, 0f, 9f, 0f, 1f) *
             Utils.Remap(Age, ActiveLifetime - 12f, ActiveLifetime, 1f, 0f);
 
-        // 原版 TerraBlade2Shot 会检测波体前沿，先减速，再由中心的方块碰撞停住。
-        if (IsWaveFrontBlocked())
+        // 肉前保留原版遇阻消散；困难模式后的光波穿过方块。
+        if (Projectile.tileCollide && IsWaveFrontBlocked())
         {
             BeginDissipation(suppressDeathBurst: true);
             UpdateDissipation();
@@ -291,6 +370,14 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
             FranLightingBoltsSystem.SpawnTelekineticWaveFlightDust(
                 Projectile.Center, Projectile.velocity, Projectile.rotation, Projectile.scale,
                 Projectile.Opacity);
+
+        if (emitsPattern && Age >= FirstEmissionFrame &&
+            ((int)Age - FirstEmissionFrame) % EmissionInterval == 0)
+        {
+            int pulse = ((int)Age - FirstEmissionFrame) / EmissionInterval;
+            if (pulse < EmissionPulses)
+                EmitPatternShots(pulse, forward);
+        }
 
         if (Age >= DamageEndTime)
         {
@@ -362,6 +449,15 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         writer.Write(Age);
         writer.Write(DamagingHitCount);
         writer.Write(DissipationAge);
+        writer.Write(emitsPattern);
+        if (emitsPattern)
+        {
+            writer.Write((byte)emissionStage);
+            writer.Write((byte)emissionCombo);
+            writer.Write((byte)emissionLayers);
+            writer.Write((sbyte)emissionFacing);
+            writer.Write(emissionDamage);
+        }
     }
 
     public override void ReceiveExtraAI(BinaryReader reader)
@@ -369,10 +465,58 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         Age = reader.ReadSingle();
         DamagingHitCount = reader.ReadSingle();
         DissipationAge = reader.ReadSingle();
+        emitsPattern = reader.ReadBoolean();
+        if (emitsPattern)
+        {
+            emissionStage = reader.ReadByte();
+            emissionCombo = reader.ReadByte();
+            emissionLayers = reader.ReadByte();
+            emissionFacing = reader.ReadSByte();
+            emissionDamage = reader.ReadInt32();
+        }
         if (Dissipating)
         {
             Projectile.friendly = false;
             Projectile.damage = 0;
+        }
+    }
+
+    private void EmitPatternShots(int pulse, Vector2 forward)
+    {
+        Player owner = Main.player[Projectile.owner];
+        if (!owner.active)
+            return;
+        List<FranTelekineticShot> shots = new(16);
+        FranTelekineticPattern.Fill(shots, emissionStage, emissionCombo, emissionLayers, emissionFacing);
+        float damageScale = FranTelekineticPattern.GetDamageScale(emissionStage,
+            FranBalance.GetAvailableTacticSlots());
+        Vector2 side = forward.RotatedBy(MathHelper.PiOver2);
+        int index = 0;
+        foreach (FranTelekineticShot shot in shots)
+        {
+            if (shot.Kind == FranTelekineticShotKind.Planet)
+                continue;
+            if (index++ % EmissionPulses != pulse)
+                continue;
+
+            // Judgement 的小星从波刃散开，先沿弧线甩出，再交给凝念核原有追踪。
+            float flank = (pulse % 2 == 0 ? -1f : 1f) * (0.58f + pulse / 2 * 0.22f);
+            Vector2 release = Projectile.Center + forward * 28f * Projectile.scale +
+                side * (flank * 82f * Projectile.scale + shot.Offset * 0.35f);
+            if (!Main.dedServ)
+                FranLightingBoltsSystem.SpawnTelekineticEmissionStar(release, side * flank, 1.15f);
+            if (Main.myPlayer != Projectile.owner)
+                continue;
+            float multiplier = shot.Weight * damageScale;
+            if (shot.Kind == FranTelekineticShotKind.Core)
+            {
+                Vector2 launch = (-forward * 0.62f + side * flank).SafeNormalize(-forward) * 30f;
+                ShiFuImprintCombat.SpawnTelekineticPressureCore(owner, Projectile, forward, 0f,
+                    multiplier, release, emissionDamage, shot.Scale, launch, judgementStar: true);
+            }
+            else
+                ShiFuImprintCombat.SpawnTelekineticFoldBlade(owner, Projectile, forward,
+                    shot.Offset, shot.Angle, shot.Scale, multiplier, release, emissionDamage);
         }
     }
 
@@ -569,12 +713,74 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
 // 而命中耗尽后的减速与淡出每个真实帧只推进一次。
 public sealed class Telekinetic_Flash : ModProjectile
 {
+    private const int RainMaxUpdates = 7;
+    private const float RainSpeed = 20f;
+    private int rainStage;
+    private int rainTarget = -1;
+    private int rainNextDamage;
     private ref float Time => ref Projectile.ai[0];
     private ref float DamagingHitCount => ref Projectile.ai[1];
     private ref float DissipationAge => ref Projectile.ai[2];
     private int DamagingHitLimit => Math.Max(1, (int)Projectile.localAI[0]);
     private bool SuppressLaunchBurst => Projectile.localAI[1] > 0f;
     private bool Dissipating => DissipationAge > 0f;
+
+    internal static void SpawnElysianRain(IEntitySource source, Projectile parent, NPC target, int damage)
+    {
+        Vector2 spawn = target.Center + new Vector2(Main.rand.NextFloat(-450f, 450f),
+            Main.rand.NextFloat(-950f, -750f));
+        SpawnRainLaser(source, parent.owner, spawn, target, target.Center, damage,
+            parent.knockBack * 0.52f, parent.CritChance, 1);
+    }
+
+    private static void SpawnRainLaser(IEntitySource source, int owner, Vector2 spawn,
+        NPC target, Vector2 fallbackTarget, int damage, float knockback, int critChance, int stage)
+    {
+        float speed = RainSpeed * Math.Max(0.01f, FranBalance.GetFloat(
+            nameof(FranBalance.TelekineticLaserSpeedMultiplier),
+            FranBalance.TelekineticLaserSpeedMultiplier));
+        Vector2 velocity = PredictRainAim(spawn, target?.Center ?? fallbackTarget,
+            target?.velocity ?? Vector2.Zero, speed);
+        int index = Projectile.NewProjectile(source, spawn, velocity, ModContent.ProjectileType<Telekinetic_Flash>(),
+            damage, knockback, owner, 0f, 0f, -1f);
+        if (!Main.projectile.IndexInRange(index))
+            return;
+        Projectile rain = Main.projectile[index];
+        rain.CritChance = critChance;
+        if (rain.ModProjectile is Telekinetic_Flash flash)
+            flash.ConfigureRain(stage, target?.whoAmI ?? -1, damage);
+        if (!Main.dedServ)
+            FranLightingBoltsSystem.SpawnMindCoreBurst(spawn, velocity.ToRotation(),
+                new Color(110, 205, 255), false);
+    }
+
+    private static Vector2 PredictRainAim(Vector2 spawn, Vector2 targetPosition,
+        Vector2 targetVelocity, float speed)
+    {
+        // Same four-step Euler lead and update-count adjustment as Elysian Arrow's rain.
+        float previousTime = 0f;
+        Vector2 predicted = targetPosition;
+        for (int i = 0; i < 4; i++)
+        {
+            float time = Vector2.Distance(spawn, predicted) / speed / RainMaxUpdates;
+            predicted += targetVelocity * (time - previousTime);
+            previousTime = time;
+        }
+        return (predicted - spawn).SafeNormalize(Vector2.UnitY) * speed;
+    }
+
+    private void ConfigureRain(int stage, int targetIndex, int nextDamage)
+    {
+        rainStage = stage;
+        rainTarget = targetIndex;
+        rainNextDamage = nextDamage;
+        Projectile.MaxUpdates = RainMaxUpdates;
+        Projectile.timeLeft = 110;
+        Projectile.localAI[0] = 1f;
+        Projectile.penetrate = 2;
+        Projectile.Opacity = 1f;
+        Projectile.netUpdate = true;
+    }
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -611,22 +817,12 @@ public sealed class Telekinetic_Flash : ModProjectile
         bool drawingUpdate = Projectile.numUpdates % 3 == 0;
         if (Time > 6f && drawingUpdate && !Main.dedServ)
         {
-            float scaleBoost = MathHelper.Clamp(Time * 0.005f, 0f, 2f);
-            FranParticleSystem.Spawn(new FranHalleySparkParticle(Projectile.Center, Projectile.velocity,
-                new Color(8, 35, 156), (3.2f + scaleBoost) * Projectile.scale, 7));
-            FranParticleSystem.Spawn(new FranHalleySparkParticle(Projectile.Center, Projectile.velocity,
-                new Color(184, 215, 245), (1.6f + scaleBoost) * Projectile.scale, 7));
+            EmitLaserSparks(Projectile.Center, Projectile.velocity, Projectile.scale, Time);
         }
         else if (Time == 5f && !Main.dedServ && !SuppressLaunchBurst)
         {
-            FranParticleSystem.Spawn(new FranHalleyPulseRingParticle(Projectile.Center,
-                Projectile.velocity * 0.75f, Color.Aqua, new Vector2(1f, 2.5f) * Projectile.scale,
-                Projectile.rotation,
-                0.20f, 0.03f, 20));
-            FranParticleSystem.Spawn(new FranHalleyPulseRingParticle(Projectile.Center,
-                Projectile.velocity * 0.40f, Color.DodgerBlue, new Vector2(1f, 2.5f) * Projectile.scale,
-                Projectile.rotation,
-                0.10f, 0.025f, 35));
+            EmitLaserLaunchRings(Projectile.Center, Projectile.velocity,
+                Projectile.rotation, Projectile.scale);
             for (int i = 0; i <= 25; i++)
             {
                 Dust wide = Dust.NewDustPerfect(Projectile.Center, Main.rand.NextBool(3) ? 172 : 206,
@@ -645,9 +841,39 @@ public sealed class Telekinetic_Flash : ModProjectile
             Lighting.AddLight(Projectile.Center, Color.MediumBlue.ToVector3() * 0.4f);
     }
 
+    internal static void EmitLaserSparks(Vector2 position, Vector2 velocity,
+        float projectileScale, float time, float sizeMultiplier = 1f,
+        bool spawnSupportingDust = true, float brightnessMultiplier = 1f)
+    {
+        float scaleBoost = MathHelper.Clamp(time * 0.005f, 0f, 2f);
+        FranParticleSystem.Spawn(new FranHalleySparkParticle(position, velocity,
+            new Color(8, 35, 156) * brightnessMultiplier, (3.2f + scaleBoost) * projectileScale * sizeMultiplier, 7),
+            spawnSupportingDust: spawnSupportingDust);
+        FranParticleSystem.Spawn(new FranHalleySparkParticle(position, velocity,
+            new Color(184, 215, 245) * brightnessMultiplier, (1.6f + scaleBoost) * projectileScale * sizeMultiplier, 7),
+            spawnSupportingDust: spawnSupportingDust);
+    }
+
+    internal static void EmitLaserLaunchRings(Vector2 position, Vector2 velocity,
+        float rotation, float projectileScale, float sizeMultiplier = 1f,
+        bool spawnSupportingDust = true, float brightnessMultiplier = 1f)
+    {
+        FranParticleSystem.Spawn(new FranHalleyPulseRingParticle(position,
+            velocity * 0.75f, Color.Aqua * brightnessMultiplier, new Vector2(1f, 2.5f) * projectileScale * sizeMultiplier,
+            rotation, 0.20f, 0.03f, 20), spawnSupportingDust: spawnSupportingDust);
+        FranParticleSystem.Spawn(new FranHalleyPulseRingParticle(position,
+            velocity * 0.40f, Color.DodgerBlue * brightnessMultiplier, new Vector2(1f, 2.5f) * projectileScale * sizeMultiplier,
+            rotation, 0.10f, 0.025f, 35), spawnSupportingDust: spawnSupportingDust);
+    }
+
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
         EnsureConfigured();
+        if (rainStage == 1)
+        {
+            rainTarget = target.whoAmI;
+            rainNextDamage = Math.Max(1, (int)(rainNextDamage * 0.8f));
+        }
         SoundEngine.PlaySound(SoundID.DD2_CrystalCartImpact with { Volume = 0.64f }, Projectile.Center);
         for (int i = 0; i < 14; i++)
         {
@@ -662,25 +888,80 @@ public sealed class Telekinetic_Flash : ModProjectile
             BeginDissipation();
     }
 
+    public override void OnKill(int timeLeft)
+    {
+        if (rainStage != 1 || Main.myPlayer != Projectile.owner)
+            return;
+        NPC target = Main.npc.IndexInRange(rainTarget) && Main.npc[rainTarget].CanBeChasedBy()
+            ? Main.npc[rainTarget] : null;
+        if (target is null)
+        {
+            float closest = 2000f * 2000f;
+            foreach (NPC candidate in Main.ActiveNPCs)
+            {
+                if (!candidate.CanBeChasedBy())
+                    continue;
+                float distance = Vector2.DistanceSquared(Projectile.Center, candidate.Center);
+                if (distance < closest)
+                {
+                    closest = distance;
+                    target = candidate;
+                }
+            }
+        }
+        Vector2 center = target?.Center ?? Projectile.Center;
+        Vector2 spawn = center + new Vector2(Main.rand.NextFloat(-450f, 450f),
+            Main.rand.NextFloat(750f, 950f));
+        SpawnRainLaser(Projectile.GetSource_FromThis(), Projectile.owner, spawn, target,
+            center, Math.Max(1, rainNextDamage), Projectile.knockBack, Projectile.CritChance, 2);
+    }
+
+    public override void SendExtraAI(BinaryWriter writer)
+    {
+        writer.Write((byte)rainStage);
+        writer.Write((short)rainTarget);
+        writer.Write(rainNextDamage);
+    }
+
+    public override void ReceiveExtraAI(BinaryReader reader)
+    {
+        rainStage = reader.ReadByte();
+        rainTarget = reader.ReadInt16();
+        rainNextDamage = reader.ReadInt32();
+        if (rainStage > 0)
+        {
+            Projectile.MaxUpdates = RainMaxUpdates;
+            Projectile.localAI[0] = 1f;
+            Projectile.penetrate = 2;
+            Projectile.Opacity = 1f;
+        }
+    }
+
     public override bool PreDraw(ref Color lightColor)
     {
-        float opacity = MathHelper.Clamp(Projectile.Opacity, 0f, 1f);
-        Vector2 direction = Projectile.velocity.SafeNormalize(Projectile.rotation.ToRotationVector2());
+        DrawLaserAppearance(Projectile);
+        return false;
+    }
+
+    internal static void DrawLaserAppearance(Projectile projectile, float sizeMultiplier = 1f,
+        float brightnessMultiplier = 1f)
+    {
+        float opacity = MathHelper.Clamp(projectile.Opacity * brightnessMultiplier, 0f, 1f);
+        Vector2 direction = projectile.velocity.SafeNormalize(projectile.rotation.ToRotationVector2());
         float rotation = direction.ToRotation();
-        float pulse = 0.92f + MathF.Sin(Main.GlobalTimeWrappedHourly * 18f + Projectile.identity) * 0.08f;
+        float pulse = 0.92f + MathF.Sin(Main.GlobalTimeWrappedHourly * 18f + projectile.identity) * 0.08f;
 
         FranVfx.BeginAdditive();
-        FranVfx.DrawShared("CL_BloomCircle", Projectile.Center,
+        FranVfx.DrawShared("CL_BloomCircle", projectile.Center,
             new Color(45, 135, 255, 0) * (0.52f * opacity), rotation,
-            0.48f * pulse * Projectile.scale);
-        FranVfx.DrawOriginalPixels("FranSmearForward", Projectile.Center - direction * 18f,
+            0.48f * pulse * projectile.scale * sizeMultiplier);
+        FranVfx.DrawOriginalPixels("FranSmearForward", projectile.Center - direction * 18f * sizeMultiplier,
             new Color(65, 175, 255) * (0.48f * opacity), rotation,
-            new Vector2(104f, 24f) * pulse * Projectile.scale);
-        FranVfx.DrawOriginalPixels("FranFlashFourPoint", Projectile.Center + direction * 12f,
+            new Vector2(104f, 24f) * pulse * projectile.scale * sizeMultiplier);
+        FranVfx.DrawOriginalPixels("FranFlashFourPoint", projectile.Center + direction * 12f * sizeMultiplier,
             Color.White * (0.78f * opacity), rotation,
-            new Vector2(38f, 20f) * pulse * Projectile.scale);
+            new Vector2(38f, 20f) * pulse * projectile.scale * sizeMultiplier);
         FranVfx.EndAdditive();
-        return false;
     }
 
     private void EnsureConfigured()

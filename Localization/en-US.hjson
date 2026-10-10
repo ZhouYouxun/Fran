@@ -1,4 +1,4 @@
-﻿Mods: {
+Mods: {
 	Fran: {
 		Companion: {
 			Title: Fran · Companion Tactics
@@ -13,19 +13,6 @@
 		}
 
 		Items: {
-			FranCompanionStaff: {
-				DisplayName: Fran's Promise
-				Tooltip:
-					'''
-					Summons an invincible, winged Fran who always wields ShiFu
-					Adapts her unlocked tactics to battle; right-click Fran nearby for manual control
-					Magic Barrier is manual only; tactics change at combo boundaries
-					Use again to recall her; right-click this item to dismiss her
-					One per player, no minion slots; scales with world progress and summon damage
-					Titanium vanity armor is a placeholder for Fran's future character sprites
-					'''
-			}
-
 			Foreword: {
 				DisplayName: Foreword
 				Tooltip:
@@ -51,17 +38,6 @@
 					'''
 			}
 
-			FransHeadwear: {
-				DisplayName: Fran's Headwear
-				Tooltip:
-					'''
-					Favorite this item while it is in your inventory to enter Fran Mode
-					Fran Mode is identical to naming a character "Fran", "フラン", or "弗兰"
-					Enables Fran's appearance framework, Black Cat Warrior Instinct, dash, ultimate, and ShiFu
-					The prototype currently uses a vanilla cat-ear icon
-					'''
-			}
-
 			ShiFu: {
 				TacticSelection: Current Tactics:
 				FullLoadoutInactive: "[Full Loadout] Inactive"
@@ -71,12 +47,14 @@
 					'''
 					[Left Click] Cycle through four sword techniques, each synchronized with equipped tactics
 					[Hold Right Click] Spinning Disc: throw the sword to follow your cursor and continuously cut enemies; release to recall
-					Press "{WheelKey}" to open the wheel and configure your tactics
+					{WheelInstruction}
 					Equipping duplicate tactics strengthens their effect
 					Combining different tactics can lead to unexpected results
 					'''
 				UltimateLocked: "[Enter Hardmode to unlock the Ultimate: Shadowless]"
 				UltimateTooltip: While holding ShiFu, press {0} to unleash "Black Heavenly Tiger — Absolute Flash": deliver a powerful execution against one target. Held weapons cannot be switched during the ultimate
+				WheelBound: Press {0} to open the skill menu; press again to close. Opening or closing inventory also closes it.
+				WheelBoundHold: Hold {0} to open the skill menu; release to close. Opening or closing inventory also closes it.
 				UnboundKey: Unbound
 				GoldenEvolutionRoad: We will once again set foot on the road of evolution, a road without end
 			}
@@ -125,17 +103,6 @@
 					Reusable; each use creates a ShiFu that anyone can pick up
 					'''
 			}
-
-			FranDamageDebugger: {
-				DisplayName: ShiFu Damage Debugger
-				Tooltip:
-					'''
-					Cheat-only developer tool; it has no recipe
-					Left click to open the base-damage panel
-					Favorite it in your inventory to enable its override
-					Only ShiFu's base item damage is replaced
-					'''
-			}
 		}
 
 		Rarities.ShiFuPrismaticRarity.DisplayName: Master-and-Disciple Prismatic
@@ -175,7 +142,7 @@
 		}
 
 		Keybinds: {
-			SkillWheel.DisplayName: ShiFu Skill Wheel
+			SkillWheel.DisplayName: Skill Menu
 			PotentialRelease.DisplayName: Black Heavenly Tiger Flash
 			FranDash.DisplayName: Fran Dash
 			MagicStoneCorridor.DisplayName: ShiFu's Magic-Stone Corridor
@@ -366,24 +333,11 @@
 			}
 		}
 
-		DamageDebug: {
-			Title: ShiFu Base Damage Debugger
-			Active: Damage override enabled
-			Inactive: Favorite this item to enable it
-			Apply: Apply
-			Hint: Press Enter or click Apply to save
-			Saved: Value saved to the debug item
-			Invalid: Enter a value from 1 to 99999999
-			StoredDamage: Stored damage: {0}
-			Enabled: Status: favorite override enabled
-			Disabled: Status: favorite the item to enable
-		}
-
 		Notices: {
 			ShiFuArrivalPickup: Approach to pick up ShiFu
 			IntroTitle: "[Fran Mode activated]"
 			IntroCombat: Hold left click for the four-part greatsword combo
-			IntroSkills: Press {0} to open or close the tactic wheel; left-click upper icons to equip duplicates and lower slots to remove them; opening inventory closes the wheel
+			IntroSkills: "{0}; left-click upper icons to equip duplicates and lower slots to remove them"
 			IntroEvolution: Participate in a boss victory to absorb its unique magic stone; press J to shape ShiFu, Fran, and their long-term resonance in the Corridor
 			IntroDash: When Fran Dash is bound, only that key triggers it; when unbound, double-tap left/right instead; equipped dashes take priority
 			IntroPotential: The ultimate charges automatically over three minutes of active play; while holding ShiFu, press G when full to begin Black Heavenly Tiger's execution rush. Held weapons cannot be switched during the ultimate
@@ -619,7 +573,7 @@
 				}
 
 				HoldSkillWheelToOpen: {
-					Label: "[i:Cog] Hold to open the skill wheel"
+					Label: "[i:Cog] Hold the skill menu key"
 					Tooltip: Disabled by default. When disabled, pressing the skill-wheel key toggles the wheel. When enabled, the wheel stays open only while the key is held.
 				}
 
@@ -664,17 +618,17 @@
 			TelekineticCatapult: {
 				DisplayName: Telekinetic Catapult
 				UnlockCondition: Unlocked by default
-				Description: ShiFu's four-part sword combo always remains intact. The current world stage rearranges pressure cores, fold blades, high-speed lasers, and falling planets around those same four cuts
-				FirstLayer: One layer: uses the current four-cut projectile sequence; cores fire in a tight straight spread without a full loadout
+				Description: ShiFu's four-part sword combo always remains intact. The current world stage rearranges homing cores, fold blades, and falling planets around those same four cuts; cores gain a brighter form in Hardmode
+				FirstLayer: One layer: uses the current four-cut projectile sequence; cores always home and fire in a tight spread without a full loadout
 				AdditionalLayer: Stack: adds one pressure core per layer
-				FullLoadout: Full: cores gain homing and a wide spread, forming a dense homing formation
+				FullLoadout: Full: cores gain a wide spread, forming a dense homing formation
 
 				CurrentState: {
 					Stage0: One layer: 1 core | 2 delayed core | 3 twin cores | 4 heavy core
 					Stage1: One layer: 1 core | 2 blade | 3 twin cores + blade | 4 twin blades
-					Stage2: One layer: 1 laser | 2 laser + blade | 3 twin lasers + core | 4 heavy laser
-					Stage3: One layer: 1 laser + core | 2 laser + twin blades | 3 twin lasers + twin cores | 4 heavy laser + twin blades
-					Stage4: One layer: 1 laser + core | 2 laser + twin blades | 3 twin lasers + twin cores | 4 three planets
+					Stage2: One layer: 1 empowered core | 2 core + blade | 3 three cores | 4 heavy core
+					Stage3: One layer: 1 twin cores | 2 core + blade | 3 four cores | 4 core + blade
+					Stage4: One layer: 1 twin cores | 2 core + blade | 3 four cores | 4 core; every second four-cut cycle adds a planetary strike
 				}
 			}
 
@@ -847,6 +801,8 @@
 			FranVigilMeteor.DisplayName: Fran Vigil Meteor
 			FranVigilSwing.DisplayName: Fran Vigil Swing
 			FranVigilWave.DisplayName: Fran Vigil Wave
+			FranOrbitingDiscBlade.DisplayName: Fran Orbiting Disc Blade
+			Telekinetic_EmissionWave.DisplayName: Telekinetic_ Emission Wave
 		}
 	}
 }

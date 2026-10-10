@@ -10,6 +10,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
+using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
@@ -64,9 +65,16 @@ public sealed class ShiFu : ModItem
 
     public override bool CanResearch() => false;
 
+    private static bool WantsDisc(Player player) => player.altFunctionUse == 2 ||
+        player.whoAmI == Main.myPlayer && PlayerInput.Triggers.Current.MouseRight;
+
     public override void ModifyWeaponDamage(Player player, ref StatModifier damage)
     {
         damage.Base += FranBalance.GetBaseDamage(player) - Item.damage;
+        int butterflySlots = player.GetModPlayer<FranPlayer>().GetSkillStacks(FranSkill.BlueResonance);
+        damage *= Math.Max(0f, 1f - butterflySlots * FranBalance.GetFloat(
+            nameof(FranBalance.BlueResonanceWeaponDamagePenaltyPerSlot),
+            FranBalance.BlueResonanceWeaponDamagePenaltyPerSlot));
     }
 
     public override bool AltFunctionUse(Player player) => true;
@@ -79,8 +87,8 @@ public sealed class ShiFu : ModItem
         Item.knockBack = FranBalance.GetFloat(nameof(FranBalance.ShiFuKnockback), FranBalance.ShiFuKnockback);
         Item.channel = true;
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
-        if (player.altFunctionUse == 2 && fran.UltimateActive) return false;
-        Item.shoot = player.altFunctionUse == 2
+        if (WantsDisc(player) && fran.UltimateActive) return false;
+        Item.shoot = WantsDisc(player)
             ? ModContent.ProjectileType<FranSpinningDisc>()
             : fran.VigilActive
             ? ModContent.ProjectileType<FranVigilSwing>()
@@ -99,15 +107,9 @@ public sealed class ShiFu : ModItem
     {
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
         Vector2 aim = (Main.MouseWorld - player.MountedCenter).SafeNormalize(Vector2.UnitX * player.direction);
-        if (player.altFunctionUse == 2)
+        if (WantsDisc(player))
         {
-            int index = Projectile.NewProjectile(source, player.MountedCenter, aim,
-                ModContent.ProjectileType<FranSpinningDisc>(), damage, knockback, player.whoAmI);
-            if (Main.projectile.IndexInRange(index) && Main.projectile[index].ModProjectile is FranSpinningDisc disc)
-            {
-                disc.InitializeAttack(damage, fran.GetActiveTacticSnapshot());
-                Main.projectile[index].netUpdate = true;
-            }
+            SpawnDisc(player, source, aim, damage, knockback);
             return false;
         }
         if (fran.VigilActive)
@@ -157,11 +159,34 @@ public sealed class ShiFu : ModItem
         return false;
     }
 
+    internal static void SpawnDisc(Player player, IEntitySource source, Vector2 aim, int damage, float knockback)
+    {
+        int index = Projectile.NewProjectile(source, player.MountedCenter, aim,
+            ModContent.ProjectileType<FranSpinningDisc>(), damage, knockback, player.whoAmI);
+        if (Main.projectile.IndexInRange(index) && Main.projectile[index].ModProjectile is FranSpinningDisc disc)
+        {
+            disc.InitializeAttack(damage, player.GetModPlayer<FranPlayer>().GetActiveTacticSnapshot());
+            Main.projectile[index].CritChance = player.GetWeaponCrit(player.HeldItem);
+            Main.projectile[index].netUpdate = true;
+        }
+    }
+
+    internal static string WheelOpenInstruction() => Language.GetTextValue(
+        ModContent.GetInstance<FranMod.Content.Config.FranClientConfig>().HoldSkillWheelToOpen
+            ? "Mods.Fran.Items.ShiFu.WheelBoundHold"
+            : "Mods.Fran.Items.ShiFu.WheelBound",
+        GetAssignedKeyOrDefault(FranModMain.SkillWheelKey));
+
+    internal static string GetAssignedKeyOrDefault(ModKeybind keybind) =>
+        TryGetAssignedKey(keybind, out string key) ? key : "LeftAlt";
+
     public override void ModifyTooltips(List<TooltipLine> tooltips)
     {
         foreach (TooltipLine line in tooltips)
             if (line.Mod == "Terraria" && line.Name.StartsWith("Tooltip", StringComparison.Ordinal))
-                line.Text = line.Text.Replace("{WheelKey}", GetAssignedKeyOrUnbound(FranModMain.SkillWheelKey));
+            {
+                line.Text = line.Text.Replace("{WheelInstruction}", WheelOpenInstruction());
+            }
         ApplyGuidanceLineColors(tooltips);
         FranPlayer fran = Main.LocalPlayer.GetModPlayer<FranPlayer>();
         InsertUltimateTooltip(tooltips, fran);
@@ -240,7 +265,8 @@ public sealed class ShiFu : ModItem
         tooltips.Insert(index++, new TooltipLine(Mod, "FranDashStatus", BuildDashStatus())
         { OverrideColor = new Color(130, 235, 195) });
 
-        bool flightEnabled = Main.hardMode && !fran.HasExternalWings;
+        bool flightEnabled = FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) &&
+            !fran.HasExternalWings;
         tooltips.Insert(index, new TooltipLine(Mod, "FranFlightStatus", BuildFlightStatus(fran))
         { OverrideColor = flightEnabled ? new Color(105, 205, 255) : new Color(165, 175, 190) });
     }
@@ -309,7 +335,7 @@ public sealed class ShiFu : ModItem
 
     private static string BuildFlightStatus(FranPlayer fran)
     {
-        string stateKey = !Main.hardMode
+        string stateKey = !FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh)
             ? "Locked"
             : fran.HasExternalWings ? "WingsEquipped" : "Enabled";
         return Language.GetTextValue($"Mods.Fran.Abilities.Flight.{stateKey}");
@@ -319,7 +345,7 @@ public sealed class ShiFu : ModItem
     {
         if (line.Mod == Mod.Name && line.Name == GoldenEvolutionRoadLineName)
         {
-            FranTooltipTextEffects.DrawGolden(line);
+            FranCrystalTooltipEffects.DrawCrystalWarning(line);
             return false;
         }
 

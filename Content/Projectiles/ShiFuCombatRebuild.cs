@@ -617,7 +617,7 @@ public sealed class ShiFuSwingRebuild : ModProjectile, IShiFuAttack
             modifiers.FinalDamage *= Math.Clamp(FranBalance.GetFloat(
                 nameof(FranBalance.SwingWormBossDamageMultiplier),
                 FranBalance.SwingWormBossDamageMultiplier), 0f, 1f);
-        if (!Main.hardMode)
+        if (!FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh))
         {
             bool bossFight = false;
             foreach (NPC npc in Main.ActiveNPCs)
@@ -627,7 +627,7 @@ public sealed class ShiFuSwingRebuild : ModProjectile, IShiFuAttack
                     break;
                 }
             int targetCount = directHitTargets.Count + (directHitTargets.Contains(target.whoAmI) ? 0 : 1);
-            modifiers.FinalDamage *= FranBalance.GetSwingCrowdDamageMultiplier(targetCount, bossFight, Main.hardMode);
+            modifiers.FinalDamage *= FranBalance.GetSwingCrowdDamageMultiplier(targetCount, bossFight, false);
         }
         modifiers.FinalDamage *= evolutionDamageMultiplier;
         int stolenContactDamage = Owner.GetModPlayer<FranPlayer>().GetStolenContactDamage(
@@ -674,7 +674,7 @@ public sealed class ShiFuSwingRebuild : ModProjectile, IShiFuAttack
                     incoming, damageDone);
         }
         Owner.GetModPlayer<FranPlayer>().ShakeScreen(target.Center,
-            Combo == 2 ? 6.5f : Combo == 3 ? 4.2f : 2.8f);
+            (Combo == 2 ? 6.5f : Combo == 3 ? 4.2f : 2.8f) * 0.7f);
     }
 
     private Color ElementColor()

@@ -4,11 +4,11 @@ using FranMod.Core;
 
 namespace FranMod.Content.Projectiles;
 
-internal enum FranTelekineticShotKind { Core, Wave, Laser, Planet }
+internal enum FranTelekineticShotKind { Core, Wave, Planet }
 
 internal readonly record struct FranTelekineticShot(
     FranTelekineticShotKind Kind, float Offset, float Angle, float Scale, float Weight,
-    bool SuppressLaunchBurst = false, int Count = 1);
+    int Count = 1);
 
 /// <summary>发射与预算共用同一份四刀配方，防止修改弹幕数量后忘记同步配重。</summary>
 internal static class FranTelekineticPattern
@@ -24,10 +24,11 @@ internal static class FranTelekineticPattern
             shots.Add(new(FranTelekineticShotKind.Wave, offset, angle, scale,
                 stage >= 2 ? FranBalance.GetFloat(nameof(FranBalance.TelekineticHardmodeFoldBladeDamageMultiplier),
                     FranBalance.TelekineticHardmodeFoldBladeDamageMultiplier) : weight));
-        void AddLaser(float offset, float scale, float weight, bool suppressLaunchBurst) =>
-            shots.Add(new(FranTelekineticShotKind.Laser, offset, 0f, scale,
-                stage >= 2 ? FranBalance.GetFloat(nameof(FranBalance.TelekineticHardmodeLaserDamageMultiplier),
-                    FranBalance.TelekineticHardmodeLaserDamageMultiplier) : weight, suppressLaunchBurst));
+        // 困难模式的原激光弹位改为凝念核，沿用这些弹位原有的伤害权重与视觉尺寸。
+        void AddLaserSlotCore(float offset, float scale) =>
+            shots.Add(new(FranTelekineticShotKind.Core, offset, 0f, scale,
+                FranBalance.GetFloat(nameof(FranBalance.TelekineticHardmodeLaserDamageMultiplier),
+                    FranBalance.TelekineticHardmodeLaserDamageMultiplier)));
         void AddPlanets() => shots.Add(new(FranTelekineticShotKind.Planet, 0f, 0f, 1f,
             FranBalance.GetFloat(nameof(FranBalance.TelekineticFinisherPlanetDamageMultiplier),
                 FranBalance.TelekineticFinisherPlanetDamageMultiplier), Count: Telekinetic_GravityStarfall.PlanetCount));
@@ -87,20 +88,20 @@ internal static class FranTelekineticPattern
             switch (combo)
             {
                 case 0:
-                    AddLaser(0f, 0.96f, single, false);
+                    AddLaserSlotCore(0f, 0.96f);
                     break;
                 case 1:
-                    AddLaser(0f, 0.96f, pair, false);
+                    AddLaserSlotCore(0f, 0.96f);
                     AddWave(-facing * 42f,
                         facing * 0.07f, 0.88f, pair);
                     break;
                 case 2:
-                    AddLaser(-26f, 0.90f, triple, false);
-                    AddLaser(26f, 0.90f, triple, true);
+                    AddLaserSlotCore(-26f, 0.90f);
+                    AddLaserSlotCore(26f, 0.90f);
                     AddCore(0f, triple);
                     break;
                 default:
-                    AddLaser(0f, 1.34f, heavy, false);
+                    AddLaserSlotCore(0f, 1.34f);
                     break;
             }
         }
@@ -109,29 +110,29 @@ internal static class FranTelekineticPattern
             switch (combo)
             {
                 case 0:
-                    AddLaser(0f, 0.98f, pair, false);
+                    AddLaserSlotCore(0f, 0.98f);
                     AddCore(0f, pair);
                     break;
                 case 1:
-                    AddLaser(0f, 0.98f, triple, false);
+                    AddLaserSlotCore(0f, 0.98f);
                     // 后期编排也不再并排复制冲击波，仍只发射一枚居中波体。
                     AddWave(0f, 0f, 0.88f, triple * 2f);
                     break;
                 case 2:
-                    AddLaser(-32f, 0.92f, quartet, false);
-                    AddLaser(32f, 0.92f, quartet, true);
+                    AddLaserSlotCore(-32f, 0.92f);
+                    AddLaserSlotCore(32f, 0.92f);
                     AddCore(-62f, quartet);
                     AddCore(62f, quartet);
                     break;
                 default:
                     if (stage == 3)
                     {
-                        AddLaser(0f, 1.28f, triple, false);
+                        AddLaserSlotCore(0f, 1.28f);
                         AddWave(0f, 0f, 0.92f, triple * 2f);
                     }
                     else
                     {
-                        AddLaser(0f, 1.34f, heavy, false);
+                        AddLaserSlotCore(0f, 1.34f);
                         AddPlanets();
                     }
                     break;
@@ -170,7 +171,7 @@ internal static class FranTelekineticPattern
             return 1f + FranBalance.GetFloat(nameof(FranBalance.TelekineticPlanetExplosionDamageMultiplier),
                 FranBalance.TelekineticPlanetExplosionDamageMultiplier);
         if (kind != FranTelekineticShotKind.Wave)
-            return 1f; // 念核与激光对同一目标只能命中一次，穿透其他目标另计。
+            return 1f; // 念核对同一目标只能命中一次。
         int hits = Math.Clamp(FranBalance.GetInt(nameof(FranBalance.TelekineticBudgetWaveSingleTargetHits),
             FranBalance.TelekineticBudgetWaveSingleTargetHits), 1, Math.Max(1, FranBalance.GetInt(
                 nameof(FranBalance.TelekineticFoldBladeHitLimit), FranBalance.TelekineticFoldBladeHitLimit)));

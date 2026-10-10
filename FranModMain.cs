@@ -45,7 +45,7 @@ public sealed class FranModMain : Mod
 
     public override void Load()
     {
-        SkillWheelKey = KeybindLoader.RegisterKeybind(this, "SkillWheel", "C");
+        SkillWheelKey = KeybindLoader.RegisterKeybind(this, "SkillWheel", "LeftAlt");
         UltimateKey = KeybindLoader.RegisterKeybind(this, "PotentialRelease", "G");
         DashKey = KeybindLoader.RegisterKeybind(this, "FranDash", "LeftShift");
         EvolutionKey = FranEvolutionInfo.SystemEnabled

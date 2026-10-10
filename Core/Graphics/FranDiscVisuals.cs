@@ -1,17 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
 using FranMod.Content.Projectiles;
 using Luminance.Core.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.GameContent;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace FranMod.Core.Graphics;
 
 internal static class FranDiscVisuals
 {
+    private static Vector2[] tipPoints = Array.Empty<Vector2>();
+    private static VertexPosition2DColorTexture[] tipVertices = Array.Empty<VertexPosition2DColorTexture>();
     private static Texture2D Material(string name) => ModContent.Request<Texture2D>("Fran/Assets/Textures/SpinningDisc/" + name).Value;
 
     public static void DrawConnection(Vector2 start, Vector2 end, Color accent, float opacity, int identity)
@@ -127,8 +129,8 @@ internal static class FranDiscVisuals
     public static void DrawTipTrail(Vector2[] history, int count, Color tint, float opacity, float scale)
     {
         if (count < 3 || opacity <= 0f) return;
-        List<Vector2> points = new(count);
-        for (int i = 0; i < count; i++) points.Add(history[i]);
+        int vertexCount = BuildTipRibbon(history, Math.Min(count, history.Length), scale);
+        if (vertexCount < 6) return;
         // Flush sprite layers before drawing GPU primitives; restore the normal projectile batch afterwards.
         Main.spriteBatch.End();
         GraphicsDevice device = Main.instance.GraphicsDevice;
@@ -145,10 +147,16 @@ internal static class FranDiscVisuals
                 shader.TrySetParameter("uOpacity", opacity);
                 shader.SetTexture(ModContent.Request<Texture2D>("Fran/Assets/TrailNoiseReference/FranTrailBlobNoise").Value,
                     1, SamplerState.LinearWrap);
+                Luminance.Common.Utilities.Utilities.CalculatePrimitiveMatrices(Main.screenWidth, Main.screenHeight,
+                    out Matrix view, out Matrix projection);
+                shader.TrySetParameter("uWorldViewProjection", view * projection);
                 device.BlendState = BlendState.AlphaBlend;
-                PrimitiveRenderer.RenderTrail(points, new PrimitiveSettings(
-                    t => (3f + 13f * MathF.Sin(MathHelper.Pi * t)) * scale * (1f - t),
-                    t => Color.White, Smoothen: false, Pixelate: false, Shader: shader), count);
+                device.DepthStencilState = DepthStencilState.None;
+                device.RasterizerState = RasterizerState.CullNone;
+                shader.Apply();
+                // The history already contains angular substeps. Feed it directly to the
+                // GPU: the generic renderer's second resampling can collapse adjacent points.
+                device.DrawUserPrimitives(PrimitiveType.TriangleStrip, tipVertices, 0, vertexCount - 2);
             }
         }
         finally
@@ -158,8 +166,93 @@ internal static class FranDiscVisuals
             device.RasterizerState = raster;
             device.SamplerStates[1] = sampler;
             device.Textures[1] = texture;
+            Main.pixelShader.CurrentTechnique.Passes[0].Apply();
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState,
                 DepthStencilState.None, RasterizerState.CullNone, null, Main.GameViewMatrix.TransformationMatrix);
         }
+    }
+
+    // The True Night's Edge / Blazing Phantom Blade spinning silhouette: several
+    // angular afterimages of the same blade, a brighter rotating triad, and a
+    // sharp white highlight. Use ShiFu's own textures so this stays an overlay.
+    public static void DrawPhantomSpin(Vector2 center, float angle, Color accent, float opacity,
+        float sizeMultiplier, Texture2D orbitBlade = null)
+    {
+        if (!FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh) || opacity <= 0f) return;
+        bool miniature = orbitBlade is not null;
+        Texture2D ghost = orbitBlade ?? FranShiFuVisuals.GhostTexture;
+        Texture2D glow = miniature ? orbitBlade : FranShiFuVisuals.GlowTexture;
+        float bladeRadius = FranShiFuVisuals.BladeLengthFromGripPixels *
+            1.05f * FranShiFuVisuals.TextureScale * sizeMultiplier;
+        float ghostScale = miniature ? bladeRadius / Math.Max(1, ghost.Width) :
+            1.05f * sizeMultiplier * FranShiFuVisuals.TextureScaleFor(ghost);
+        float glowScale = miniature ? ghostScale :
+            1.05f * sizeMultiplier * FranShiFuVisuals.TextureScaleFor(glow);
+        Vector2 screenCenter = center - Main.screenPosition;
+        Color saturated = Color.Lerp(accent, Color.White, 0.4f);
+        saturated.A = 0;
+        FranVfx.BeginAdditive();
+        try
+        {
+            for (int trail = 2; trail >= 0; trail--)
+            {
+                float fade = (3f - trail) / 3f;
+                for (int spoke = 0; spoke < 3; spoke++)
+                {
+                    float rotation = angle - trail * 0.17f + spoke * MathHelper.TwoPi / 3f;
+                    Vector2 bladePosition = miniature ? screenCenter : screenCenter -
+                        rotation.ToRotationVector2() * FranShiFuVisuals.GripInset * sizeMultiplier;
+                    Main.EntitySpriteDraw(ghost, bladePosition, null,
+                        saturated * (opacity * fade * 0.13f), rotation + (miniature ? 0f : MathHelper.PiOver4),
+                        miniature ? new Vector2(0f, ghost.Height * 0.5f) : new Vector2(0f, ghost.Height),
+                        ghostScale, SpriteEffects.None);
+                    if (trail == 0)
+                        Main.EntitySpriteDraw(glow, bladePosition, null,
+                            Color.White * (opacity * 0.12f), rotation + (miniature ? 0f : MathHelper.PiOver4),
+                            miniature ? new Vector2(0f, glow.Height * 0.5f) : new Vector2(0f, glow.Height),
+                            glowScale, SpriteEffects.None);
+                }
+            }
+            Texture2D tear = TextureAssets.Extra[ExtrasID.SharpTears].Value;
+            Vector2 highlight = screenCenter + angle.ToRotationVector2() *
+                bladeRadius * 0.84f;
+            Main.EntitySpriteDraw(tear, highlight, null, saturated * (opacity * 0.32f),
+                angle + MathHelper.PiOver4, tear.Size() * 0.5f,
+                new Vector2(0.35f, 0.7f) * sizeMultiplier, SpriteEffects.None);
+        }
+        finally { FranVfx.EndAdditive(); }
+    }
+
+    private static int BuildTipRibbon(Vector2[] history, int count, float scale)
+    {
+        if (tipPoints.Length < count) Array.Resize(ref tipPoints, count);
+        if (tipVertices.Length < count * 2) Array.Resize(ref tipVertices, count * 2);
+        int points = 0;
+        for (int i = 0; i < count; i++)
+        {
+            Vector2 position = history[i];
+            if (!float.IsFinite(position.X) || !float.IsFinite(position.Y)) continue;
+            if (points > 0 && Vector2.DistanceSquared(position, tipPoints[points - 1]) < 0.0001f) continue;
+            tipPoints[points++] = position;
+        }
+        if (points < 3) return 0;
+
+        Vector2 lastTangent = (tipPoints[1] - tipPoints[0]).SafeNormalize(Vector2.UnitX);
+        for (int i = 0; i < points; i++)
+        {
+            float t = i / (float)(points - 1);
+            // Retain the established ribbon width, taper, and progression scaling.
+            float width = 4f * (3f + 13f * MathF.Sin(MathHelper.Pi * t)) * scale * (1f - t);
+            Vector2 tangent = (tipPoints[Math.Min(i + 1, points - 1)] - tipPoints[Math.Max(0, i - 1)])
+                .SafeNormalize(lastTangent);
+            lastTangent = tangent;
+            Vector2 normal = new(-tangent.Y, tangent.X);
+            Vector2 center = tipPoints[i] - Main.screenPosition;
+            // Both neighboring triangles share this same edge, including the averaged
+            // tangent. UVs keep the original shader's width-normalized ribbon convention.
+            tipVertices[i * 2] = new(center - normal * width, Color.White, new Vector2(t, 0.5f - width * 0.5f), width);
+            tipVertices[i * 2 + 1] = new(center + normal * width, Color.White, new Vector2(t, 0.5f + width * 0.5f), width);
+        }
+        return points * 2;
     }
 }

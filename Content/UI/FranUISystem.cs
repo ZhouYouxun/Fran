@@ -48,6 +48,8 @@ public sealed class FranUISystem : ModSystem
     private static int hoveredEquippedSlot = -1;
     private static int previousHovered = -2;
     private static bool previousWheelHeld;
+    private static bool previousInventoryOpen;
+    private static bool waitForWheelKeyRelease;
     private static bool previousLeftMouseHeld;
     private static float wheelVisibility;
     private static bool draggingUltimateGauge;
@@ -61,31 +63,63 @@ public sealed class FranUISystem : ModSystem
 
     public static bool IsWheelOpen => wheelOpen;
 
-    public override void UpdateUI(GameTime gameTime)
+    public override void Unload()
+    {
+        ResetWheel();
+    }
+
+    public override void OnWorldUnload() => ResetWheel();
+
+    private static void ResetWheel()
+    {
+        wheelOpen = previousWheelHeld = previousLeftMouseHeld = previousInventoryOpen = waitForWheelKeyRelease = false;
+        wheelVisibility = 0f;
+        hoveredSkill = hoveredEquippedSlot = -1;
+    }
+
+    private static void UpdateWheelInput()
     {
         bool wheelHeld = IsSkillWheelHeld();
         bool wheelPressed = wheelHeld && !previousWheelHeld;
-        bool leftPressed = Main.mouseLeft && !previousLeftMouseHeld;
+        bool leftHeld = Mouse.GetState().LeftButton == ButtonState.Pressed || Main.mouseLeft;
+        bool leftPressed = leftHeld && !previousLeftMouseHeld;
         bool holdToOpen = ModContent.GetInstance<FranClientConfig>().HoldSkillWheelToOpen;
         previousWheelHeld = wheelHeld;
-        previousLeftMouseHeld = Main.mouseLeft;
+        previousLeftMouseHeld = leftHeld;
+        if (!wheelHeld)
+            waitForWheelKeyRelease = false;
 
         if (Main.gameMenu || Main.LocalPlayer is null)
         {
-            wheelOpen = false;
-            wheelVisibility = 0f;
+            ResetWheel();
             return;
         }
 
         Player player = Main.LocalPlayer;
+        bool inventoryChanged = Main.playerInventory != previousInventoryOpen;
+        previousInventoryOpen = Main.playerInventory;
+        if (inventoryChanged)
+        {
+            waitForWheelKeyRelease = wheelHeld;
+            if (wheelOpen)
+                CloseWheel();
+            AdvanceWheelAnimation();
+            return;
+        }
         FranPlayer fran = player.GetModPlayer<FranPlayer>();
         bool allowed = !Content.Companions.FranCompanionUI.IsOpen && !Content.Companions.FranCompanionUI.Hovering &&
-            !FranEvolutionUISystem.IsOpen && !Main.playerInventory && !player.dead &&
-            player.HeldItem.type == ModContent.ItemType<ShiFu>() && !fran.UltimateActive;
+            !FranEvolutionUISystem.IsOpen && !player.dead && !fran.UltimateActive &&
+            !Main.playerInventory && player.HeldItem.type == ModContent.ItemType<ShiFu>();
         if (!allowed)
         {
             if (wheelOpen)
                 CloseWheel();
+            AdvanceWheelAnimation();
+            return;
+        }
+
+        if (waitForWheelKeyRelease)
+        {
             AdvanceWheelAnimation();
             return;
         }
@@ -155,11 +189,12 @@ public sealed class FranUISystem : ModSystem
 
     private static bool IsSkillWheelHeld()
     {
-        bool keyBound = IsSkillWheelKeyBound();
-        return keyBound && FranModMain.SkillWheelKey.Current;
+        return IsSkillWheelKeyBound()
+            ? FranModMain.SkillWheelKey.Current
+            : Keyboard.GetState().IsKeyDown(Keys.LeftAlt);
     }
 
-    private static bool IsSkillWheelKeyBound()
+    internal static bool IsSkillWheelKeyBound()
     {
         if (FranModMain.SkillWheelKey is null)
             return false;
@@ -218,6 +253,15 @@ public sealed class FranUISystem : ModSystem
 
     public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)
     {
+        int inventoryIndex = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Inventory"));
+        layers.Insert(inventoryIndex < 0 ? 0 : inventoryIndex, new LegacyGameInterfaceLayer(
+            "Fran: Wheel Input", () =>
+            {
+                // Run once in UI coordinates before slot interactions, even while the world
+                // is paused. Drawing and hit testing now use the same scale in both modes.
+                UpdateWheelInput();
+                return true;
+            }, InterfaceScaleType.UI));
         int index = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Mouse Text"));
         if (index < 0)
             index = layers.Count;
@@ -254,7 +298,7 @@ public sealed class FranUISystem : ModSystem
         // Keep input and drawing inside the same UI-scaled layer, including during autopause.
         UpdateUltimateGaugeDrag(player, fran);
         bool holdingShiFu = player.HeldItem.type == ModContent.ItemType<ShiFu>();
-        if (!fran.FranMode && !holdingShiFu)
+        if (!fran.FranMode && !holdingShiFu && wheelVisibility <= 0.001f)
             return true;
 
         if (fran.FranMode && fran.UltimateUnlocked && !ModContent.GetInstance<FranClientConfig>().HideUltimateGauge)
@@ -475,7 +519,7 @@ public sealed class FranUISystem : ModSystem
             fran.GetActiveTacticCount(), fran.AvailableTacticSlots);
         DrawCentered(slotText, new Rectangle((int)wheelCenter.X - 170, (int)wheelCenter.Y + 113, 340, 24),
             new Color(205, 229, 239) * detailsOpacity, 0.8f);
-        DrawCentered(Language.GetTextValue("Mods.Fran.UI.TacticControls", ShiFu.GetAssignedKeyOrUnbound(FranModMain.SkillWheelKey)),
+        DrawCentered(Language.GetTextValue("Mods.Fran.UI.TacticControls", ShiFu.GetAssignedKeyOrDefault(FranModMain.SkillWheelKey)),
             new Rectangle((int)wheelCenter.X - 220, (int)wheelCenter.Y + 136, 440, 22),
             new Color(175, 201, 214) * detailsOpacity, 0.7f);
 

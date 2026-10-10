@@ -25,11 +25,15 @@ public sealed class FranBlueResonanceEcho : ModProjectile
     private const float SearchRange = 3200f;
     private bool sourceBurstSpawned;
     private bool impactBurstSpawned;
+    private int discTargetlessFrames;
     private int homingTargetKey = int.MinValue;
     private float homingAge;
 
     private float Age => Projectile.localAI[0];
     private bool HealingMode => Projectile.localAI[1] > 0.5f;
+    private bool DiscEmission => Projectile.ai[2] < 0f;
+    private const int DiscTargetlessGraceFrames = 90;
+    private const int DiscTargetlessFadeFrames = 30;
 
     internal static float EncodeEchoCount(int echoCount) => Math.Max(1, echoCount);
 
@@ -65,14 +69,15 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         if (!sourceBurstSpawned)
         {
             sourceBurstSpawned = true;
-            SpawnBloomBurst(Projectile.Center, 0.72f);
+            SpawnBloomBurst(Projectile.Center, Projectile.ai[2] < 0f ? 0.32f : 0.72f);
             // 每组首枚释放原版 Lighting Bolts，不再生成 SquishyLight 软光团。
-            if (Projectile.ai[1] < 0.5f)
+            if (Projectile.ai[1] < 0.5f && Projectile.ai[2] >= 0f)
                 FranLightingBoltsSystem.SpawnButterflyLights(Projectile.Center);
         }
 
         int healTargetIndex = FindInjuredPlayerIndex();
         bool healing = healTargetIndex >= 0;
+        NPC discTarget = DiscEmission && !healing ? FindEnemyTarget() : null;
         Projectile.localAI[1] = healing ? 1f : 0f;
         Projectile.friendly = age >= ScatterFrames && !healing;
 
@@ -96,7 +101,7 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         }
         else
         {
-            NPC targetNpc = FindEnemyTarget();
+            NPC targetNpc = DiscEmission ? discTarget : FindEnemyTarget();
             if (targetNpc is not null)
             {
                 AdvanceHoming(targetNpc.whoAmI + 1);
@@ -117,17 +122,32 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         }
 
         Projectile.rotation += 0.085f;
+        if (DiscEmission)
+        {
+            // Count consecutive frames without a usable enemy; an injured player
+            // remains a valid healing destination and cancels the fade as well.
+            discTargetlessFrames = healing || discTarget is not null ? 0 : discTargetlessFrames + 1;
+            if (discTargetlessFrames >= DiscTargetlessGraceFrames + DiscTargetlessFadeFrames &&
+                (Projectile.owner == Main.myPlayer || Main.netMode == NetmodeID.Server))
+            {
+                Projectile.Kill();
+                return;
+            }
+        }
+        float discFade = DiscEmission ? 1f - Utils.GetLerpValue(DiscTargetlessGraceFrames,
+            DiscTargetlessGraceFrames + DiscTargetlessFadeFrames, discTargetlessFrames, true) : 1f;
         Projectile.Opacity = Utils.GetLerpValue(0f, 5f, age, true) *
-            Utils.GetLerpValue(0f, 16f, Projectile.timeLeft, true);
+            Utils.GetLerpValue(0f, 16f, Projectile.timeLeft, true) * discFade;
         Lighting.AddLight(Projectile.Center, FranResonanceVisuals.Blue.ToVector3() * (0.72f * Projectile.Opacity));
 
-        if (FranResonanceVisuals.Visible(Projectile.Center) && (int)age % 2 == 0)
+        if (FranResonanceVisuals.Visible(Projectile.Center) && (int)age % 2 == 0 &&
+            (!DiscEmission || Projectile.Opacity > 0.08f))
         {
             Color color = healing ? FranResonanceVisuals.Cyan : FranResonanceVisuals.Blue;
             FranLightingBoltsSystem.SpawnBlueFlightLight(
                 Projectile.Center + Main.rand.NextVector2Circular(4f, 4f),
                 -Projectile.velocity * 0.025f + Main.rand.NextVector2Circular(0.18f, 0.18f),
-                color, 0.65f);
+                color, 0.65f * (DiscEmission ? Projectile.Opacity : 1f));
         }
     }
 
@@ -150,7 +170,7 @@ public sealed class FranBlueResonanceEcho : ModProjectile
 
     public override void OnKill(int timeLeft)
     {
-        if (!impactBurstSpawned)
+        if (!impactBurstSpawned && !DiscEmission)
             SpawnBloomBurst(Projectile.Center, 0.58f);
     }
 
@@ -303,11 +323,16 @@ public sealed class FranBlueResonanceEcho : ModProjectile
             int maximum = Math.Max(minimum, FranBalance.GetInt(nameof(FranBalance.BlueResonanceHealingMaximum),
                 FranBalance.BlueResonanceHealingMaximum));
             int healing = Math.Clamp(target.statLifeMax2 / divisor, minimum, maximum);
-            target.GetModPlayer<FranPlayer>().ApplyResonanceHealing(healing);
+            FranPlayer fran = target.GetModPlayer<FranPlayer>();
+            if (DiscEmission)
+                fran.ApplyDiscResonanceHealing(healing);
+            else
+                fran.ApplyResonanceHealing(healing);
         }
         impactBurstSpawned = true;
         SpawnBloomBurst(target.Center, 0.92f);
-        FranResonanceBloomParticle.SpawnBurst(target.Center, Projectile.velocity.ToRotation(), 0.92f);
+        FranResonanceBloomParticle.SpawnBurst(target.Center, Projectile.velocity.ToRotation(), 0.92f,
+            includeHealSeal: Main.rand.NextBool(3));
         SoundEngine.PlaySound(SoundID.Item29 with { Volume = 0.26f, Pitch = 0.55f }, target.Center);
         Projectile.Kill();
     }

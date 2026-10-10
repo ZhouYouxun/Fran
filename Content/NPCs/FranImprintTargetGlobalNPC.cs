@@ -74,23 +74,28 @@ public sealed class FranImprintTargetGlobalNPC : GlobalNPC
                 .GetSkillStacks(FranSkill.SkillTaker), 1, FranPlayer.MaximumTacticSlots);
     }
 
-    public override void ModifyIncomingHit(NPC npc, ref NPC.HitModifiers modifiers)
+    public float SkillTakerDamageMultiplier
     {
-        if (!HasSkillTakerMark)
-            return;
-        float minimum = FranBalance.GetFloat(nameof(FranBalance.SkillTakerMinimumDamageMultiplier),
-            FranBalance.SkillTakerMinimumDamageMultiplier);
-        float maximum = Math.Max(minimum, FranBalance.GetFloat(
-            nameof(FranBalance.SkillTakerMaximumDamageMultiplier),
-            FranBalance.SkillTakerMaximumDamageMultiplier));
-        if (companionFullLoadout || skillSealSummonId == 0 && Main.player.IndexInRange(skillSealOwner) && Main.player[skillSealOwner].active &&
-            Main.player[skillSealOwner].GetModPlayer<FranPlayer>()
-                .IsFullTacticLoadout(FranSkill.SkillTaker))
-            maximum = Math.Max(maximum, FranBalance.GetFloat(
-                nameof(FranBalance.SkillTakerFullLoadoutMaximumDamageMultiplier),
-                FranBalance.SkillTakerFullLoadoutMaximumDamageMultiplier));
-        modifiers.FinalDamage *= MathHelper.Lerp(minimum, maximum, SkillTakerRampProgress);
+        get
+        {
+            if (!HasSkillTakerMark) return 1f;
+            float minimum = FranBalance.GetFloat(nameof(FranBalance.SkillTakerMinimumDamageMultiplier),
+                FranBalance.SkillTakerMinimumDamageMultiplier);
+            float maximum = Math.Max(minimum, FranBalance.GetFloat(
+                nameof(FranBalance.SkillTakerMaximumDamageMultiplier),
+                FranBalance.SkillTakerMaximumDamageMultiplier));
+            if (companionFullLoadout || skillSealSummonId == 0 && Main.player.IndexInRange(skillSealOwner) && Main.player[skillSealOwner].active &&
+                Main.player[skillSealOwner].GetModPlayer<FranPlayer>()
+                    .IsFullTacticLoadout(FranSkill.SkillTaker))
+                maximum = Math.Max(maximum, FranBalance.GetFloat(
+                    nameof(FranBalance.SkillTakerFullLoadoutMaximumDamageMultiplier),
+                    FranBalance.SkillTakerFullLoadoutMaximumDamageMultiplier));
+            return MathHelper.Lerp(minimum, maximum, SkillTakerRampProgress);
+        }
     }
+
+    public override void ModifyIncomingHit(NPC npc, ref NPC.HitModifiers modifiers) =>
+        modifiers.FinalDamage *= SkillTakerDamageMultiplier;
 
     public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone) =>
         ContinueSkillTakerMark(player.whoAmI);
