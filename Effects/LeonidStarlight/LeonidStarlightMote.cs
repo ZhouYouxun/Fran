@@ -25,6 +25,7 @@ namespace FranMod.Effects.LeonidStarlight
         RadialSpiral,
         BurstArc,
         SprayFan,
+        SwingArc,
         TrailScatter,
         RainFall,
         FreeDrift
@@ -377,6 +378,14 @@ namespace FranMod.Effects.LeonidStarlight
                     Velocity *= mature ? 0.988f : 0.994f;
                     Velocity += sideways * (0.018f * secondaryWave);
                     Velocity.Y -= 0.008f;
+                    break;
+
+                case LeonidStarlightMotion.SwingArc:
+                    // 镜像对使用相同阻尼、相反曲率；正弦缓慢呼吸，形成三层花瓣弧线。
+                    float layer = MathF.Abs(motionPhase);
+                    float bend = Math.Sign(motionPhase) * (0.003f + layer * 0.0015f) *
+                        (1f + 0.25f * MathF.Sin(Time * 0.065f));
+                    Velocity = Velocity.RotatedBy(bend) * (mature ? 0.984f : 0.991f);
                     break;
 
                 case LeonidStarlightMotion.SprayFan:

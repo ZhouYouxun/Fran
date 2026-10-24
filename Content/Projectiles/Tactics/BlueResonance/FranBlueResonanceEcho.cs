@@ -117,7 +117,7 @@ public sealed class FranBlueResonanceEcho : ModProjectile
         if (age == ScatterFrames)
         {
             if (!Main.dedServ)
-                SoundEngine.PlaySound(FranCombatSounds.ButterflyBeginTracking, Projectile.Center);
+                SoundEngine.PlaySound(SoundID.Item110, Projectile.Center);
             SpawnDepartureStarlight();
         }
 

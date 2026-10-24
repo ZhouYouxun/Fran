@@ -181,6 +181,41 @@ namespace FranMod.Effects.LeonidStarlight
             }
         }
 
+        // 每次挥刀固定七颗（原来两颗，增加 250%）：中心星 + 三组镜像弧线。
+        // 半径按黄金比例递进，角度按层展开，避免增加数量后随机堆在同一点。
+        public static void SwingFan(Vector2 center, Vector2 direction)
+        {
+            const int count = 7;
+            if (!CanSpawn(count))
+                return;
+
+            direction = direction.SafeNormalize(Vector2.UnitX);
+            bool tracker = TryReserveTracker(center);
+            SpawnCore(center, direction * 5.7f, DefaultColor(0f), LeonidStarlightShape.Mote,
+                0.76f, 22, 140, 17f, 760f, true,
+                tracker ? LeonidStarlightMotion.Homing : LeonidStarlightMotion.SwingArc, 0f);
+
+            const float goldenRatio = 1.618034f;
+            for (int layer = 0; layer < 3; layer++)
+            {
+                float radius = 3f * MathF.Pow(goldenRatio, layer);
+                float angle = 0.16f + layer * 0.16f;
+                float speed = 5.2f + layer * 0.75f;
+                for (int sign = -1; sign <= 1; sign += 2)
+                {
+                    // 交错形态：总计四颗小十字星、三颗四芒星。
+                    bool shard = (layer + (sign + 1) / 2) % 2 == 0;
+                    Vector2 ray = direction.RotatedBy(sign * angle);
+                    Vector2 position = center + direction * radius +
+                        direction.RotatedBy(MathHelper.PiOver2) * (sign * radius);
+                    SpawnCore(position, ray * speed, DefaultColor((layer + 1) * 0.17f),
+                        shard ? LeonidStarlightShape.Shard : LeonidStarlightShape.Mote,
+                        shard ? 0.64f : 0.76f, 22 + layer * 3, 140, 17f, 760f, true,
+                        LeonidStarlightMotion.SwingArc, sign * (layer + 1));
+                }
+            }
+        }
+
         // 「盲目正义」的历史星芒叠绘思路：尾部平方淡出、逐段缩小并扭转。
         // 使用独立生成的贴图；同时支持弹幕 AlphaBlend 与粒子 Additive 批次。
         internal static void DrawStarTrail(SpriteBatch spriteBatch, Texture2D texture,

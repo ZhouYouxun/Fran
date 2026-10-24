@@ -23,7 +23,8 @@ public sealed class FranUltimateBlackRiftLaser : ModProjectile
     private const int Lifetime = 24;
     private const int WindupFrames = 7;
     private const float CollisionHalfLength = 2300f;
-    private const float VisualHalfLength = 1050f;
+    private const float VisualLengthMultiplier = 1.5f;
+    private const float VisualHalfLength = 1050f * VisualLengthMultiplier;
 
     private int Age => Lifetime - Projectile.timeLeft;
     private bool Final => Projectile.ai[1] > 0.5f;
@@ -166,7 +167,7 @@ public sealed class FranUltimateBlackRiftLaser : ModProjectile
             : MathHelper.Lerp(0.18f, 0.52f, FranMotion.Smooth(telegraph));
         float snap = active ? 1f : MathHelper.Lerp(0.12f, 0.24f, telegraph);
         float width = (Final ? 84f : 56f) * snap;
-        float halfLength = Final ? VisualHalfLength + 90f : VisualHalfLength;
+        float halfLength = Final ? VisualHalfLength + 90f * VisualLengthMultiplier : VisualHalfLength;
 
         DrawBlackAxis(Axis, halfLength, width, opacity);
         if (Final)
@@ -224,11 +225,11 @@ public sealed class FranUltimateBlackRiftLaser : ModProjectile
 
         for (int i = -2; i <= 2; i++)
         {
-            Vector2 point = Projectile.Center + axis * i * 410f;
+            Vector2 point = Projectile.Center + axis * i * 410f * VisualLengthMultiplier;
             float flicker = 0.64f + 0.36f * MathF.Sin(Projectile.identity * 0.73f + i * 1.8f + activeProgress * 18f);
             FranVfx.DrawOriginalPixels("FranSmearForward", point,
                 color * (0.18f * opacity * flicker), axis.ToRotation(),
-                new Vector2(500f, Math.Max(8f, width * 1.42f)));
+                new Vector2(500f * VisualLengthMultiplier, Math.Max(8f, width * 1.42f)));
         }
     }
 

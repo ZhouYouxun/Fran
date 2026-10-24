@@ -12,6 +12,67 @@ internal static class FranShiFuSwingEffects
     private static void Spawn(FranParticle particle) =>
         FranParticleSystem.Spawn(particle, spawnSupportingDust: false);
 
+    // 左键旋转挥砍：文字、针状亮粒、原版火尘共用剑的切线，出生后各自减速消散。
+    // 每组有一个小幅共同偏转，组内再散开；不让全圆随机速度盖过挥剑方向。
+    public static void RotatingShed(Vector2 origin, Vector2 blade, Vector2 tangent, float reach,
+        Color color, int combo, int step, float motion, bool resonance = false)
+    {
+        if (Main.dedServ || combo is < 0 or > 2)
+            return;
+
+        Color accent = resonance ? FranResonanceVisuals.Cyan : Color.Lerp(color,
+            combo == 0 ? new Color(255, 213, 143) : new Color(190, 146, 255), 0.24f);
+        Vector2 shedDirection = (tangent + blade * Main.rand.NextFloat(0.18f, 0.36f))
+            .SafeNormalize(tangent).RotatedByRandom(0.12f);
+        float speedScale = MathHelper.Lerp(0.72f, 1f, motion) * (combo == 2 ? 1.15f : 1f);
+
+        // 外侧针状亮粒最快，长度与速度同时有小幅差别。
+        int needleCount = combo == 2 && Main.rand.NextBool(3) ? 2 : 1;
+        for (int i = 0; i < needleCount; i++)
+        {
+            Vector2 position = origin + blade * reach * Main.rand.NextFloat(0.65f, 0.98f);
+            Vector2 velocity = shedDirection.RotatedByRandom(0.18f) *
+                Main.rand.NextFloat(5.5f, 9f) * speedScale;
+            Spawn(FranSwingCadenceParticle.DrainLineBloom(position, velocity,
+                Color.Lerp(accent, Color.White, Main.rand.NextFloat(0.12f, 0.38f)),
+                Main.rand.NextFloat(0.38f, 0.68f), Main.rand.Next(11, 17)));
+        }
+
+        // 文字较稀疏、较慢，保留阅读轮廓；第二刀的整圈回旋多留一点文字。
+        if (step == 0 || Main.rand.NextBool(combo == 1 ? 3 : 4))
+        {
+            Vector2 position = origin + blade * reach * Main.rand.NextFloat(0.46f, 0.86f);
+            Vector2 velocity = shedDirection.RotatedByRandom(0.26f) *
+                Main.rand.NextFloat(1.8f, 3.3f) * speedScale;
+            float rotation = blade.ToRotation();
+            if (blade.X < 0f)
+                rotation += MathHelper.Pi;
+            float turn = Math.Sign(blade.X * tangent.Y - blade.Y * tangent.X);
+            Spawn(new FranMysticGlyphParticle(position, velocity, accent,
+                Main.rand.Next(1, 6), Main.rand.NextFloat(14f, 18f), Main.rand.NextFloat(19f, 23f),
+                Main.rand.Next(18, 25), rotation + Main.rand.NextFloat(-0.3f, 0.3f),
+                turn * Main.rand.NextFloat(0.012f, 0.025f)));
+        }
+
+        // 原版 RGB 烟花尘沿剑身中前段散出，形成比文字更密、比针光更松的中间层。
+        int dustCount = Main.rand.Next(2, 4);
+        for (int i = 0; i < dustCount; i++)
+        {
+            // 每颗保留 80%，平均从每采样 2.5 颗降为 2 颗，不改变其余点缀节奏。
+            if (Main.rand.NextBool(5))
+                continue;
+            Vector2 position = origin + blade * reach * Main.rand.NextFloat(0.38f, 0.98f) +
+                tangent * Main.rand.NextFloat(-2f, 2f);
+            Vector2 velocity = shedDirection.RotatedByRandom(0.38f) *
+                Main.rand.NextFloat(2.5f, 6.5f) * speedScale;
+            Dust dust = Dust.NewDustPerfect(position, DustID.FireworksRGB, velocity, 70,
+                Main.rand.NextBool(3) ? Color.Lerp(accent, Color.White, 0.4f) : color,
+                Main.rand.NextFloat(0.65f, 0.95f));
+            dust.noGravity = true;
+            dust.noLightEmittence = true;
+        }
+    }
+
     public static void Swing(Vector2 origin, Vector2 position, Vector2 tangent,
         Color color, int combo, int tick, float activity, int lifetime, bool resonance = false)
     {
@@ -98,7 +159,7 @@ internal static class FranShiFuSwingEffects
                 Color.White, color, 0.18f, 12));
         }
 
-        if (tick % 4 == 0 && !scattering)
+        if (tick % 4 == 0 && !scattering && !Main.rand.NextBool(5))
         {
             Dust dust = Dust.NewDustPerfect(origin + blade * reach * front,
                 DustID.FireworksRGB, blade * 1.2f, 90, color, 0.55f);

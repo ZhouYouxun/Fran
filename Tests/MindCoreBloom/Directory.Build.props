@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)../../bin/MindCoreBloomValidation/render/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)../../obj/MindCoreBloomValidation/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

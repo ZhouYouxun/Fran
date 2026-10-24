@@ -214,8 +214,7 @@ public sealed class ShiFu : ModItem
     private void InsertUltimateTooltip(List<TooltipLine> tooltips, FranPlayer fran)
     {
         string text = fran.UltimateUnlocked
-            ? Language.GetTextValue("Mods.Fran.Ultimates.ItemTooltip", GetAssignedKeyOrUnbound(FranModMain.UltimateKey),
-                Language.GetTextValue($"Mods.Fran.Ultimates.{fran.SelectedUltimate}.Name"))
+            ? Language.GetTextValue("Mods.Fran.Items.ShiFu.UltimateTooltip", GetAssignedKeyOrUnbound(FranModMain.UltimateKey))
             : Language.GetTextValue("Mods.Fran.Items.ShiFu.UltimateLocked");
         int index = FindGuidanceEndIndex(tooltips);
         int lineNumber = 0;

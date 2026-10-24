@@ -156,7 +156,7 @@ Mods: {
 			PureSwordsmanshipLine1: Empty every tactic slot to use pure swordsmanship
 			PureSwordsmanshipLine2: ShiFu's four-cut combo always remains
 			TacticSlots: Tactic slots: {0}/{1}
-			TacticControls: Left-click a wheel icon to equip | left-click an equipped icon below the wheel to remove | press {0} again or open inventory to close
+			TacticControls: Press "{0}" again or open inventory to close this interface
 			TacticEquipped: Equipped: {0} x{1}
 			TacticUnequipped: Removed: {0} (x{1} remaining)
 		}

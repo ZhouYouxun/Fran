@@ -12,6 +12,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.Audio;
+using Terraria.Enums;
 using Terraria.ID;
 using Terraria.GameInput;
 using Terraria.ModLoader;
@@ -67,8 +68,10 @@ public sealed class FranSpinningDisc : ModProjectile, IShiFuAttack
     internal int SkillDamageForBeat(int combo) => Math.Max(1,
         (int)(baseDamage * FranBalance.GetComboDamageMultiplier(combo)));
     internal int SkillCycle => Math.Max(0, (beatSerial - 1) / 4);
+    internal int OrbitingBladeCount => Math.Clamp(Layers(FranSkill.MultipleBodyCreation),
+        0, FranPlayer.MaximumTacticSlots);
     internal float OrbitingBladeDamageMultiplier =>
-        0.2f + 0.1f * Math.Clamp(Layers(FranSkill.MultipleBodyCreation), 1, FranPlayer.MaximumTacticSlots);
+        0.3f + 0.1f * Math.Clamp(Layers(FranSkill.MultipleBodyCreation), 1, FranPlayer.MaximumTacticSlots);
     internal bool AllowHammerDrop() => ++hammerDropsEligible % 5 != 0;
     private FranSkill AccentSkill
     {
@@ -172,7 +175,7 @@ public sealed class FranSpinningDisc : ModProjectile, IShiFuAttack
         if (!orbitingBladesSpawned && Main.myPlayer == Projectile.owner && !Returning)
         {
             orbitingBladesSpawned = true;
-            int bladeCount = Math.Min(3, Layers(FranSkill.MultipleBodyCreation));
+            int bladeCount = OrbitingBladeCount;
             for (int slot = 0; slot < bladeCount; slot++)
                 Projectile.NewProjectile(Projectile.GetSource_FromThis(), Projectile.Center, Vector2.Zero,
                     ModContent.ProjectileType<FranOrbitingDiscBlade>(),
@@ -312,6 +315,26 @@ public sealed class FranSpinningDisc : ModProjectile, IShiFuAttack
 
     // A continuous cutter only winds up once, rather than becoming harmless every virtual stroke.
     public override bool? CanDamage() => !Returning && damageRatio > 0f && age >= 3 ? null : false;
+
+    public override bool? CanCutTiles() => !Returning && damageRatio > 0f && age >= 3;
+
+    public override void CutTiles()
+    {
+        // Pots and other cuttable tiles do not use Colliding's NPC sweep. Give them
+        // the same physical blade path without changing the enemy hit detection.
+        DelegateMethods.tilecut_0 = TileCuttingContext.AttackProjectile;
+        float width = 24f * FranBalance.GetCoreSizeMultiplier();
+        float travel = MathF.Abs(Projectile.rotation - previousAngle) * BladeRadius +
+            Vector2.Distance(previousCenter, Projectile.Center);
+        int samples = Math.Clamp((int)MathF.Ceiling(travel / Math.Max(8f, width * 0.6f)), 4, 24);
+        for (int i = 0; i <= samples; i++)
+        {
+            float t = i / (float)samples;
+            Vector2 center = Vector2.Lerp(previousCenter, Projectile.Center, t);
+            Vector2 blade = MathHelper.Lerp(previousAngle, Projectile.rotation, t).ToRotationVector2();
+            Utils.PlotTileLine(center, center + blade * BladeRadius, width, DelegateMethods.CutTiles);
+        }
+    }
 
     public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
     {

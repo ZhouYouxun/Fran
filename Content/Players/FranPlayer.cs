@@ -395,7 +395,7 @@ public sealed class FranPlayer : ModPlayer
         bool wasReady = UltimateReady;
         UltimateChargeTicks = UltimateUnlocked ? Math.Clamp(chargeTicks, 0, SelectedUltimateChargeDuration) : 0;
         if (!wasReady && UltimateReady && Player.whoAmI == Main.myPlayer)
-            SoundEngine.PlaySound(FranCombatSounds.UltimateReady, Player.Center);
+            SoundEngine.PlaySound(FranCombatSounds.大招蓄势完成, Player.Center);
         ultimateReadyAnnounced = UltimateReady;
     }
 
@@ -1414,7 +1414,7 @@ public sealed class FranPlayer : ModPlayer
             return;
         ultimateReadyAnnounced = true;
         if (!Main.dedServ)
-            SoundEngine.PlaySound(FranCombatSounds.UltimateReady, Player.Center);
+            SoundEngine.PlaySound(FranCombatSounds.大招蓄势完成, Player.Center);
         Projectile.NewProjectile(Player.GetSource_Misc("FranUltimateReady"), Player.Center, Vector2.Zero,
             ModContent.ProjectileType<FranUltimateReadySigil>(), 0, 0f, Player.whoAmI);
     }

@@ -168,12 +168,7 @@ Mods: {
 			PureSwordsmanshipLine1: 卸下全部战术后启用纯剑术
 			PureSwordsmanshipLine2: 四段师父剑术始终保留
 			TacticSlots: 战术槽位：{0}/{1}
-			TacticControls:
-				'''
-				左键星轮图标装配｜
-				左键轮盘下方已装配图标卸下｜
-				再次按下“{0}”或打开背包关闭
-				'''
+			TacticControls: 再按一下“{0}”或打开背包以关闭此界面
 			TacticEquipped: 已装配：{0} ×{1}
 			TacticUnequipped: 已卸下：{0}（剩余×{1}）
 		}

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="F:/SteamLibrary/steamapps/common/tModLoader/tModLoader.dll" />
+    <Reference Include="F:/SteamLibrary/steamapps/common/tModLoader/Libraries/FNA/1.0.0/FNA.dll" />
+    <Reference Include="F:/SteamLibrary/steamapps/common/tModLoader/Libraries/ReLogic/1.0.0/ReLogic.dll" />
+    <Reference Include="../../bin/Debug/net8.0/Fran.dll" />
+    <Compile Include="Render.cs" />
+    <Compile Include="../../Core/Graphics/FranShiFuSlashRenderer.cs" />
+  </ItemGroup>
+</Project>

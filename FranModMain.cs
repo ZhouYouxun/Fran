@@ -74,6 +74,7 @@ public sealed class FranModMain : Mod
     public override void Unload()
     {
         FranBladeTrailRenderer.Unload();
+        FranShiFuSlashRenderer.Unload();
         FranProjectileTrailRenderer.Unload();
         FranSkillTakerOrbitRenderer.Unload();
         FranLightningTrailRenderer.Unload();

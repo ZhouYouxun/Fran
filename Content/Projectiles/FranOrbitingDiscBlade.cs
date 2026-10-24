@@ -19,7 +19,7 @@ public sealed class FranOrbitingDiscBlade : ModProjectile
     private float previousRotation;
     private bool positioned;
 
-    private int Slot => Math.Clamp((int)Projectile.ai[1], 0, 2);
+    private int Slot => Math.Clamp((int)Projectile.ai[1], 0, 3);
     private float BladeRadius => FranShiFuVisuals.BladeLengthFromGripPixels *
         1.05f * FranShiFuVisuals.TextureScale * SizeRatio;
     public override string Texture => "Fran/Textures/师父飞剑-影分身弹";
@@ -74,11 +74,13 @@ public sealed class FranOrbitingDiscBlade : ModProjectile
             previousCenter = Projectile.Center;
             previousRotation = Projectile.rotation;
         }
-        float orbitSpeed = Slot switch { 0 => 0.046f, 1 => -0.034f, _ => 0.061f };
-        float orbitRadius = Slot == 0 ? 32f : 64f;
-        float orbitAngle = age * orbitSpeed + Slot * MathHelper.TwoPi / 3f;
+        int bladeCount = Math.Max(1, parent.OrbitingBladeCount);
+        float orbitSpeed = Slot switch { 0 => 0.046f, 1 => -0.034f, 2 => 0.061f, _ => -0.052f };
+        float orbitRadius = bladeCount == 4 ? (Slot % 2 == 0 ? 32f : 64f) : Slot == 0 ? 32f : 64f;
+        float slotAngle = Slot * MathHelper.TwoPi / bladeCount;
+        float orbitAngle = age * orbitSpeed + slotAngle;
         Projectile.Center = parent.Projectile.Center + orbitAngle.ToRotationVector2() * orbitRadius;
-        Projectile.rotation = parent.Projectile.rotation + Slot * MathHelper.TwoPi / 3f;
+        Projectile.rotation = parent.Projectile.rotation + slotAngle;
         if (!positioned)
         {
             positioned = true;

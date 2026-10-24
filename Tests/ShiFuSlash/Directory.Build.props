@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)../../bin/ShiFuSlashValidation/render/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)../../obj/ShiFuSlashValidation/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

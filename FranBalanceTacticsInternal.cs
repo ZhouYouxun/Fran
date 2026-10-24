@@ -101,9 +101,9 @@ public static partial class FranBalance
         1, 3, 3, 5
     };
     public static float TelekineticFinisherPlanetDamageMultiplier = 0.17f;
-    // 终型星球轰击由每轮四连击一次改为每两轮一次；单次星球和爆炸伤害随之翻倍。
+    // 终型星球轰击每两轮四连击一次；释放倍率由 2 提至 3，星球及其爆炸伤害提高 50%。
     public static int TelekineticFinisherPlanetCycleInterval = 2;
-    public static float TelekineticFinisherPlanetReleaseDamageMultiplier = 2f;
+    public static float TelekineticFinisherPlanetReleaseDamageMultiplier = 3f;
     public static float TelekineticPlanetExplosionDamageMultiplier = 0.75f;
 
     // 战术二：技能夺取者。
@@ -155,8 +155,8 @@ public static partial class FranBalance
     public static int BlueResonanceHomingBlendFrames = 18;
     public static float BlueResonanceSpawnRadiusMinimum = 76f;
     public static float BlueResonanceSpawnRadiusMaximum = 176f;
-    public static float BlueResonanceInitialDriftSpeedMinimum = 0.12f;
-    public static float BlueResonanceInitialDriftSpeedMaximum = 0.38f;
+    public static float BlueResonanceInitialDriftSpeedMinimum = 4.5f;
+    public static float BlueResonanceInitialDriftSpeedMaximum = 6.5f;
     public static float BlueResonanceHomingStartingSpeed = 2.2f;
     public static float BlueResonanceEnemySpiralRadius = 132f;
     public static float BlueResonanceEnemySpiralAngularSpeed = 0.12f;

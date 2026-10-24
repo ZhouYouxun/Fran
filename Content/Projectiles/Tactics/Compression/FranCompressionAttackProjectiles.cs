@@ -384,16 +384,7 @@ public sealed class FranCompressionAirburst : ModProjectile
         {
             float charge = FranMotion.Smooth(FranMotion.Segment(Age, 0f, Delay));
             float radius = MathHelper.Lerp(82f, 22f, charge) * BurstScale;
-            FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-                new Color(95, 205, 235) * (opacity * (0.42f + charge * 0.34f)), Projectile.rotation * 0.55f,
-                Vector2.One * MathHelper.Lerp(90f, 52f, charge) * BurstScale);
             FranVfx.BeginAdditive();
-            FranVfx.DrawOriginalPixels("FranResonanceOrb", Projectile.Center,
-                pale * (0.18f + charge * 0.46f), -Projectile.rotation * 1.35f,
-                Vector2.One * (radius * 1.55f));
-            FranVfx.DrawSharedPixels("FranVfx_HighResFoggyCircleHardEdge", Projectile.Center,
-                cyan * (0.10f + charge * 0.20f), Projectile.rotation,
-                Vector2.One * radius * 1.42f);
             for (int i = 0; i < 6; i++)
             {
                 float angle = seed + i * MathHelper.TwoPi / 6f + Projectile.rotation * 0.6f;

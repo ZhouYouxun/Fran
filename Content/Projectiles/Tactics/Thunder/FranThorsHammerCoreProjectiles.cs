@@ -206,8 +206,8 @@ public sealed class ThorsHammerBolt : ModProjectile
             FranFlatLightningEffects.Burst(Projectile.Center, 0.72f,
                 FranFlatLightningPalette.ThorsHammer, 9, 325f, innerRadius: 24f);
             SpawnImpactEjecta();
-            SoundEngine.PlaySound(FranCombatSounds.ThorsHammerHitArc, Projectile.Center);
-            SoundEngine.PlaySound(FranCombatSounds.ThorsHammerHitOrbitalCannon, Projectile.Center);
+            SoundEngine.PlaySound(FranCombatSounds.雷神之锤命中电弧, Projectile.Center);
+            SoundEngine.PlaySound(FranCombatSounds.雷神之锤命中轨道炮, Projectile.Center);
             SoundEngine.PlaySound(SoundID.Thunder, Projectile.Center);
             if (!Main.dedServ)
             {

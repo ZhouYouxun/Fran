@@ -21,10 +21,21 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
 {
     private bool hasHit;
     private int flightVisualTick;
+    private int parentWaveIndex = -1;
+    private int parentWaveIdentity = -1;
+    private int preferredWaveTargetIndex = -1;
+    private const float WaveAcquisitionRadius = 1600f;
     internal static readonly Color TrailBlue = new(28, 145, 235);
     internal static readonly Color TrailLightBlue = new(55, 178, 235);
     private bool UpgradedVisual => FranBalance.IsMilestoneCompleted(FranProgressionMilestone.WallOfFlesh);
     private float UpgradeVisualScale => Projectile.ai[2] > 0f ? Projectile.ai[2] : 1f;
+    private bool WaveEmitted => Projectile.ai[0] == 2f;
+
+    internal void LinkToWave(Projectile wave)
+    {
+        parentWaveIndex = wave.whoAmI;
+        parentWaveIdentity = wave.identity;
+    }
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.None}";
 
@@ -73,36 +84,61 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
 
     private NPC ResolveHomingTarget()
     {
+        float acquisitionRadius = WaveEmitted ? WaveAcquisitionRadius : FranMindCoreGuidance.AcquisitionRadius;
         bool CanTrack(NPC npc) => npc.CanBeChasedBy(Projectile, false) &&
-            Projectile.WithinRange(npc.Center, FranMindCoreGuidance.AcquisitionRadius + npc.width / 2 + npc.height / 2);
+            (WaveEmitted && IsBoss(npc) || Projectile.WithinRange(npc.Center,
+                acquisitionRadius + npc.width / 2 + npc.height / 2));
+        static bool IsBoss(NPC npc) => npc.boss || NPCID.Sets.ShouldBeCountedAsBoss[npc.type];
 
         // ai[1] 存目标序号+1；保持当前目标，出范围/失效才重新选择，避免怪群之间来回摆尾。
         int index = (int)Projectile.ai[1] - 1;
-        if (Main.npc.IndexInRange(index) && CanTrack(Main.npc[index]))
-            return Main.npc[index];
+        NPC current = Main.npc.IndexInRange(index) && CanTrack(Main.npc[index]) ? Main.npc[index] : null;
+        if (!WaveEmitted && current is not null)
+            return current;
         if (Main.myPlayer != Projectile.owner)
-            return null;
+            return current;
 
-        NPC closest = null;
-        float closestDistance = 25000f;
+        Telekinetic_DestructiveWave parentWave = null;
+        if (WaveEmitted && Main.projectile.IndexInRange(parentWaveIndex))
+        {
+            Projectile parent = Main.projectile[parentWaveIndex];
+            if (parent.active && parent.owner == Projectile.owner && parent.identity == parentWaveIdentity)
+                parentWave = parent.ModProjectile as Telekinetic_DestructiveWave;
+        }
+
+        NPC selected = null;
+        int selectedPriority = int.MinValue;
+        int selectedLife = -1;
+        float selectedDistance = float.MaxValue;
         foreach (NPC npc in Main.ActiveNPCs)
         {
             if (!CanTrack(npc))
                 continue;
             float distance = Projectile.Distance(npc.Center);
-            if (distance < closestDistance)
+            bool parentHit = parentWave?.HasHitTarget(npc.whoAmI) == true ||
+                parentWave is null && preferredWaveTargetIndex == npc.whoAmI;
+            int priority = WaveEmitted ? IsBoss(npc) ? 3 : parentHit ? 1 : 0 : 0;
+            if (WaveEmitted && IsBoss(npc) && parentHit)
+                priority = 4;
+            int life = WaveEmitted && priority > 0 ? npc.lifeMax : 0;
+            if (priority > selectedPriority || priority == selectedPriority &&
+                (life > selectedLife || life == selectedLife && distance < selectedDistance))
             {
-                closestDistance = distance;
-                closest = npc;
+                selectedPriority = priority;
+                selectedLife = life;
+                selectedDistance = distance;
+                selected = npc;
             }
         }
-        int selected = closest is null ? 0 : closest.whoAmI + 1;
-        if (Projectile.ai[1] != selected)
+        int targetIndex = selected is null ? 0 : selected.whoAmI + 1;
+        if (selected is not null && parentWave?.HasHitTarget(selected.whoAmI) == true)
+            preferredWaveTargetIndex = selected.whoAmI;
+        if (Projectile.ai[1] != targetIndex)
         {
-            Projectile.ai[1] = selected;
+            Projectile.ai[1] = targetIndex;
             Projectile.netUpdate = true;
         }
-        return closest;
+        return selected;
     }
 
     private void EmitCoreFlightParticles()
@@ -130,6 +166,19 @@ public sealed class Telekinetic_CondensedMindCore : ModProjectile
     {
         Vector2 forward = Projectile.velocity.SafeNormalize(Vector2.UnitX);
         Lighting.AddLight(Projectile.Center, TrailLightBlue.ToVector3() * 0.32f * Projectile.scale);
+        // Three visual samples per game frame match the reference's bloom density
+        // regardless of this core's homing extraUpdates. No extra damaging projectile.
+        for (int sample = 0; sample < 3; sample++)
+        {
+            int history = sample * Projectile.MaxUpdates / 3;
+            Vector2 position = sample > 0 && history < Projectile.oldPos.Length &&
+                Projectile.oldPos[history] != Vector2.Zero
+                ? Projectile.oldPos[history] + Projectile.Size * 0.5f : Projectile.Center;
+            FranMindCoreBloomParticle.CreatePair(position, Projectile.velocity, flightVisualTick,
+                Projectile.scale * UpgradeVisualScale, out var body, out var core);
+            FranParticleSystem.Spawn(body, spawnSupportingDust: false);
+            FranParticleSystem.Spawn(core, spawnSupportingDust: false);
+        }
         if (flightVisualTick % 3 == 0)
             FranParticleSystem.Spawn(new FranDirectionalRingParticle(Projectile.Center,
                 -forward * 0.5f, TrailLightBlue, new Vector2(0.045f, 0.045f) * UpgradeVisualScale,
@@ -269,8 +318,13 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
     private const float DamageEndTime = 34f;
     private const float TerrainDissipationLifetime = 16f;
     private const int FirstEmissionFrame = 6;
-    private const int EmissionInterval = 7;
-    private const int EmissionPulses = 4;
+    // Increase the current emission cadence by another 30%; the fifth pulse
+    // carries one bonus core so a faster schedule also increases total output.
+    private const float EmissionInterval = 7f / (1.3f * 1.3f);
+    private const int BaseEmissionPulses = 4;
+    private const int EmissionPulses = BaseEmissionPulses + 1;
+    private const float EmittedShotDamageMultiplier = 0.8f;
+    private readonly HashSet<int> hitTargets = new();
     private bool emitsPattern;
     private int emissionStage;
     private int emissionCombo;
@@ -297,6 +351,8 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         emissionDamage = Projectile.damage;
         Projectile.netUpdate = true;
     }
+
+    internal bool HasHitTarget(int npcIndex) => hitTargets.Contains(npcIndex);
 
     public override string Texture => $"Terraria/Images/Projectile_{ProjectileID.TerraBlade2Shot}";
 
@@ -371,12 +427,14 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
                 Projectile.Center, Projectile.velocity, Projectile.rotation, Projectile.scale,
                 Projectile.Opacity);
 
-        if (emitsPattern && Age >= FirstEmissionFrame &&
-            ((int)Age - FirstEmissionFrame) % EmissionInterval == 0)
+        if (emitsPattern)
         {
-            int pulse = ((int)Age - FirstEmissionFrame) / EmissionInterval;
-            if (pulse < EmissionPulses)
-                EmitPatternShots(pulse, forward);
+            for (int pulse = 0; pulse < EmissionPulses; pulse++)
+            {
+                int releaseFrame = FirstEmissionFrame + (int)MathF.Floor(pulse * EmissionInterval + 0.5f);
+                if ((int)Age == releaseFrame)
+                    EmitPatternShots(pulse, forward);
+            }
         }
 
         if (Age >= DamageEndTime)
@@ -402,6 +460,8 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
 
     public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
     {
+        if (emitsPattern && hitTargets.Add(target.whoAmI))
+            Projectile.netUpdate = true;
         DamagingHitCount++;
         float speedRetention = MathHelper.Clamp(FranBalance.GetFloat(
             nameof(FranBalance.TelekineticFoldBladeHitSpeedRetention),
@@ -458,6 +518,9 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
             writer.Write((sbyte)emissionFacing);
             writer.Write(emissionDamage);
         }
+        writer.Write((byte)hitTargets.Count);
+        foreach (int targetIndex in hitTargets)
+            writer.Write((byte)targetIndex);
     }
 
     public override void ReceiveExtraAI(BinaryReader reader)
@@ -474,6 +537,10 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
             emissionFacing = reader.ReadSByte();
             emissionDamage = reader.ReadInt32();
         }
+        hitTargets.Clear();
+        int hitCount = reader.ReadByte();
+        for (int i = 0; i < hitCount; i++)
+            hitTargets.Add(reader.ReadByte());
         if (Dissipating)
         {
             Projectile.friendly = false;
@@ -491,32 +558,53 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
         float damageScale = FranTelekineticPattern.GetDamageScale(emissionStage,
             FranBalance.GetAvailableTacticSlots());
         Vector2 side = forward.RotatedBy(MathHelper.PiOver2);
+        if (pulse == BaseEmissionPulses)
+        {
+            float originalWeight = 0f;
+            foreach (FranTelekineticShot shot in shots)
+            {
+                if (shot.Kind != FranTelekineticShotKind.Planet)
+                    originalWeight += shot.Weight * FranTelekineticPattern.GetHitWeight(shot.Kind);
+            }
+            if (originalWeight <= 0f)
+                return;
+            float flank = Projectile.identity % 2 == 0 ? -1f : 1f;
+            Vector2 launch = (-forward).RotatedBy(flank * MathHelper.ToRadians(
+                Main.rand.NextFloat(15f, 20f))) * 30f;
+            Vector2 release = Projectile.Center - forward * 6f * Projectile.scale +
+                side * flank * 38f * Projectile.scale;
+            if (!Main.dedServ)
+                FranLightingBoltsSystem.SpawnTelekineticEmissionStar(release, launch, 1.15f);
+            if (Main.myPlayer == Projectile.owner)
+                ShiFuImprintCombat.SpawnTelekineticPressureCore(owner, Projectile, forward, 0f,
+                    originalWeight * damageScale * EmittedShotDamageMultiplier * 0.3f,
+                    release, emissionDamage, launchOverride: launch, judgementStar: true);
+            return;
+        }
         int index = 0;
         foreach (FranTelekineticShot shot in shots)
         {
             if (shot.Kind == FranTelekineticShotKind.Planet)
                 continue;
-            if (index++ % EmissionPulses != pulse)
+            if (index++ % BaseEmissionPulses != pulse)
                 continue;
 
-            // Judgement 的小星从波刃散开，先沿弧线甩出，再交给凝念核原有追踪。
-            float flank = (pulse % 2 == 0 ? -1f : 1f) * (0.58f + pulse / 2 * 0.22f);
-            Vector2 release = Projectile.Center + forward * 28f * Projectile.scale +
-                side * (flank * 82f * Projectile.scale + shot.Offset * 0.35f);
+            // 从波体中心附近向正后方两侧散开，每发随机偏转十五至二十度。
+            float flank = pulse % 2 == 0 ? -1f : 1f;
+            float spread = MathHelper.ToRadians(Main.rand.NextFloat(15f, 20f));
+            Vector2 launch = (-forward).RotatedBy(-flank * spread) * 30f;
+            Vector2 release = Projectile.Center - forward * 6f * Projectile.scale +
+                side * (flank * 38f * Projectile.scale + shot.Offset * 0.20f);
             if (!Main.dedServ)
-                FranLightingBoltsSystem.SpawnTelekineticEmissionStar(release, side * flank, 1.15f);
+                FranLightingBoltsSystem.SpawnTelekineticEmissionStar(release, launch, 1.15f);
             if (Main.myPlayer != Projectile.owner)
                 continue;
-            float multiplier = shot.Weight * damageScale;
-            if (shot.Kind == FranTelekineticShotKind.Core)
-            {
-                Vector2 launch = (-forward * 0.62f + side * flank).SafeNormalize(-forward) * 30f;
-                ShiFuImprintCombat.SpawnTelekineticPressureCore(owner, Projectile, forward, 0f,
-                    multiplier, release, emissionDamage, shot.Scale, launch, judgementStar: true);
-            }
-            else
-                ShiFuImprintCombat.SpawnTelekineticFoldBlade(owner, Projectile, forward,
-                    shot.Offset, shot.Angle, shot.Scale, multiplier, release, emissionDamage);
+            // Every wave-carried slot becomes a small core. Convert former wave slots'
+            // expected multi-hit budget to one core hit; never spawn a child wave here.
+            float multiplier = shot.Weight * FranTelekineticPattern.GetHitWeight(shot.Kind) *
+                damageScale * EmittedShotDamageMultiplier;
+            ShiFuImprintCombat.SpawnTelekineticPressureCore(owner, Projectile, forward, 0f,
+                multiplier, release, emissionDamage, shot.Scale, launch, judgementStar: true);
         }
     }
 
@@ -524,7 +612,7 @@ public sealed class Telekinetic_DestructiveWave : ModProjectile
     {
         if (!SuppressDeathBurst && !Main.dedServ)
         {
-            SoundEngine.PlaySound(FranCombatSounds.TelekineticWaveDeath, Projectile.Center);
+            SoundEngine.PlaySound(FranCombatSounds.念动光波消散, Projectile.Center);
             FranLightingBoltsSystem.SpawnTelekineticWaveDissipation(
                 Projectile.Center, Projectile.velocity, Projectile.rotation, Projectile.scale);
         }

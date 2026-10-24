@@ -309,7 +309,7 @@ public sealed class FranShiFuPhantomBlade : ModProjectile
         Projectile.timeLeft = AttachmentFrames * UpdatesPerFrame + 8;
         Array.Fill(Projectile.oldPos, Projectile.position);
         Projectile.netUpdate = true;
-        if (!Main.dedServ) SoundEngine.PlaySound(FranCombatSounds.MultipleBodyHit, Projectile.Center);
+        if (!Main.dedServ) SoundEngine.PlaySound(FranCombatSounds.多重分身命中, Projectile.Center);
     }
 
     private void ApplyAttachedState()

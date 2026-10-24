@@ -67,7 +67,7 @@ internal static partial class ShiFuImprintCombat
                     // 后续若剑体实际命中一个或多个敌人，OnSwordHit 仍会按每个命中目标追加同等的一组。
                     SpawnBlueResonanceEchoes(owner, swing, combo, tacticLayers,
                         AttackOrigin(owner, swing) + direction.SafeNormalize(Vector2.UnitX * owner.direction) * 36f,
-                        swing.GetSource_FromThis(), encodedTarget: 0f);
+                        swing.GetSource_FromThis(), encodedTarget: 0f, swingDirection: direction);
                 }
                 break;
 
@@ -83,7 +83,7 @@ internal static partial class ShiFuImprintCombat
                         (1f + FranBalance.GetFloat(nameof(FranBalance.ThorsHammerExtraLayerDamageMultiplier),
                             FranBalance.ThorsHammerExtraLayerDamageMultiplier) * (tacticLayers - 1)) * FranTacticOutputBudget.Scale(FranSkill.ThorsHammer))),
                     7f, owner.whoAmI, 0f, tacticLayers);
-                SoundEngine.PlaySound(FranCombatSounds.ThorsHammerAppearance, hammerTarget);
+                SoundEngine.PlaySound(FranCombatSounds.雷神之锤显现, hammerTarget);
                 break;
         }
     }
@@ -157,11 +157,11 @@ internal static partial class ShiFuImprintCombat
                     int count = DiscButterflyCount(BlueEchoCount(combo, tacticLayers), echoDisc.SkillCycle, combo);
                     SpawnBlueResonanceEchoes(owner, swing, combo, tacticLayers, target.Center,
                         swing.GetSource_OnHit(target), target.whoAmI + 1f,
-                        damageOverride: echoDisc.SkillDamageForBeat(combo), emissionLimit: count);
+                        direction, damageOverride: echoDisc.SkillDamageForBeat(combo), emissionLimit: count);
                     break;
                 }
                 SpawnBlueResonanceEchoes(owner, swing, combo, tacticLayers, target.Center,
-                    swing.GetSource_OnHit(target), target.whoAmI + 1f);
+                    swing.GetSource_OnHit(target), target.whoAmI + 1f, direction);
                 break;
         }
     }
@@ -176,6 +176,7 @@ internal static partial class ShiFuImprintCombat
 
     private static void SpawnBlueResonanceEchoes(Player owner, Projectile swing, int combo,
         int tacticLayers, Vector2 center, IEntitySource source, float encodedTarget,
+        Vector2 swingDirection,
         int singleIndex = -1, int damageOverride = 0, int emissionLimit = -1)
     {
         int echoCount = BlueEchoCount(combo, tacticLayers);
@@ -198,9 +199,10 @@ internal static partial class ShiFuImprintCombat
             float angle = phase + i * 2.39996323f + Main.rand.NextFloat(-0.48f, 0.48f);
             Vector2 radial = angle.ToRotationVector2();
             Vector2 spawnPosition = center + radial * Main.rand.NextFloat(minimumRadius, maximumRadius);
-            // The echoes materialize around the center and barely drift before committing to a target.
-            Vector2 driftDirection = radial.RotatedBy(Main.rand.NextFloat(-MathHelper.Pi, MathHelper.Pi));
-            Vector2 initialVelocity = driftDirection * Main.rand.NextFloat(minimumDrift, maximumDrift);
+            // Left-click echoes spread forward even when there is no target to home toward.
+            Vector2 forward = swingDirection.SafeNormalize(Vector2.UnitX * owner.direction);
+            Vector2 initialVelocity = forward.RotatedBy(Main.rand.NextFloat(-0.55f, 0.55f)) *
+                Main.rand.NextFloat(minimumDrift, maximumDrift);
             bool discEmission = swing.ModProjectile is FranSpinningDisc;
             if (swing.ModProjectile is FranSpinningDisc disc)
             {
@@ -283,8 +285,8 @@ internal static partial class ShiFuImprintCombat
                         SpawnTelekineticFoldBlade(owner, swing, direction, shot.Offset, shot.Angle, shot.Scale, multiplier);
                     break;
                 case FranTelekineticShotKind.Planet:
-                    // 配方预算仍按原来的单轮权重计算：两轮触发一次、触发时伤害翻倍，
-                    // 既保持长期平均输出，也不改右键由同一配方换算出的念核伤害。
+                    // 两轮触发一次，星球专用的释放倍率独立于配方预算，
+                    // 提高星球伤害时不改右键由同一配方换算出的念核伤害。
                     if (owner.GetModPlayer<FranPlayer>().AdvanceTelekineticPlanetFinisher())
                         SpawnTelekineticPlanetChain(owner, swing, target, multiplier * Math.Max(0f,
                             FranBalance.GetFloat(nameof(FranBalance.TelekineticFinisherPlanetReleaseDamageMultiplier),
@@ -332,6 +334,9 @@ internal static partial class ShiFuImprintCombat
         if (!Main.projectile.IndexInRange(index))
             return;
         Projectile core = Main.projectile[index];
+        if (judgementStar && swing.ModProjectile is Telekinetic_DestructiveWave &&
+            core.ModProjectile is Telekinetic_CondensedMindCore mindCore)
+            mindCore.LinkToWave(swing);
         core.netUpdate = true;
     }
 
@@ -583,15 +588,12 @@ internal static partial class ShiFuImprintCombat
         SpawnThunderRain(owner, swing, focus, combo, tacticLayers, fullLoadout, delay);
     }
 
-    // 原样迁入狮源流星的两种星光粒子；只作为蝶变共鸣每一次挥刀的无伤害视觉点缀。
+    // 两种星光沿三组成对弧线甩出；只作为蝶变共鸣每一次挥刀的无伤害视觉点缀。
     private static void SpawnButterflyResonanceStarlight(Vector2 center, int facing, Vector2 direction, float reach)
     {
         Vector2 bladeDirection = direction.SafeNormalize(Vector2.UnitX * facing);
         Vector2 origin = center + bladeDirection * MathHelper.Clamp(reach * 0.42f, 42f, 94f);
-        LeonidStarlight.Spray(origin, bladeDirection, 1, shape: LeonidStarlightShape.Mote,
-            speed: 5.7f, spread: 0.48f, scale: 0.76f, guaranteeCount: true);
-        LeonidStarlight.Spray(origin, bladeDirection, 1, shape: LeonidStarlightShape.Shard,
-            speed: 4.8f, spread: 0.34f, scale: 0.64f, guaranteeCount: true);
+        LeonidStarlight.SwingFan(origin, bladeDirection);
     }
 
     private static void SpawnThunderCircuitLink(Projectile swing, Player owner, Vector2 start, Vector2 end,
